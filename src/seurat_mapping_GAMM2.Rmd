@@ -1,0 +1,401 @@
+---
+title: "seurat_mapping_for_cross_species"
+author: "Beth Moore"
+date: "2023-07-18"
+output: html_document
+---
+# Seurat tansfer mapping for cross species analysis
+# do preprocessing on human and pig data (preprocess_crossspecies.Rmd)
+# both reference and query should undergo normalization and find variable features,
+# then only reference is scaled and undegoes dimentionality reduction
+
+# Load libraries, set wd, and source functions
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# set Rterm: /w5home/bmoore/miniconda3/envs/scRNAseq_best/bin/R
+#conda upgrade -c conda-forge --all
+#BiocManager::install(version = "3.18")
+#BiocManager::install("ComplexHeatmap")
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(scran)
+library(BiocParallel)
+library(DropletUtils)
+library(cowplot)
+library(harmony)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(ggplot2)
+library(scPred)
+library(ComplexHeatmap)
+library(circlize)
+library(colorspace)
+library(GetoptLong)
+BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
+use_condaenv("scRNAseq_best", required=TRUE)
+setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/cowan_cell_2020/"))
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("output_seurat_mapping_", timestamp)
+dir.create(output, showWarnings = FALSE)
+file.copy("/w5home/bmoore/scRNAseq_library/config.json", file.path(output, "config.json"))
+config <- fromJSON(file.path(output, "config.json"))
+output <- paste0(output, "/")
+source("/w5home/bmoore/scRNAseq_library/sc_pipeline/src/sc_pipeline_functions.R")
+```
+
+# read in seurat objects that were preprocessed
+```{r read_data}
+gamms2 <- readRDS(file = "output_preprocess20231130_141317/gamm.S2_clustered.rds")
+human_F49B7.seurat <- readRDS(file = "output_preprocess20231130_141317/human_F49B7_clustered.rds")
+human_IMR90.seurat <- readRDS(file = "output_preprocess20231130_141317/human_IMR90_clustered.rds")
+```
+# get metadata- if needed
+```{r metadata}
+# read in meta.data
+# remember the set working directory in chunk 1, to imform this path
+metadata <- read.csv2("meta_30weeks_mod.txt", sep="\t", header=TRUE, row.names=1)
+# subset by D205 data
+metadata1 <- subset(metadata, metadata$source=="f49b7")
+metadata1<- as.data.frame(metadata1)
+complete.cases(metadata1)
+metadata1<-na.omit(metadata1)
+metadata2 <- subset(metadata, metadata$source=="imr90")
+metadata2<- as.data.frame(metadata2)
+complete.cases(metadata2)
+metadata2<-na.omit(metadata2)
+# get numbers for each celltype
+table(metadata1$cell_type3)
+table(metadata2$cell_type3)
+human_F49B7.seurat<-AddMetaData(object=human_F49B7.seurat, metadata=metadata1)
+human_IMR90.seurat<-AddMetaData(object=human_IMR90.seurat, metadata=metadata2)
+# check that it got incorporated into the seurat object
+table(human_F49B7.seurat@meta.data$cell_type2)
+table(human_IMR90.seurat@meta.data$cell_type2)
+```
+
+# reference umap plot
+```{r ref_umap}
+p1 <- DimPlot(human_F49B7.seurat, reduction = "umap", group.by = "cell_type2", label = TRUE, repel = TRUE) +
+  NoLegend()
+pdf(paste0(output, "human_refF49B7-umap.pdf"), width = 8, height = 6)
+print(p1)
+dev.off()
+p2 <- DimPlot(human_IMR90.seurat, reduction = "umap", group.by = "cell_type3", label = TRUE, repel = TRUE) +
+  NoLegend()
+pdf(paste0(output, "human_refIMR90-umap.pdf"), width = 8, height = 6)
+print(p2)
+dev.off()
+```
+# other visualizations
+```{r visuals}
+# percent mt
+# Violin plots can also be split on some variable. Simply add the splitting variable to object
+# metadata and pass it to the split.by argument
+human_F49B7.seurat[["percent.mt"]] <- PercentageFeatureSet(human_F49B7.seurat, pattern = "^MT-")
+human_IMR90.seurat[["percent.mt"]] <- PercentageFeatureSet(human_IMR90.seurat, pattern = "^MT-")
+p1 <- VlnPlot(human_F49B7.seurat, features = "percent.mt", split.by = "cell_type2")
+pdf(paste0(output, "human_refF49B7-mt_vlnplot.pdf"), width = 8, height = 6)
+print(p1)
+dev.off()
+p2 <- VlnPlot(human_F49B7.seurat, features = "percent.mt", split.by = "cell_type2")
+pdf(paste0(output, "human_refIMR90-mt_vlnplot.pdf"), width = 8, height = 6)
+print(p2)
+dev.off()
+# get ribosomal genes
+human_F49B7.seurat[["percent.rb"]] <- PercentageFeatureSet(human_F49B7.seurat, pattern = "^RP[SL]")
+human_IMR90.seurat[["percent.rb"]] <- PercentageFeatureSet(human_IMR90.seurat, pattern = "^RP[SL]")
+# plot
+p3 <- VlnPlot(human_F49B7.seurat, features = c("nFeature_RNA","nCount_RNA","percent.mt","percent.rb"),ncol = 4,pt.size = 0.1) & 
+  theme(plot.title = element_text(size=10))
+pdf(paste0(output, "human_refF49B7-counts-perc_vlnplot.pdf"), width = 8, height = 6)
+print(p3)
+dev.off()
+p4 <- VlnPlot(human_IMR90.seurat, features = c("nFeature_RNA","nCount_RNA","percent.mt","percent.rb"),ncol = 4,pt.size = 0.1) & 
+  theme(plot.title = element_text(size=10))
+pdf(paste0(output, "human_refIMR90-counts-perc_vlnplot.pdf"), width = 8, height = 6)
+print(p4)
+dev.off()
+# feature plots
+# raw counts
+p5<- FeaturePlot(human_F49B7.seurat, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+pdf(paste0(output, "human_refF49B7-rnacounts-featureplot.pdf"), width = 8, height = 6)
+print(p5)
+dev.off()
+p6<- FeaturePlot(human_IMR90.seurat, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+pdf(paste0(output, "human_refIMR90-rnacounts-featureplot.pdf"), width = 8, height = 6)
+print(p6)
+dev.off()
+p9<- FeaturePlot(gamms2, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+pdf(paste0(output, "gamms2-rnacounts-featureplot.pdf"), width = 8, height = 6)
+print(p9)
+dev.off()
+# number of unique genes expressed per cell
+p7<-FeaturePlot(human_F49B7.seurat, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+pdf(paste0(output, "human_refF49B7-nfeature-featureplot.pdf"), width = 8, height = 6)
+print(p7)
+dev.off()
+p8<-FeaturePlot(human_IMR90.seurat, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+pdf(paste0(output, "human_refIMR90-nfeature-featureplot.pdf"), width = 8, height = 6)
+print(p8)
+dev.off()
+p10<-FeaturePlot(gamms2, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+pdf(paste0(output, "gamms2-nfeature-featureplot.pdf"), width = 8, height = 6)
+print(p10)
+dev.off()
+```
+
+# subset metadata if needed- for cell types with low numbers (<25)
+```{r subset_metadata}
+# check metadata
+table(human_IMR90.seurat@meta.data$cell_type3)
+# subset if needed
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "Ast")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "AC-rod")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "ChBC-rod")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "HC-L/M cone")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "L/M cone-AC")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "L/M cone-CdBC")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "L/M cone-MC")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "MC-rod")
+human_IMR90.seurat<- subset(x = human_IMR90.seurat, subset = cell_type3 != "rod-S cone")
+
+table1 <- table(human_IMR90.seurat@meta.data$cell_type3)
+write.table(table1, file = paste0(output,"IMR90_celltype_table.txt"), sep="\t", row.names = FALSE)
+```
+```{r subset_metadata2}
+# check metadata
+table(human_F49B7.seurat@meta.data$cell_type2)
+# subset if needed
+human_F49B7.seurat<- subset(x = human_F49B7.seurat, subset = cell_type2 != "AC-MC")
+human_F49B7.seurat<- subset(x = human_F49B7.seurat, subset = cell_type2 != "CdBC-MC")
+human_F49B7.seurat<- subset(x = human_F49B7.seurat, subset = cell_type2 != "L/M cone-rod")
+human_F49B7.seurat<- subset(x = human_F49B7.seurat, subset = cell_type2 != "RPE")
+
+table2<- table(human_F49B7.seurat@meta.data$cell_type2)
+write.table(table2, file = paste0(output,"F49B7_celltype_table.txt"), sep="\t", row.names = FALSE)
+```
+# prep for integration
+```{r prep_for_integration}
+ret.list1<- list(gamms2,human_F49B7.seurat)
+ret.list2<- list(gamms2,human_IMR90.seurat)
+features1 <- SelectIntegrationFeatures(object.list = ret.list1, nfeatures = 3000)
+features2 <- SelectIntegrationFeatures(object.list = ret.list2, nfeatures = 3000)
+#ret.list <- PrepSCTIntegration(object.list = ret.list, anchor.features = features)
+```
+
+## mapping and annotating query datasets
+# get query data and find anchors
+```{r find_anchors_and_transfer}
+reduc.type = config$transfer_anchors$reduc.type
+if (reduc.type== "cca"){
+# for cca
+gamm.anchors1 <- FindTransferAnchors(reference = human_F49B7.seurat, query = gamms2,
+                                        dims = 1:30,reduction= "cca")
+predictions1 <- TransferData(anchorset = gamm.anchors1, refdata = human_F49B7.seurat$cell_type2,
+                            dims = 1:30, weight.reduction="cca")
+gamm.anchors2 <- FindTransferAnchors(reference = human_IMR90.seurat, query = gamms2,
+                                        dims = 1:30,reduction= "cca")
+predictions2 <- TransferData(anchorset = gamm.anchors2, refdata = human_IMR90.seurat$cell_type3,
+                            dims = 1:30, weight.reduction="cca")
+} else if (reduc.type== "pca"){
+# for pca
+gamm.anchors <- FindTransferAnchors(reference = human_D205.seurat, query = gamms2,
+                                        dims = 1:30, referemce.reduction= "pca")
+predictions <- TransferData(anchorset = gamm.anchors, refdata = human_D205.seurat$type,
+                            dims = 1:30)
+} else {
+  print("choose reduc.type either cc or pca")
+  }
+gamms2.1 <- AddMetaData(gamms2, metadata = predictions1)
+gamms2.2 <- AddMetaData(gamms2, metadata = predictions2)
+```
+# evaluate how well our predicted cell type annotations match the full reference. 
+# need manual annotation data (skip if you already have this data in seurat object)
+```{r read_metadata}
+# add in metadata from previous analysis
+metadata.gamm <- read.csv(paste0(BETHS_GAMM_DATA_DIR,"gamm_metadata/gamm_manual_annot_metadata_c0.5.txt"), 
+            row.names = 1, header = TRUE, sep = "\t")
+# check metadata with query data
+colnames(gamms2@assays$RNA@data)[1:10]
+rownames(metadata.gamm)[1:10]
+# remove "_1" from metadata
+rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))
+rownames(metadata.gamm)[1:10]
+# add metadata to query data
+gamms2.1 <- AddMetaData(gamms2.1, metadata.gamm)
+gamms2.2 <- AddMetaData(gamms2.2, metadata.gamm)
+```
+# run umap on query data and visualize predicted annotation and manual annotation
+```{r run_umap_on_query}
+# don't need to rerun scale, dim red, umap- already run
+#gamms2 <- scale_data(gamms2)
+#gamms2 <- RunPCA(gamms2, features = VariableFeatures(object = gamms2))
+#gamms2 <- RunUMAP(gamms2, dims = 1:30, reduction = "pca", return.model = TRUE)
+
+# gamms2.1
+pg <- DimPlot(gamms2.1, reduction = "umap", group.by = "predicted.id", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+pdf(paste0(output, "celltype_seurat_predictions-query2.1_umap.pdf"), width = 8, height = 6)
+print(pg)
+dev.off()
+pc <- DimPlot(gamms2.1, reduction = "umap", group.by = "CellType", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query manually annotated labels")
+pdf(paste0(output, "query2.1-manual_annotation_umap.pdf"), width = 8, height = 6)
+print(pc)
+dev.off()
+# gamms2.2
+pg <- DimPlot(gamms2.2, reduction = "umap", group.by = "predicted.id", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+pdf(paste0(output, "celltype_seurat_predictions-query2.2_umap.pdf"), width = 8, height = 6)
+print(pg)
+dev.off()
+pc <- DimPlot(gamms2.2, reduction = "umap", group.by = "CellType", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query manually annotated labels")
+pdf(paste0(output, "query2.2-manual_annotation_umap.pdf"), width = 8, height = 6)
+print(pc)
+dev.off()
+```
+
+
+# compare predictions to manual annotations
+
+# projection of a query onto the reference UMAP structure.
+```{r project_query_on_ref}
+# need to rerun umap to store model
+human_F49B7.seurat <- RunUMAP(human_F49B7.seurat, dims = 1:30, reduction = "pca", return.model = TRUE)
+human_IMR90.seurat <- RunUMAP(human_IMR90.seurat, dims = 1:30, reduction = "pca", return.model = TRUE)
+if (reduc.type== "cca"){
+# for cca
+gamms2.1 <- MapQuery(anchorset = gamm.anchors1, reference = human_F49B7.seurat, query = gamms2.1,
+                           refdata = list(celltype = "cell_type2"), reference.reduction = "cca", reduction.model = "umap")
+gamms2.2 <- MapQuery(anchorset = gamm.anchors2, reference = human_IMR90.seurat, query = gamms2.2,
+                           refdata = list(celltype = "cell_type3"), reference.reduction = "cca", reduction.model = "umap")
+} else if (reduc.type== "pca"){
+# for pca
+gamms2 <- MapQuery(anchorset = gamm.anchors, reference = human_D205.seurat, query = gamms2,
+                           refdata = list(celltype = "cell_type2"), reference.reduction = "pca", reduction.model = "umap")
+} else {print("choose reduc.type either cc or pca")} 
+```
+# visualize
+```{r visualize}
+p1 <- DimPlot(human_F49B7.seurat, reduction = "umap", group.by = "cell_type2", label = TRUE, label.size = 3,
+              repel = TRUE) + ggtitle("Reference annotations")# + NoLegend()
+p2 <- DimPlot(gamms2.1, reduction = "ref.umap", group.by = "predicted.celltype", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+pdf(paste0(output, "celltype_seurat_predictions-umap2.1_cca_clabels.pdf"), width = 11, height = 6)
+print(p1 + p2)
+dev.off()
+p3 <- DimPlot(gamms2.1, reduction = "ref.umap", group.by = "CellType", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Manually annotated labels")
+pdf(paste0(output, "celltype_seurat_predictions-umap2.1_0.5_cca_clabels.pdf"), width = 11, height = 6)
+print(p2 + p3)
+dev.off()
+p1 <- DimPlot(human_IMR90.seurat, reduction = "umap", group.by = "cell_type3", label = TRUE, label.size = 3,
+              repel = TRUE) + ggtitle("Reference annotations")# + NoLegend()
+p2 <- DimPlot(gamms2.2, reduction = "ref.umap", group.by = "predicted.celltype", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+pdf(paste0(output, "celltype_seurat_predictions-umap2.2_cca_clabels.pdf"), width = 11, height = 6)
+print(p1 + p2)
+dev.off()
+p3 <- DimPlot(gamms2.2, reduction = "ref.umap", group.by = "CellType", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Manually annotated labels")
+pdf(paste0(output, "celltype_seurat_predictions-umap2.2_0.5_cca_clabels.pdf"), width = 11, height = 6)
+print(p2 + p3)
+dev.off()
+```
+# visualize probabilities
+```{r visualize_prob}
+#  probabilities of each cell in the @meta.data slot of the query Seurat object.
+# get labels
+labels<- as.vector(unique(colnames(gamms2.1@meta.data)))
+labels<-labels[! labels %in% c('orig.ident', 'nCount_RNA', 'nFeature_RNA', 
+        'predicted.id','sizeFactors','scDblFinder.score','percent.mt','CellType',
+        'ident','scDblFinder.weighted', 'prediction.score.max','prediction.match', 
+        'RNA_snn_res.0.14','RNA_snn_res.0.5',"predicted.celltype.score","predicted.celltype",
+        'scDblFinder.class','scDblFinder.cxds_score','seurat_clusters','S.Score','G2M.Score',
+        'Phase','old.ident')]
+# visualize the probabilities over the UMAP plot:
+pdf(paste0(output, "gamm2.1_celltype_prediction_featureplot.pdf"), width = 10, height = 10)
+print(FeaturePlot(gamms2.1, labels, keep.scale = "all"))
+dev.off()
+labels<- as.vector(unique(colnames(gamms2.2@meta.data)))
+labels<-labels[! labels %in% c('orig.ident', 'nCount_RNA', 'nFeature_RNA', 
+        'predicted.id','sizeFactors','scDblFinder.score','percent.mt','CellType',
+        'ident','scDblFinder.weighted', 'prediction.score.max','prediction.match', 
+        'RNA_snn_res.0.14','RNA_snn_res.0.5',"predicted.celltype.score","predicted.celltype",
+        'scDblFinder.class','scDblFinder.cxds_score','seurat_clusters','S.Score','G2M.Score',
+        'Phase','old.ident')]
+pdf(paste0(output, "gamm2.2_celltype_prediction_featureplot.pdf"), width = 10, height = 10)
+print(FeaturePlot(gamms2.2, labels, keep.scale = "all"))
+dev.off()
+```
+# get comparison between predicted and manual annotations
+```{r get_comparison}
+# verify model performance in query data
+query.ref.data.table1.2.1<- as.data.frame(crossTab(gamms2.1, "CellType", "predicted.celltype"))
+# check out proportion of cells
+query.ref.data.table2.2.1<- as.data.frame(crossTab(gamms2.1, "CellType", "predicted.celltype", output = "prop"))
+# verify model performance in query data
+query.ref.data.table1.2.2<- as.data.frame(crossTab(gamms2.2, "CellType", "predicted.celltype"))
+# check out proportion of cells
+query.ref.data.table2.2.2<- as.data.frame(crossTab(gamms2.2, "CellType", "predicted.celltype", output = "prop"))
+rowvec1 <- c("CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC")
+rowvec2 <- c("BC","rod","L/M cone","MC","AC","HC")
+colvec <- c("Bipolar Cells - Ganglion Cells","Pan PRs","Pan PRs - Rods","Cones - Pan PRs","Muller Glia",
+"Retinal Prog - Muller Glia","Rods - Pan PRs - Muller Glia","Ganglion Cells","unknown")
+query.ref.data.table2.2.1<- query.ref.data.table2.2.1[order(match(rownames(query.ref.data.table2.2.1), rowvec1)), , drop = FALSE]
+query.ref.data.table2.2.1<- query.ref.data.table2.2.1[colvec]
+query.ref.data.table2.2.2<- query.ref.data.table2.2.2[order(match(rownames(query.ref.data.table2.2.2), rowvec2)), , drop = FALSE]
+query.ref.data.table2.2.2<- query.ref.data.table2.2.2[colvec]
+# write out data
+write.table(query.ref.data.table1.2.1, file = paste0(output, "query_ref_data_table_s2.1.txt"), sep = "\t")
+write.table(query.ref.data.table2.2.1, file = paste0(output, "query_ref_data_table_proportion_s2.1.txt"), sep = "\t")
+write.table(query.ref.data.table1.2.2, file = paste0(output, "query_ref_data_table_s2.2.txt"), sep = "\t")
+write.table(query.ref.data.table2.2.2, file = paste0(output, "query_ref_data_table_proportion_s2.2.txt"), sep = "\t")
+```
+# make heatmap
+```{r heatmap}
+heatmap_func <- function(df){
+  # turn df into matrix
+  mat <- as.matrix(sapply(df, as.numeric, rownames=TRUE))  
+  y <- rownames(df)
+  rownames(mat) <- y
+  print(df[1,1])
+  print(mat[1,1])
+
+  # make heatmap
+  hm<- Heatmap(mat, name= "Proportion of cells", column_title = "Cell types - manual", 
+             row_title = "Cell types - predicted", column_title_side = "top",row_title_side = "left", 
+             col = colorRamp2(c(0, 0.5, 1), c("blue","white","darkred")),
+             cluster_columns = F, cluster_rows= F, show_row_dend = F, 
+             column_names_gp = gpar(fontsize = 10), show_column_names = T, 
+             show_row_names = T, row_names_gp = gpar(fontsize = 10), 
+             cell_fun = function(j, i, x, y, width, height, fill) {
+               grid.text(sprintf("%.2f", mat[i, j]), x, y, gp = gpar(fontsize = 8))})
+  return(hm)
+}
+hm <- heatmap_func(query.ref.data.table2.2.1)
+pdf(file = paste0(output,"celltype_manualvs.predicted_2.1_heatmap.pdf"), width = 7, height = 5)
+print(hm)
+dev.off()
+hm2 <- heatmap_func(query.ref.data.table2.2.2)
+pdf(file = paste0(output,"celltype_manualvs.predicted_2.2_heatmap.pdf"), width = 7, height = 5)
+print(hm2)
+dev.off()
+```
+```{r save_data}
+saveRDS(gamms2.1, file= paste0(output,"gamms2.1_cca_pred.rds"))
+saveRDS(gamms2.2, file= paste0(output,"gamms2.2_cca_pred.rds"))
+#saveRDS(human_F49B7.seurat, file= paste0(output,"human_F49B7_cca_pred.rds"))
+#saveRDS(human_IMR90.seurat, file= paste0(output,"human_IMR90_cca_pred.rds"))
+```
+# save session info
+```{r sessioninfo}
+writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+```
+```{r read_data}
+#gamms2 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20230804_143108/gamms2_rpca_pred.rds")
+```

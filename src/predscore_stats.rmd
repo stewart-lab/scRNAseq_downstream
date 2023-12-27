@@ -1,0 +1,98 @@
+---
+title: "Vignette Title"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+```{r}
+seurat.obj.2 <- readRDS(file = "output_seurat_mapping_20231218_161017/gamms2.1_cca_pred.rds")
+table(seurat.obj.2$predicted.id)
+colnames(seurat.obj.2@meta.data)
+table(seurat.obj.2$orig.ident)
+Idents(object = seurat.obj.2) <- "orig.ident"
+seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `output_S2-2_mm_mt_GeneFull` = "pig", `gamm_S2` = "pig")
+seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
+table(seurat.obj.2$orig.ident)
+saveRDS(seurat.obj.2, file =  "output_seurat_mapping_20231218_161017/gamms2.1_cca_pred.rds")
+```
+```{r cluster_stats}
+seurat.obj.2a <- subset(seurat.obj.2, subset = predicted.id == 'rod')
+rod.mean <- mean(seurat.obj.2a$prediction.score.rod)
+rod.med <- median(seurat.obj.2a$prediction.score.rod)
+pdf(file = paste0(output,"rod_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2a$prediction.score.rod, plot=TRUE, xlim = c(0,1)))
+dev.off()
+print(rod.mean)
+print(rod.med)
+```
+```{r}
+seurat.obj.2b <- subset(seurat.obj.2, subset = predicted.id == 'L/M cone')
+cone.mean <- mean(seurat.obj.2b$prediction.score.L.M.cone)
+cone.med <- median(seurat.obj.2b$prediction.score.L.M.cone)
+pdf(file = paste0(output,"cone_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2b$prediction.score.L.M.cone, plot=TRUE, xlim = c(0,1)))
+dev.off()
+print(cone.mean)
+print(cone.med)
+```
+
+```{r}
+seurat.obj.2c <- subset(seurat.obj.2, subset = predicted.id == 'HC')
+HC.mean <- mean(seurat.obj.2c$prediction.score.HC)
+HC.med <- median(seurat.obj.2c$prediction.score.HC)
+pdf(file = paste0(output,"HC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2c$prediction.score.HC, plot=TRUE, xlim = c(0,1)))
+dev.off()
+print(HC.mean)
+print(HC.med)
+```
+
+```{r}
+seurat.obj.2d <- subset(seurat.obj.2, subset = predicted.id == 'MC')
+MC.mean <- mean(seurat.obj.2d$prediction.score.MC)
+MC.med <- median(seurat.obj.2d$prediction.score.MC)
+pdf(file = paste0(output,"MC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2d$prediction.score.MC, plot=TRUE, xlim = c(0,1)))
+dev.off()
+print(MC.mean)
+print(MC.med)
+```
+
+```{r}
+seurat.obj.2e <- subset(seurat.obj.2, subset = predicted.id == 'CdBC')
+CdBC.mean <- mean(seurat.obj.2e$prediction.score.CdBC)
+CdBC.med <- median(seurat.obj.2e$prediction.score.CdBC)
+pdf(file = paste0(output,"CdBC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2e$prediction.score.CdBC, plot=TRUE, xlim = c(0,1)))
+dev.off()
+print(CdBC.mean)
+print(CdBC.med)
+```
+
+```{r}
+seurat.obj.2f <- subset(seurat.obj.2, subset = predicted.id == 'AC')
+AC.mean <- mean(seurat.obj.2f$prediction.score.AC)
+AC.med <- median(seurat.obj.2f$prediction.score.AC)
+pdf(file = paste0(output,"AC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2f$prediction.score.AC, plot=TRUE, xlim = c(0,1)))
+dev.off()
+print(AC.mean)
+print(AC.med)
+```
