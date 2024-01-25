@@ -6,6 +6,19 @@ Clone this repository:
 ```
 git clone git@github.com:stewart-lab/Gamm_scRNAseq.git
 ```
+## Pre-processing for cross-species
+R notebooks for processing the pig and human data, taking the orthologs to have the same genes, but processing each as a separate seurat object.
+
+First we need to install the single cell environment using conda and activate it
+```
+conda env create -f environment_scRNAseqbest.yml
+conda activate scRNAseqbest
+```
+To run the following scripts- make sure to change your working directory as well as the directory where your pre-processed seurat objects are.
+```
+preprocess_crossspecies_Cowan.Rmd
+preprocess_crossspecies_Reh.Rmd
+```
 
 ## Pseudotime analysis
 Cells are often in transition from one cell type to another, and pseudotime captures relationships between clusters, beginning with the least differentiated state to the most mature/terminal state(s).
