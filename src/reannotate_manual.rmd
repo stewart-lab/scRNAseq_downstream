@@ -1,0 +1,69 @@
+---
+title: "reannotate gamm clusters"
+output: html_document
+---
+
+# ENVIRONMENT SETUP
+
+```{r env, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(scran)
+library(BiocParallel)
+library(DropletUtils)
+library(cowplot)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(ggplot2)
+library(scater)
+
+BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/" #"/Users/bmoore/Desktop/GitHub/scRNAseq/GAMM/"
+use_condaenv("scRNAseq_best")
+setwd(paste0(BETHS_GAMM_DATA_DIR, "GAMM_S2/output_20230830_155530/"))
+file.copy("/w5home/bmoore/scRNAseq_library/config.json", file.path("config.json")) # "/Users/bmoore/Desktop/GitHub/scRNAseq_library/config.json"
+config <- fromJSON("config.json")
+source("/w5home/bmoore/scRNAseq_library/sc_pipeline/src/sc_pipeline_functions.R") # "/Users/bmoore/Desktop/GitHub/scRNAseq_library/src/sc_pipeline_functions.R"
+```
+# Load Data
+```{r load_data}
+gamms2<- readRDS(file = "GAMM_S2_clabeled-clusters_0.5.rds")
+```
+# check metadata
+```{r metadata}
+colnames(gamms2@meta.data)
+unique(gamms2@active.ident)
+unique(gamms2@meta.data$seurat_clusters)
+colnames(gamms2@assays$RNA@data)[1:10]
+```
+# get new manual annotations based on gamm group
+```{r get_meta}
+# add in metadata from previous analysis
+metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt", row.names = 1, 
+            header = TRUE, sep = "\t")
+# check metadata with query data
+colnames(gamms2@assays$RNA@data)[1:10]
+rownames(metadata.gamm)[1:10]
+
+# add metadata to query data
+gamms2 <- AddMetaData(gamms2, metadata.gamm)
+
+# check again
+colnames(gamms2@meta.data)
+table(gamms2@meta.data$CellType_manual)
+```
+# visualize
+```{r visualize_clusters}
+pdf("gamms2_umap_new_manual_IDs.pdf", width = 8, height = 6)
+  umap_clusters <- DimPlot(gamms2, reduction = "umap", group.by = "CellType_manual", 
+                          label = TRUE, pt.size = .1)
+  print(umap_clusters)
+  dev.off()
+```
+# save object
+```{r save}
+saveRDS(gamms2, file = "GAMM_S2_clabeled-clusters_0.5.rds")
+```

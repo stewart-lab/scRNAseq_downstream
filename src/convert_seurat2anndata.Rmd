@@ -1,0 +1,58 @@
+
+# load libraries and setwd
+```{r load_libraries}
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(Seurat)
+use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
+## to install SeuratDisk
+# first install hdf5r:
+# conda install -c conda-forge r-hdf5r
+# Next install SeuratDisk:
+# conda install -c conda-forge r-seuratdisk
+# or
+# if (!requireNamespace("remotes", quietly = TRUE)) {
+#   install.packages("remotes")
+# }
+# remotes::install_github("mojaveazure/seurat-disk")
+# note for me conda install -c conda-forge r-seuratdisk did not work, but the github install did
+
+library(SeuratDisk)
+
+setwd("/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20231215_092132/")
+```
+
+# read in and check metadata
+```{r readin}
+# read in Seurat object
+gamms2<- readRDS(file = "gamms2_cca_pred.rds")
+
+# add in metadata from previous analysis
+metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt", row.names = 1, 
+                          header = TRUE, sep = "\t")
+# check metadata with query data
+colnames(gamms2@assays$RNA@data)[1:10]
+rownames(metadata.gamm)[1:10]
+colnames(gamms2@meta.data)
+unique(gamms2@meta.data$CellType)
+```
+# add metadata to query data if needed
+```{r metadata}
+# remove "_1" from metadata if needed
+rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))
+rownames(metadata.gamm)[1:10]
+gamms2 <- AddMetaData(gamms2, metadata.gamm)
+```
+# convert
+```{r convert}
+# first save seurat as h5 seurat file
+SaveH5Seurat(gamms2, filename = "GAMM_S2_ortho_clabeled-clusters_0.5.h5Seurat")
+# then convert to h5ad
+Convert("GAMM_S2_ortho_clabeled-clusters_0.5.h5Seurat", dest = "h5ad")
+
+# This can now be read in by scanpy:
+# import scanpy
+# adata = scanpy.read_h5ad("pbmc3k.h5ad")
+```
