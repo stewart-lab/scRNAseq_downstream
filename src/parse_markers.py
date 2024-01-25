@@ -6,9 +6,39 @@ import pandas as pd
 import operator
 
 def main():
-    DIR= "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/"#sys.argv[1]
+    DIR= str(sys.argv[1]) # directory for DE gene output files
+    TYPE= str(sys.argv[2]) # GAMMS1 or GAMMS2
     df0 = pd.DataFrame()
     clust_list = []
+    if TYPE == "GAMMS1":
+        col_names=["Row.names", "self.average", "other.average", "self.detected", "other.detected", "mean.logFC.cohen",
+                    "min.logFC.cohen", "median.logFC.cohen", "max.logFC.cohen", "rank.logFC.cohen", "full.logFC.cohen.X2",
+                	"full.logFC.cohen.X3", "full.logFC.cohen.X4", "full.logFC.cohen.X5", "full.logFC.cohen.X6", "full.logFC.cohen.X7",
+                    "full.logFC.cohen.X8", "full.logFC.cohen.X9", "full.logFC.cohen.X10", "full.logFC.cohen.X11", "full.logFC.cohen.X12",
+                	"full.logFC.cohen.X13", "mean.AUC", "min.AUC", "median.AUC", "max.AUC", "rank.AUC", "full.AUC.X2", "full.AUC.X3",
+                    "full.AUC.X4", "full.AUC.X5", "full.AUC.X6", "full.AUC.X7", "full.AUC.X8", "full.AUC.X9", "full.AUC.X10", "full.AUC.X11",
+                	"full.AUC.X12", "full.AUC.X13", "mean.logFC.detected", "min.logFC.detected", "median.logFC.detected", "max.logFC.detected",
+                	"rank.logFC.detected", "full.logFC.detected.X2", "full.logFC.detected.X3", "full.logFC.detected.X4", "full.logFC.detected.X5",
+                    "full.logFC.detected.X6", "full.logFC.detected.X7", "full.logFC.detected.X8", "full.logFC.detected.X9", "full.logFC.detected.X10",
+                    "full.logFC.detected.X11", "full.logFC.detected.X12", "full.logFC.detected.X13"]
+    elif TYPE == "GAMMS2":
+        col_names=["Row.names", "self.average", "other.average", "self.detected", "other.detected", 
+                    "mean.logFC.cohen", "min.logFC.cohen", "median.logFC.cohen", "max.logFC.cohen", 
+                    "rank.logFC.cohen", "full.logFC.cohen.X2", "full.logFC.cohen.X3", "full.logFC.cohen.X4", 
+                    "full.logFC.cohen.X5", "full.logFC.cohen.X6", "full.logFC.cohen.X7", "full.logFC.cohen.X8", 
+                    "full.logFC.cohen.X9", "full.logFC.cohen.X10", "full.logFC.cohen.X11", "full.logFC.cohen.X12", 
+                    "full.logFC.cohen.X13", "full.logFC.cohen.X14", "full.logFC.cohen.X15", "mean.AUC", 
+                    "min.AUC", "median.AUC", "max.AUC", "rank.AUC", "full.AUC.X2", "full.AUC.X3", "full.AUC.X4", 
+                    "full.AUC.X5", "full.AUC.X6", "full.AUC.X7", "full.AUC.X8", "full.AUC.X9", "full.AUC.X10", 
+                    "full.AUC.X11", "full.AUC.X12", "full.AUC.X13", "full.AUC.X14", "full.AUC.X15", 
+                    "mean.logFC.detected", "min.logFC.detected", "median.logFC.detected", "max.logFC.detected", 
+                    "rank.logFC.detected", "full.logFC.detected.X2", "full.logFC.detected.X3", "full.logFC.detected.X4", 
+                    "full.logFC.detected.X5", "full.logFC.detected.X6", "full.logFC.detected.X7", "full.logFC.detected.X8", 
+                    "full.logFC.detected.X9", "full.logFC.detected.X10", "full.logFC.detected.X11", 
+                    "full.logFC.detected.X12", "full.logFC.detected.X13", "full.logFC.detected.X14", "full.logFC.detected.X15"]
+    else:
+        print("Please enter GAMMS1 or GAMMS2")
+        sys.exit()
     for file in os.listdir(DIR): 
         if file.startswith("gamm.known"):
             clust = file.split(".")[2]
@@ -26,20 +56,6 @@ def main():
                     clust2 = file2.split(".")[1]
                     clust2 = clust2.split("_")[-1]
                     if clust2 == clust:
-                        col_names=["Row.names", "self.average", "other.average", "self.detected", "other.detected", 
-                                   "mean.logFC.cohen", "min.logFC.cohen", "median.logFC.cohen", "max.logFC.cohen", 
-                                   "rank.logFC.cohen", "full.logFC.cohen.X2", "full.logFC.cohen.X3", "full.logFC.cohen.X4", 
-                                   "full.logFC.cohen.X5", "full.logFC.cohen.X6", "full.logFC.cohen.X7", "full.logFC.cohen.X8", 
-                                   "full.logFC.cohen.X9", "full.logFC.cohen.X10", "full.logFC.cohen.X11", "full.logFC.cohen.X12", 
-                                   "full.logFC.cohen.X13", "full.logFC.cohen.X14", "full.logFC.cohen.X15", "mean.AUC", 
-                                   "min.AUC", "median.AUC", "max.AUC", "rank.AUC", "full.AUC.X2", "full.AUC.X3", "full.AUC.X4", 
-                                   "full.AUC.X5", "full.AUC.X6", "full.AUC.X7", "full.AUC.X8", "full.AUC.X9", "full.AUC.X10", 
-                                   "full.AUC.X11", "full.AUC.X12", "full.AUC.X13", "full.AUC.X14", "full.AUC.X15", 
-                                   "mean.logFC.detected", "min.logFC.detected", "median.logFC.detected", "max.logFC.detected", 
-                                   "rank.logFC.detected", "full.logFC.detected.X2", "full.logFC.detected.X3", "full.logFC.detected.X4", 
-                                   "full.logFC.detected.X5", "full.logFC.detected.X6", "full.logFC.detected.X7", "full.logFC.detected.X8", 
-                                   "full.logFC.detected.X9", "full.logFC.detected.X10", "full.logFC.detected.X11", 
-                                   "full.logFC.detected.X12", "full.logFC.detected.X13", "full.logFC.detected.X14", "full.logFC.detected.X15"]
                         df4 = pd.read_csv(DIR+file2, sep="\t", header=0, names=col_names)
                         df4 = df4.loc[:, ["Row.names", "mean.logFC.cohen", "median.logFC.cohen", "rank.logFC.cohen","mean.AUC","median.AUC","mean.logFC.detected","median.logFC.detected"]]
                         df4 = df4.loc[(df4['median.logFC.cohen']>=0.35)]
@@ -67,7 +83,13 @@ def main():
                 df0 = pd.concat([df0, df5], ignore_index=True)
             else:
                 pass
-    df0.to_csv(DIR+"gamm.all_clusters_allgenes.txt", sep="\t", index=False)
+    if TYPE == "GAMMS1":
+        df0.to_csv(DIR+"gammS1.all_clusters_allgenes.txt", sep="\t", index=False)
+    elif TYPE == "GAMMS2":
+        df0.to_csv(DIR+"gammS2.all_clusters_allgenes.txt", sep="\t", index=False)
+    else:
+        print("Please enter GAMMS1 or GAMMS2")
+        sys.exit()
 
 if __name__ == '__main__':
     main()

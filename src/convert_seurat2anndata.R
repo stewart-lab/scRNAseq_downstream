@@ -19,26 +19,29 @@ use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
 
 library(SeuratDisk)
 
-setwd("/w5home/bmoore/scRNAseq/GAMM/GAMM_S1/output_20230921_142919/")
+setwd("/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20231215_092132/")
 
 
 # read in Seurat object
-gamms2<- readRDS(file = "GAMM_S1_clabeled-clusters_0.5.rds")
+gamms2<- readRDS(file = "gamms2_cca_pred.rds")
 
 # add in metadata from previous analysis
-metadata.gamm <- read.csv("gammS1_manual_annot_metadata_c0.5.txt", row.names = 1, 
+metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt", row.names = 1, 
                           header = TRUE, sep = "\t")
 # check metadata with query data
 colnames(gamms2@assays$RNA@data)[1:10]
 rownames(metadata.gamm)[1:10]
 # add metadata to query data
+# remove "_1" from metadata
+rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))
+rownames(metadata.gamm)[1:10]
 gamms2 <- AddMetaData(gamms2, metadata.gamm)
 
 
 # first save seurat as h5 seurat file
-SaveH5Seurat(gamms2, filename = "GAMM_S1_clabeled-clusters_0.5.h5Seurat")
+SaveH5Seurat(gamms2, filename = "GAMM_S2_ortho_clabeled-clusters_0.5.h5Seurat")
 # then convert to h5ad
-Convert("GAMM_S1_clabeled-clusters_0.5.h5Seurat", dest = "h5ad")
+Convert("GAMM_S2_ortho_clabeled-clusters_0.5.h5Seurat", dest = "h5ad")
 
 # can now be read in by scanpy:
 # import scanpy
