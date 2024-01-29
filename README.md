@@ -22,8 +22,11 @@ First we need to install the single cell environment using conda and activate it
 conda env create -f environment_scRNAseqbest.yml
 conda activate scRNAseq_best
 ```
-To run the following scripts- make sure to change your working directory as well as the directory where your gene expression, cell, and gene matrices are.
-You will also need the orthologs from Ensemble and the meta data for the human reference, both provided in the data/ folder.
+To run the following scripts- make sure to change your working directory as well as the directory where your gene expression, cell, and gene matrices are in the .Rmd.
+
+You will also need to update the directories for the orthologs from Ensemble and the meta data for the human reference in the .Rmd (both are provided in the data/ folder).
+
+Now run:
 ```
 preprocess_crossspecies_Cowan.Rmd
 preprocess_crossspecies_Reh.Rmd
@@ -37,8 +40,9 @@ First make sure the single cell environment we used previously is activated:
 ```
 conda activate scRNAseq_best
 ```
-Next, change the working directory and directories where your seurat objects are (for both human and pig) in the .Rmd file
-Now run
+Next, change the working directory and directories where your seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder).
+
+Now run:
 ```
 seurat_mapping_GAMM_Cowan.Rmd
 seurat_mapping_GAMM_Reh.Rmd
@@ -128,7 +132,7 @@ To output meta data to a text file, we used this script:
 ```
 get_gamm_metadata.R
 ```
-To get the list of all DE genes and their annotation from each cluster for a seurat object:
+To get the list of all DE genes and their annotation from each cluster for a seurat object (based on the output of a single cell analysis):
 ```
 parse_markers.py
 ```
