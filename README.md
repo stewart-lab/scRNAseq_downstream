@@ -1,23 +1,67 @@
 # Gamm_scRNAseq
-Code for the analysis of the pig retinal organoid data from David Gamm
+Code for the analysis of the pig retinal organoid data from the David Gamm group.
 
 Clone this repository:
 
 ```
 git clone git@github.com:stewart-lab/Gamm_scRNAseq.git
 ```
+You will also need anaconda or miniconda to install environments. To install miniconda:
+
+https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html
+
+## For normal single-cell processing without cross-species, visit our companion single-cell repo:
+
+https://github.com/stewart-lab/scRNAseq_library
+
 ## Pre-processing for cross-species
-R notebooks for processing the pig and human data, taking the orthologs to have the same genes, but processing each as a separate seurat object.
+R notebooks for processing the pig and human data, taking the orthologs that have the same genes, but processing each as a separate seurat object. NOTE: R notebooks can be run by opening up in R-studio or VS code, and running either by chunk, or running the whole thing at once.
 
 First we need to install the single cell environment using conda and activate it
 ```
 conda env create -f environment_scRNAseqbest.yml
-conda activate scRNAseqbest
+conda activate scRNAseq_best
 ```
-To run the following scripts- make sure to change your working directory as well as the directory where your pre-processed seurat objects are.
+To run the following scripts- make sure to change your working directory as well as the directory where your gene expression, cell, and gene matrices are.
+You will also need the orthologs from Ensemble and the meta data for the human reference, both provided in the data/ folder.
 ```
 preprocess_crossspecies_Cowan.Rmd
 preprocess_crossspecies_Reh.Rmd
+```
+
+## Seurat mapping
+For mapping annotations across species, we used Seurat mapping.
+For more details on Seurat mapping check out their webpage: https://satijalab.org/seurat/articles/multimodal_reference_mapping.html
+
+First make sure the single cell environment we used previously is activated:
+```
+conda activate scRNAseq_best
+```
+Next, change the working directory and directories where your seurat objects are (for both human and pig) in the .Rmd file
+Now run
+```
+seurat_mapping_GAMM_Cowan.Rmd
+seurat_mapping_GAMM_Reh.Rmd
+```
+
+## SC-comp
+To determine how the cell composition changed, we used sccomp, a Bayesian analysis that models changes in cell counts. For more information on sccomp: https://github.com/stemangiola/sccomp
+
+First install and activate the sccomp environment:
+```
+conda env create -f environment_sccomp.yml
+conda activate sccomp
+```
+Next update the .Rmd script with your working directory and the relative location of your **clustered** and **annotated** seurat objects.
+Variables to set in .Rmd:
+```
+BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/" # main directory
+CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)?
+COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual
+```
+Now run.
+```
+sccomp.Rmd
 ```
 
 ## Pseudotime analysis
@@ -29,11 +73,10 @@ Palantir models trajectories of differentiated cells by treating cell fate as a 
 
 To run Palantir and CellRank you first have to have a Seurat object that is clustered and annotated (see above). 
 
-Next convert your Seurat object to an anndata object (Note install the R requirements before running):
+Next convert your Seurat object to an anndata object (**Note** install the R requirements before running):
 
+**Before running**, change the working directory and the input and output filenames in the script.
 ```
-# before running, change the working directory and the input and output filenames in the script.
-
 src/convert_seurat2anndata.R
 ```
 
@@ -74,3 +117,22 @@ NC = 8 # number of components that are used to find terminal cells. In general, 
 
 - now run src/pseudotime_GAMM2.ipynb
 - figures will be saved to the data directory
+
+## Other processes
+
+To modify the initial annotation with updated cell types, we used this R-markdown script:
+```
+reannotate_manual.rmd
+```
+To output meta data to a text file, we used this script:
+```
+get_gamm_metadata.R
+```
+To get the list of all DE genes and their annotation from each cluster for a seurat object:
+```
+parse_markers.py
+```
+To get histograms of prediction scores:
+```
+predscore_stats.rmd
+```
