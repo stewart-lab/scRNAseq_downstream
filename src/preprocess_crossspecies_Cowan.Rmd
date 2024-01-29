@@ -27,38 +27,40 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 # set up variables
-BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
-ORTHOLOGS <- "/w5home/bmoore/Gamm_scRNAseq/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt"
-METADATA_REF <- "/w5home/bmoore/Gamm_scRNAseq/data/cowan_metadata/meta_30weeks_mod.txt"
+WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/"
+GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
+ORTHOLOGS <- paste0(GIT_DIR,"data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt")
+METADATA_REF <- paste0(GIT_DIR,"data/cowan_metadata/meta_30weeks_mod.txt")
+# use environment
 use_condaenv("scRNAseq_best")
-# working directory
-setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/cowan_cell_2020/"))
+# set working directory
+setwd(WD)
 # create output folder
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_preprocess", timestamp)
 dir.create(output, showWarnings = FALSE)
 # copy config and source functions
-file.copy("/w5home/bmoore/Gamm_scRNAseq/config.json", file.path(output, "config.json"))
+file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 config <- fromJSON(file.path(output, "config.json"))
 output <- paste0(output, "/")
-source("/w5home/bmoore/Gamm_scRNAseq/src/sc_pipeline_functions.R")
+source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 
 ```
 # Read in data
 ```{r data}
 # refernce data
 exp.matrix1 <- read_aligned_data(
-    paste0(BETHS_GAMM_DATA_DIR,"human_data/cowan_cell_2020/output_F49i-N-B7/Solo.out/GeneFull/"),
+    paste0(WD,"output_F49i-N-B7/Solo.out/GeneFull/"),
     "F49i-N-B7",output
     )
 exp.matrix2 <- read_aligned_data(
-    paste0(BETHS_GAMM_DATA_DIR,"human_data/cowan_cell_2020/output_IMR90-4-DL-01/Solo.out/GeneFull/"),
+    paste0(WD,"output_IMR90-4-DL-01/Solo.out/GeneFull/"),
     "IMR90-4-DL-01",output
     )
 
 # load gamm pig data sample 2
 gamm.data <- read_aligned_data(
-    paste0(BETHS_GAMM_DATA_DIR,"output_S2_mm_mt/Solo.out/GeneFull/"),
+    "/w5home/bmoore/scRNAseq/GAMM/output_S2_mm_mt/Solo.out/GeneFull/",
     "gamm.data.S2",output
     )
 ```
