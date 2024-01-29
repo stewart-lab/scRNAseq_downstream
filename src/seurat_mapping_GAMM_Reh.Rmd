@@ -31,6 +31,8 @@ library(circlize)
 library(colorspace)
 library(GetoptLong)
 BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
+METADATA_REF <- "/w5home/bmoore/Gamm_scRNAseq/data/reh_metadata/cca_fetalvsorg_125CP_205_metadata.csv"
+METADATA_GAMM <- "/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
 use_condaenv("scRNAseq_best")
 setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/reh_cellrep_2020/"))
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -98,7 +100,7 @@ gamms2 <- AddMetaData(gamms2, metadata = predictions)
 ```{r read_metadata}
 gamms2
 # add in metadata from previous analysis
-metadata.gamm <- read.csv("/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt", row.names = 1, 
+metadata.gamm <- read.csv(METADATA_GAMM, row.names = 1, 
             header = TRUE, sep = "\t")
 # check metadata with query data
 colnames(gamms2@assays$RNA@data)[1:10]
@@ -130,18 +132,6 @@ pdf(paste0(output, "query-manual_annotation_umap.pdf"), width = 8, height = 6)
 print(pc)
 dev.off()
 ```
-
-
-# compare predictions to manual annotations
-```{r compare_predictions_to_manual_annotations}
-gamms2$prediction.match <- gamms2$predicted.id == gamms2$CellType
-table(gamms2$prediction.match)
-# examine some canonical cell type markers for specific cell populations.
-table(gamms2$predicted.id)
-table(gamms2$CellType)
-```
-# need marker genes to look at prediction score
-#VlnPlot(pancreas.query, c("REG1A", "PPY", "SST", "GHRL", "VWF", "SOX10"), group.by = "predicted.id")
 # projection of a query onto the reference UMAP structure.
 ```{r project_query_on_ref}
 

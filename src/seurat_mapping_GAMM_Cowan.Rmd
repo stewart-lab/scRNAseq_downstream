@@ -35,6 +35,8 @@ library(circlize)
 library(colorspace)
 library(GetoptLong)
 BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
+METADATA_REF <- "/w5home/bmoore/Gamm_scRNAseq/data/cowan_metadata/meta_30weeks_mod.txt"
+METADATA_GAMM <- "/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt"
 use_condaenv("scRNAseq_best", required=TRUE)
 setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/cowan_cell_2020/"))
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -56,7 +58,7 @@ human_IMR90.seurat <- readRDS(file = "output_preprocess20231130_141317/human_IMR
 ```{r metadata}
 # read in meta.data
 # metadata is in the data folder of the github repo
-metadata <- read.csv2("/w5home/bmoore/Gamm_scRNAseq/data/cowan_metadata/meta_30weeks_mod.txt", sep="\t", header=TRUE, row.names=1)
+metadata <- read.csv2(METADATA_REF, sep="\t", header=TRUE, row.names=1)
 # subset by D205 data
 metadata1 <- subset(metadata, metadata$source=="f49b7")
 metadata1<- as.data.frame(metadata1)
@@ -216,7 +218,7 @@ gamms2.2 <- AddMetaData(gamms2, metadata = predictions2)
 # need manual annotation data (skip if you already have this data in seurat object)
 ```{r read_metadata}
 # add in metadata from previous analysis
-metadata.gamm <- read.csv("/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt", 
+metadata.gamm <- read.csv(METADATA_GAMM, 
             row.names = 1, header = TRUE, sep = "\t")
 # check metadata with query data
 colnames(gamms2@assays$RNA@data)[1:10]
