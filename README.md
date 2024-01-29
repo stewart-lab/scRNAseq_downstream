@@ -26,6 +26,13 @@ To run the following scripts- make sure to change your working directory as well
 
 You will also need to update the directories for the orthologs from Ensemble and the meta data for the human reference in the .Rmd (both are provided in the data/ folder).
 
+Variables:
+```
+WD <- working directory
+ORTHOLOGS <- ortholog file
+METADATA_REF <- meta data for human reference
+```
+
 Now run:
 ```
 preprocess_crossspecies_Cowan.Rmd
@@ -41,6 +48,13 @@ First make sure the single cell environment we used previously is activated:
 conda activate scRNAseq_best
 ```
 Next, change the working directory and directories where your seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder).
+
+Variables:
+```
+WD <- working directory
+METADATA_REF <- metadata for reference
+METADATA_GAMM <- metadata for gamm data
+```
 
 Now run:
 ```
@@ -77,12 +91,8 @@ Palantir models trajectories of differentiated cells by treating cell fate as a 
 
 To run Palantir and CellRank you first have to have a Seurat object that is clustered and annotated (see above). 
 
-Next convert your Seurat object to an anndata object (**Note** install the R requirements before running):
-
-**Before running**, change the working directory and the input and output filenames in the script.
-```
-src/convert_seurat2anndata.R
-```
+Next convert your Seurat object to an h5ad object that can be read into python. 
+**Note** install the R requirements before running:
 
 - R requirements
 ```
@@ -94,7 +104,21 @@ library(Seurat)
 library(SeuratDisk)
 ```
 
-Once you have your anndata object, set up your python environment:
+**Before running**, change the working directory and the input and output filenames in the script.
+
+Variables:
+```
+WD <- working directory
+SEURAT_OBJ <- seurat object name
+METADATA_GAMM <- gamm metadata
+OUTPUT_name <- output file name for the h5ad object that will be created
+```
+Now run.
+```
+src/convert_seurat2anndata.R
+```
+
+Once you have your h5ad object, set up your python environment:
 
 ```
 # set up with pseudotime_requirements.txt
