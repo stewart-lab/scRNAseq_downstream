@@ -10,23 +10,17 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(Seurat)
 library(patchwork)
-library(scran)
 library(BiocParallel)
-library(DropletUtils)
 library(cowplot)
 library(reticulate)
 library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(ggplot2)
-library(scater)
 
 BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/" #"/Users/bmoore/Desktop/GitHub/scRNAseq/GAMM/"
 use_condaenv("scRNAseq_best")
 setwd(paste0(BETHS_GAMM_DATA_DIR, "GAMM_S2/output_20230830_155530/"))
-file.copy("/w5home/bmoore/scRNAseq_library/config.json", file.path("config.json")) # "/Users/bmoore/Desktop/GitHub/scRNAseq_library/config.json"
-config <- fromJSON("config.json")
-source("/w5home/bmoore/scRNAseq_library/sc_pipeline/src/sc_pipeline_functions.R") # "/Users/bmoore/Desktop/GitHub/scRNAseq_library/src/sc_pipeline_functions.R"
 ```
 # Load Data
 ```{r load_data}
@@ -42,7 +36,7 @@ colnames(gamms2@assays$RNA@data)[1:10]
 # get new manual annotations based on gamm group
 ```{r get_meta}
 # add in metadata from previous analysis
-metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gamm_manual_annot_metadata_c0.5.txt", row.names = 1, 
+metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt", row.names = 1, 
             header = TRUE, sep = "\t")
 # check metadata with query data
 colnames(gamms2@assays$RNA@data)[1:10]

@@ -31,46 +31,48 @@ library(ggplot2)
 library(limma)
 ### set variables ###
 BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
-CROSS_SPECIES <- "yes" # are you comparing across species (human to pig- then yes) or within species (no)
-COMP_TYPE <- "seuratmapping" # based on the annotation- did you use scpred, seuratmapping, or manual 
+CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)
+COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual 
+
 ### set working directory and output ###
-setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/cowan_cell_2020/"))
+setwd(paste0(BETHS_GAMM_DATA_DIR, "cell_composition/"))
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_cell_composition_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
-packageVersion("sccomp")
+packageVersion("sccomp") # should be >= 1.4.0
 ```
 # Read in processed and labeled data
 ```{r read_in}
-seurat.obj.1 <- readRDS(file = "output_seurat_mapping_20231218_161017/human_IMR90_cca_pred.rds") # reference
-# annotation level for reference
-annot_ref<- seurat.obj.1$cell_type3
-seurat.obj.2 <- readRDS(file = "output_seurat_mapping_20231218_161017/gamms2.2_cca_pred.rds") # query
+seurat.obj.1 <- readRDS(file = "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds") # reference
+seurat.obj.2 <- readRDS(file = "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds") # query
+# reference cell type column
+annot_ref<- seurat.obj.1$CellType_manual
 ```
 # check orig.ident and rename if necessary
 ```{r idents}
 colnames(seurat.obj.2@meta.data)
+colnames(seurat.obj.1@meta.data)
 table(seurat.obj.2$orig.ident)
-Idents(object = seurat.obj.2) <- "orig.ident"
-seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `output_S2-2_mm_mt_GeneFull` = "pig", `gamm_S2` = "pig")
-seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
+table(seurat.obj.1$orig.ident)
+```
+```{r rename}
+if (CROSS_SPECIES=="yes"){
+  Idents(object = seurat.obj.2) <- "orig.ident"
+  seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `output_S2-2_mm_mt_GeneFull` = "pig", `gamm_S2` = "pig", `output_S2-1_mm_mt_GeneFull` = "pig")
+  seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
+  Idents(object = seurat.obj.1) <- "orig.ident"
+}
 table(seurat.obj.2$orig.ident)
-# for manual, may need tor rename celltype
-#seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `Muller Glia - Retinal Prog` = "Retinal Prog - Muller Glia")
-#table(seurat.obj.2@active.ident)
-saveRDS(seurat.obj.2, file =  "output_seurat_mapping_20231218_161017/gamms2.2_cca_pred.rds")
+table(seurat.obj.1$orig.ident)
+
+#saveRDS(seurat.obj.2, file =  paste0(output,"gamms2.2_cca_pred.rds"))
 # rename celltype column for reference
 seurat.obj.1$ref_type <- annot_ref
+# check reference and query annotations
 table(seurat.obj.1$ref_type)
 ```
-# subset cell types if needed
-```{r subset}
-table(seurat.obj.2$predicted.id)
-seurat.obj.2<- subset(seurat.obj.2, subset = orig.ident != 'gamm_S2')
-table(seurat.obj.2@meta.data$orig.ident)
-table(seurat.obj.2$predicted.id)
-```
+
 # check location of annotation
 ```{r check}
 if (CROSS_SPECIES=="yes"){
@@ -92,8 +94,8 @@ if (CROSS_SPECIES=="yes"){
        table(seurat.obj.1$predicted.id)
        table(seurat.obj.2$predicted.id)
     } else if (COMP_TYPE=="manual"){
-        table(seurat.obj.1@active.ident)
-        table(seurat.obj.2@active.ident)
+        table(seurat.obj.1@meta.data$CellType_manual)
+        table(seurat.obj.2@meta.data$CellType_manual)
     } else {
         print("COMP_TYPE should be scpred or seurat mapping or manual")
     }
@@ -102,9 +104,9 @@ if (CROSS_SPECIES=="yes"){
 # add identities to metadata
 ```{r add_meta}
 if (COMP_TYPE=="manual"){
-    seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1@active.ident, col.name= "CellType")
+    seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1@meta.data$CellType_manual, col.name= "CellType")
     table(seurat.obj.1$CellType)
-    seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2@active.ident, col.name= "CellType")
+    seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2@meta.data$CellType_manual, col.name= "CellType")
     table(seurat.obj.2$CellType)
 }
 ```
@@ -121,9 +123,10 @@ table(Idents(object = seurat.combined))
 ```{r set_idents}
 # set identity
 Idents(object = seurat.combined) <- "orig.ident"
- table(Idents(object = seurat.combined))
+table(Idents(object = seurat.combined))
 if (CROSS_SPECIES=="yes"){
-    seurat.combined <- RenameIdents(object = seurat.combined, `human_F49B7` = "human")
+    continue
+    #seurat.combined <- RenameIdents(object = seurat.combined, `human_F49B7` = "human")
 } else {
     seurat.combined <- RenameIdents(object = seurat.combined, `output_S1-1_mm_mt_GeneFull` = "s1",
                                 `output_S1-2_mm_mt_GeneFull` = "s1", `output_S2-1_mm_mt_GeneFull` = "s2",
@@ -214,9 +217,13 @@ comp.table <- as.data.frame(comp.tibble)
 comp.table.1 <- comp.table[,1:7]
 write.table(comp.table.1, file= paste0(output, "composition_result_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
 # get counts from a specific result:
-pr.table <- as.data.frame(comp.table["8","count_data"])
-write.table(pr.table, file= paste0(output, "pr_composition_result_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
+celltype <- comp.table["12","CellType"]
+pr.table <- as.data.frame(comp.table["12","count_data"])
+celltype <- sub("/","_", celltype)
+
+write.table(pr.table, file= paste0(output, celltype,"_composition_result_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
 ```
+
 # compare models (Bayesian Anova)
 ```{r bayes_anova}
 # need sccomp version 1.4 for this!
