@@ -26,7 +26,11 @@ library(reticulate)
 library(purrr)
 library(jsonlite)
 library(rmarkdown)
+# set up variables
 BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
+ORTHOLOGS <- "/w5home/bmoore/Gamm_scRNAseq/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt"
+METADATA_REF <- "/w5home/bmoore/Gamm_scRNAseq/data/reh_metadata/cca_fetalvsorg_125CP_205_metadata.csv"
+# set environment
 use_condaenv("scRNAseq_best")
 setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/reh_cellrep_2020/"))
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -97,7 +101,7 @@ rm(ref.matrix.soupx, gamm.matrix.soupx)
 # read in orthologs
 ```{r orthologs}
 # Reminder: these are assumed to be in the working directory...
-orthologs <- read.csv2("/w5home/bmoore/Gamm_scRNAseq/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt", sep="\t", header=TRUE)
+orthologs <- read.csv2(ORTHOLOGS, sep="\t", header=TRUE)
 ```
 # subset matrices
 ```{r subset}
@@ -161,7 +165,7 @@ dim(ref.matrix.flt)
 ```{r metadata}
 # read in meta.data
 # remember the set working directory in chunk 1, to imform this path
-metadata <- read.csv2("/w5home/bmoore/Gamm_scRNAseq/data/reh_metadata/cca_fetalvsorg_125CP_205_metadata.csv", sep=",", header=TRUE, row.names= 1)
+metadata <- read.csv2(METADATA_REF, sep=",", header=TRUE, row.names= 1)
 # subset by D205 data
 metadata <- subset(metadata, metadata$orig.ident=="D205")
 metadata<- as.data.frame(metadata)
