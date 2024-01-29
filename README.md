@@ -22,13 +22,14 @@ First we need to install the single cell environment using conda and activate it
 conda env create -f environment_scRNAseqbest.yml
 conda activate scRNAseq_best
 ```
-To run the following scripts- make sure to change your working directory as well as the directory where your gene expression, cell, and gene matrices are in the .Rmd.
+To run the following scripts- make sure to change your working directory, the GitHub directory with this repository, as well as the directory where your gene expression, cell, and gene matrices are in the .Rmd.
 
 You will also need to update the directories for the orthologs from Ensemble and the meta data for the human reference in the .Rmd (both are provided in the data/ folder).
 
 Variables:
 ```
 WD <- working directory
+GIT_DIR <- Github directory for Gamm_scRNAseq
 ORTHOLOGS <- ortholog file
 METADATA_REF <- meta data for human reference
 ```
@@ -47,11 +48,12 @@ First make sure the single cell environment we used previously is activated:
 ```
 conda activate scRNAseq_best
 ```
-Next, change the working directory and directories where your seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder).
+Next, change the working directory, the GitHub directory with this repository, and directories where your seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder).
 
 Variables:
 ```
 WD <- working directory
+GIT_DIR <- Github directory for Gamm_scRNAseq
 METADATA_REF <- metadata for reference
 METADATA_GAMM <- metadata for gamm data
 ```
