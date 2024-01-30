@@ -51,3 +51,6 @@ rsconnect/
 
 # Biomart files
 .pybiomart.sqlite
+
+# environment
+pst_env/
