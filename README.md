@@ -15,7 +15,7 @@ https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html
 https://github.com/stewart-lab/scRNAseq_library
 
 ## Pre-processing for cross-species
-R notebooks for processing the pig and human data, taking the orthologs that have the same genes, but processing each as a separate seurat object. NOTE: R notebooks can be run by opening up in R-studio or VS code, and running either by chunk, or running the whole thing at once.
+R notebooks for processing the pig and human data. We take the orthologs across species, but process each species as a separate seurat object. NOTE: R notebooks can be run by opening up in R-studio or VS code, and running either by chunk, or running the whole thing at once.
 
 First we need to install the single cell environment using conda and activate it
 ```
@@ -48,7 +48,7 @@ First make sure the single cell environment we used previously is activated:
 ```
 conda activate scRNAseq_best
 ```
-Next, change the working directory, the GitHub directory with this repository, and directories where your seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder).
+Next, change the working directory, the GitHub directory with this repository, and directories where your pre-processed seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder).
 
 Variables:
 ```
@@ -117,7 +117,7 @@ OUTPUT_name <- output file name for the h5ad object that will be created
 ```
 Now run.
 ```
-src/convert_seurat2anndata.R
+Rscript src/convert_seurat2anndata.R
 ```
 
 Once you have your h5ad object, set up your python environment:
