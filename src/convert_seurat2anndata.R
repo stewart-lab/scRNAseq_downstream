@@ -19,10 +19,10 @@ use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
 
 library(SeuratDisk)
 # variables
-WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20231215_092132/"
-SEURAT_OBJ <- "gamms2_cca_pred.rds"
+WD <- "~/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/"
+SEURAT_OBJ <- "GAMM_S2_clabeled-clusters_0.5.rds"
 METADATA_GAMM <- "/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
-OUTPUT_name <- "GAMM_S2_ortho_clabeled-clusters_0.5.h5Seurat"
+OUTPUT_name <- "GAMM_S2_clabeled-clusters_0.5.h5Seurat"
 
 setwd(WD)
 
@@ -38,10 +38,10 @@ colnames(gamms2@assays$RNA@data)[1:10]
 rownames(metadata.gamm)[1:10]
 # add metadata to query data
 # remove "_1" from metadata
-rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))
-rownames(metadata.gamm)[1:10]
+#rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))
+#rownames(metadata.gamm)[1:10]
 gamms2 <- AddMetaData(gamms2, metadata.gamm)
-
+print(colnames(gamms2@meta.data))
 
 # first save seurat as h5 seurat file
 SaveH5Seurat(gamms2, filename = OUTPUT_name)
