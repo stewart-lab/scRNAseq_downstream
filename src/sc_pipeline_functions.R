@@ -206,6 +206,72 @@ filter_cells <- function(seurat_obj, path = output, save_plots = TRUE) {
   return(seurat_obj)
 }
 
+ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = output){
+  # Get parameters from config
+  ortholog_file <- config$ortholog_subset$ortholog_file
+  # read in orrtholog file
+  orthologs <- read.csv2(ortholog_file, sep = "\t", header = TRUE, row.names = 1)
+  # ortholog gene list
+  orthos <- as.vector(orthologs$human.gene.name)
+  # turn seurat objects into matrices
+  ref.matrix<- GetAssayData(ref_seurat, slot="data")
+  query.matrix<- GetAssayData(query_seurat, slot="data")
+
+  # subset matrix so they match only orthologous genes
+  ref.matrix.flt<- ref.matrix[rownames(ref.matrix) %in% orthos, ]
+  # subset orthologs to they only match expr matrix
+  orthologs <- orthologs[orthologs$human.gene.name %in% rownames(ref.matrix.flt), ]
+  # switch reference genes to query genes
+  # reorder based on exp matrix genes
+  ind_reorder <- match(rownames(ref.matrix.flt),orthologs$human.gene.name)
+  orthologs.reorder<- orthologs[ind_reorder,]
+  # now replace rownames of exp matrix with pig genes
+  pig.orthos <- as.vector(orthologs.reorder$pig.gene.name)
+  row.names(ref.matrix.flt) <- pig.orthos
+  # subset pig data so that there is same genes
+  query.matrix.flt<- query.matrix[rownames(query.matrix) %in% pig.orthos, ]
+  dim(query.matrix.flt)
+  # subset human refernce based on gamm data
+  ref.matrix.flt<- ref.matrix.flt[rownames(ref.matrix.flt) %in% rownames(query.matrix.flt), ]
+  dim(ref.matrix.flt)
+  # get rid of duplicates in reference by averaging them
+  # Aggregate rows based on row names
+  ref.matrix.flt <- aggregate(ref.matrix.flt, by = list(rownames(ref.matrix.flt)), FUN = mean)
+  # use column 1 as rownames
+  rownames(ref.matrix.flt)<- ref.matrix.flt$Group.1
+  ref.matrix.flt <- select(ref.matrix.flt,  -c("Group.1"))
+  # turn back to sparse matrix
+  library(Matrix)
+  ref.matrix.flt<- as.matrix(ref.matrix.flt)
+  ref.matrix.flt <- Matrix(ref.matrix.flt, sparse = TRUE)
+  # create seurat object
+  ref.seurat<- CreateSeuratObject(ref.matrix.flt, project = project_names[[1]], assay = "RNA")
+  query.seurat<- CreateSeuratObject(query.matrix.flt, project = project_names[[2]], assay = "RNA")
+  # put in a list to export
+  obj.list <- list(ref.seurat, query.seurat, orthologs)
+  return(obj.list)
+}
+
+get_metadata <- function(seurat_obj, path = output) {
+  # Get parameters from config
+  metadata_file <- config$get_metadata$metadata_file
+  metadata_subset <- config$get_metadata$metadata_subset
+  # read in metadata file
+  metadata <- read.csv2(metadata_file, sep="\t", header=TRUE, row.names=1)
+  # subset metadata if needed
+  if (metadata_subset != "NA") {
+    metadata <- subset(metadata, metadata$source==metadata_subset)
+  }
+  # get complete metadata
+  metadata<- as.data.frame(metadata)
+  complete.cases(metadata)
+  metadata<-na.omit(metadata)
+  # add metadata to seurat object
+  seurat_obj <- AddMetaData(object=seurat_obj, metadata=metadata)
+
+  return(seurat_obj)
+}
+
 normalize_data <- function(seurat_obj, path = output) {
   # Get parameters from config
   min_size <- config$normalize_data$min_size
@@ -225,9 +291,11 @@ normalize_data <- function(seurat_obj, path = output) {
 
   # Replace Seurat normalized values with scran
   seurat_obj[["RNA"]] <- SetAssayData(seurat_obj[["RNA"]],
-    slot = "data",
-    new.data = logcounts(sce)
-  )
+    slot = "data", new.data = logcounts(sce))
+
+  # for seurat 5
+  # new.data <- logcounts(sce)
+  # LayerData(seurat_obj, assay = "RNA", layer = "data") <- new.data
 
   seurat_obj$sizeFactors <- sizeFactors(sce)
   seurat_obj <- UpdateSeuratObject(seurat_obj)

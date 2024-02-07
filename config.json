@@ -31,6 +31,14 @@
     "upper.nFeature": 10000,
     "max.percent.mt": 20
   },
+  "ortholog_subset": {
+    "ortholog_file": "/w5home/bmoore/Gamm_scRNAseq/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt",
+    "ref_species": "human"
+  },
+  "get_metadata": {
+    "metadata_file": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/metadata/meta_30weeks_mod.txt",
+    "metadata_subset": "imr90"
+  },
   "normalize_data": {
     "min_size": 100,
     "min_mean": 0.1,

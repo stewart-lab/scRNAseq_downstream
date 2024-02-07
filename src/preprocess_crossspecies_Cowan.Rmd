@@ -26,6 +26,8 @@ library(reticulate)
 library(purrr)
 library(jsonlite)
 library(rmarkdown)
+# #install.packages("Matrix", repos="http://R-Forge.R-project.org")
+library(Matrix)
 # set up variables
 WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/"
 GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
@@ -37,10 +39,10 @@ use_condaenv("scRNAseq_best")
 setwd(WD)
 # create output folder
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_preprocess", timestamp)
+output <- paste0("output_preprocess_test", timestamp)
 dir.create(output, showWarnings = FALSE)
 # copy config and source functions
-file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config.json")))
 config <- fromJSON(file.path(output, "config.json"))
 output <- paste0(output, "/")
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
@@ -50,17 +52,17 @@ source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```{r data}
 # refernce data
 exp.matrix1 <- read_aligned_data(
-    paste0(WD,"output_F49i-N-B7/Solo.out/GeneFull/"),
+    paste0(WD,"STAR_output/output_F49i-N-B7/Solo.out/GeneFull/"),
     "F49i-N-B7",output
     )
 exp.matrix2 <- read_aligned_data(
-    paste0(WD,"output_IMR90-4-DL-01/Solo.out/GeneFull/"),
+    paste0(WD,"STAR_output/output_IMR90-4-DL-01/Solo.out/GeneFull/"),
     "IMR90-4-DL-01",output
     )
 
 # load gamm pig data sample 2
 gamm.data <- read_aligned_data(
-    "/w5home/bmoore/scRNAseq/GAMM/output_S2_mm_mt/Solo.out/GeneFull/",
+    "/w5home/bmoore/scRNAseq/GAMM/STAR_output/output_S2_mm_mt/Solo.out/GeneFull/",
     "gamm.data.S2",output
     )
 ```
@@ -69,10 +71,8 @@ gamm.data <- read_aligned_data(
 ```{r soupx}
 all_aligned_data <- list(exp.matrix1,exp.matrix2,gamm.data)
 soupX_objs <- purrr::map(all_aligned_data, ~prep_seurat_and_soupX(data.raw = .x$raw, data = .x$filtered, project = .x$project), .names = purrr::map_chr(all_data, 'project'))
-# write out data
-DropletUtils:::write10xCounts(paste0(output,"cowan_soupX_filt_F49i.mtx"), soupX_objs[[1]]$out)
-DropletUtils:::write10xCounts(paste0(output,"cowan_soupX_filt_IMR90-4.mtx"), soupX_objs[[2]]$out)
-DropletUtils:::write10xCounts(paste0(output,"gamm_soupX_filt_S2.mtx"), soupX_objs[[3]]$out)
+
+# get soup matrices
 ref1.matrix.soupx<- soupX_objs[[1]]$out
 ref2.matrix.soupx<- soupX_objs[[2]]$out
 gamm.matrix.soupx<- soupX_objs[[3]]$out
@@ -97,154 +97,20 @@ obj.list <- SplitObject(lane_and_merged_seurat_obj, split.by = "orig.ident")
 human_ref_F49i<- obj.list$`F49i-N-B7`
 human_ref_IMR90.4<- obj.list$`IMR90-4-DL-01`
 pig_query<- obj.list$gamm.data.S2
-dim(human_ref_F49i@assays$RNA@counts)
-dim(human_ref_F49i@assays$RNA@data)
-dim(human_ref_IMR90.4@assays$RNA@counts)
-dim(human_ref_IMR90.4@assays$RNA@data)
-dim(pig_query@assays$RNA@counts)
-dim(pig_query@assays$RNA@data)
-all.equal(pig_query@assays$RNA@counts,
-pig_query@assays$RNA@data)
-all.equal(human_ref_F49i@assays$RNA@counts,
-human_ref_F49i@assays$RNA@data)
-all.equal(human_ref_IMR90.4@assays$RNA@counts,
-human_ref_IMR90.4@assays$RNA@data)
 ref.matrix1.flt <- human_ref_F49i@assays$RNA@data
 ref.matrix2.flt <- human_ref_IMR90.4@assays$RNA@data
 gam.matrix.flt <- pig_query@assays$RNA@data
-# write out data
-DropletUtils:::write10xCounts(paste0(output,"cowan_dblfinder_filt_F49i.mtx"), ref.matrix1.flt)
-DropletUtils:::write10xCounts(paste0(output,"cowan_dblfinder_filt_IMR90.4.mtx"), ref.matrix2.flt)
-DropletUtils:::write10xCounts(paste0(output,"gamm_dblfinder_filt_S2.mtx"), gam.matrix.flt)
+
 rm(ref1.matrix.soupx, ref2.matrix.soupx,gamm.matrix.soupx)
-```
-# read in orthologs
-```{r orthologs}
-# Reminder: these are in the data folder of the github repo...
-orthologs <- read.csv2(ORTHOLOGS, sep="\t", header=TRUE)
-```
-# subset matrices
-```{r subset}
-# subset genes so they match only orthologous ones
-human.orthos <- as.vector(orthologs$human.gene.name)
-ref.matrix1.flt<- ref.matrix1.flt[rownames(ref.matrix1.flt) %in% human.orthos, ]
-ref.matrix2.flt<- ref.matrix2.flt[rownames(ref.matrix2.flt) %in% human.orthos, ]
-# subset orthologs to they only match expr matrix
-orthologs1 <- orthologs[
-  orthologs$human.gene.name %in% rownames(ref.matrix1.flt) &
-  orthologs$human.gene.name %in% rownames(ref.matrix2.flt), 
-]
-human.orthos <- as.vector(orthologs1$human.gene.name)
-# check length to make sure they are the same
-length(rownames(ref.matrix1.flt))
-length(rownames(ref.matrix2.flt))
-length(orthologs1$human.gene.name)
-```
-# switch to pig genes
-```{r pig-genes}
-# reorder based on exp matrix genes
-ind_reorder <- match(rownames(ref.matrix1.flt),orthologs1$human.gene.name)
-orthologs.reorder<- orthologs1[ind_reorder,]
-# now replace rownames of exp matrix with pig genes
-pig.orthos <- as.vector(orthologs.reorder$pig.gene.name)
-head(row.names(ref.matrix1.flt))
-row.names(ref.matrix1.flt) <- pig.orthos
-# check exp matrix row names
-head(row.names(ref.matrix1.flt))
-length(rownames(ref.matrix1.flt))
-# do for next reference
-ind_reorder <- match(rownames(ref.matrix2.flt),orthologs1$human.gene.name)
-orthologs2.reorder<- orthologs1[ind_reorder,]
-pig.orthos2 <- as.vector(orthologs2.reorder$pig.gene.name)
-head(row.names(ref.matrix2.flt))
-row.names(ref.matrix2.flt) <- pig.orthos2
-head(row.names(ref.matrix2.flt))
-length(rownames(ref.matrix2.flt))
-```
-# load pig data and subset so both pig and human are the same
-```{r pig-data}
-
-# subset pig data so that there is same genes
-dim(gam.matrix.flt)
-gam.matrix.flt<- gam.matrix.flt[rownames(gam.matrix.flt) %in% pig.orthos, ]
-dim(gam.matrix.flt)
-
-# subset human refernce based on gamm data
-ref.matrix1.flt<- ref.matrix1.flt[rownames(ref.matrix1.flt) %in% rownames(gam.matrix.flt), ]
-dim(ref.matrix1.flt)
-ref.matrix2.flt<- ref.matrix2.flt[rownames(ref.matrix2.flt) %in% rownames(gam.matrix.flt), ]
-dim(ref.matrix2.flt)
-DropletUtils:::write10xCounts(paste0(output,"ref1.filtered.exp"), ref.matrix1.flt)
-DropletUtils:::write10xCounts(paste0(output,"ref2.filtered.exp"), ref.matrix2.flt)
-DropletUtils:::write10xCounts(paste0(output,"gamm.data.filtered.exp"), gam.matrix.flt)
-#ref.matrix.flt <- Read10X("ref.filtered.exp/")
-#gam.matrix.flt <- Read10X("gamm.data.filtered.exp/")
-```
-# filter out duplicated genes in reference
-```{r filter}
-# get rid of duplicates by averaging them
-# Aggregate rows based on row names
-ref.matrix1.flt <- aggregate(ref.matrix1.flt, by = list(rownames(ref.matrix1.flt)), FUN = mean)
-ref.matrix2.flt <- aggregate(ref.matrix2.flt, by = list(rownames(ref.matrix2.flt)), FUN = mean)
-# use column 1 as rownames
-rownames(ref.matrix1.flt)<- ref.matrix1.flt$Group.1
-ref.matrix1.flt <- select(ref.matrix1.flt,  -c("Group.1"))
-rownames(ref.matrix2.flt)<- ref.matrix2.flt$Group.1
-ref.matrix2.flt <- select(ref.matrix2.flt,  -c("Group.1"))
-# turn back to sparse matrix
-#install.packages("Matrix", repos="http://R-Forge.R-project.org")
-library(Matrix)
-ref.matrix1.flt<- as.matrix(ref.matrix1.flt)
-ref.matrix1.flt <- Matrix(ref.matrix1.flt, sparse = TRUE)
-dim(ref.matrix1.flt)
-ref.matrix2.flt<- as.matrix(ref.matrix2.flt)
-ref.matrix2.flt <- Matrix(ref.matrix2.flt, sparse = TRUE)
-dim(ref.matrix2.flt)
-```
-```{r}
-DropletUtils:::write10xCounts(paste0(output,"ref1.filtered2.exp"), ref.matrix1.flt)
-DropletUtils:::write10xCounts(paste0(output,"ref2.filtered2.exp"), ref.matrix2.flt)
-```
-# get metadata
-```{r metadata}
-# read in meta.data
-metadata <- read.csv2(METADATA_REF, sep="\t", header=TRUE, row.names=1)
-# subset by D205 data
-metadata1 <- subset(metadata, metadata$source=="f49b7")
-metadata1<- as.data.frame(metadata1)
-complete.cases(metadata1)
-metadata1<-na.omit(metadata1)
-metadata2 <- subset(metadata, metadata$source=="imr90")
-metadata2<- as.data.frame(metadata2)
-complete.cases(metadata2)
-metadata2<-na.omit(metadata2)
-# get numbers for each celltype
-table(metadata1$cell_type2)
-table(metadata2$cell_type2)
-# replace underscore with dash
-#row.names(metadata) <- sub("_1", "", row.names(metadata))
-metadata.rows <-as.vector(row.names(metadata))
-dim(metadata1)
-dim(ref.matrix1.flt)
-dim(metadata2)
-dim(ref.matrix2.flt)
 ```
 # create seurat object
 ```{r} 
 human_F49B7.seurat<- CreateSeuratObject(ref.matrix1.flt, project = "F49B7", assay = "RNA",
                                        min.cells = 3, min.features = 200)
-human_F49B7.seurat<-AddMetaData(object=human_F49B7.seurat, metadata=metadata1)
 human_IMR90.seurat<- CreateSeuratObject(ref.matrix2.flt, project = "IMR90", assay = "RNA",
                                        min.cells = 3, min.features = 200)
-human_IMR90.seurat<-AddMetaData(object=human_IMR90.seurat, metadata=metadata2)
 gamm.S2.seurat<- CreateSeuratObject(gam.matrix.flt, project = "gamm_S2", assay = "RNA",
                                        min.cells = 3, min.features = 200)
-```
-# save seurat object
-```{r}
-saveRDS(human_F49B7.seurat, file = paste0(output,"human_F49B7_ortholog.rds"))
-saveRDS(human_IMR90.seurat, file = paste0(output,"human_IMR90_ortholog.rds"))
-saveRDS(gamm.S2.seurat, file = paste0(output,"GAMM_S2_ortholog.rds"))
 ```
 # Mitochondrial gene filtering
 ```{r}
@@ -252,56 +118,61 @@ human_F49B7.seurat_mt_filtered <- filter_cells(human_F49B7.seurat)
 human_IMR90.seurat_mt_filtered <- filter_cells(human_IMR90.seurat)
 gamm.S2.seurat_mt_filtered <- filter_cells(gamm.S2.seurat)
 ```
-# need to check if genes are the same after filtering, if not subset again
-```{r}
-human_F49B7.seurat.exp.mtx<- GetAssayData(human_F49B7.seurat_mt_filtered, slot="data")
-human_IMR90.seurat.exp.mtx<- GetAssayData(human_IMR90.seurat_mt_filtered, slot="data")
-gamm.S2.seurat.exp.mtx<- GetAssayData(gamm.S2.seurat_mt_filtered, slot="data")
-dim(human_F49B7.seurat.exp.mtx)
-dim(human_IMR90.seurat.exp.mtx)
-dim(gamm.S2.seurat.exp.mtx)
-
- # subset gamm data based on human data
-gamm.S2.seurat.exp.mtx<- gamm.S2.seurat.exp.mtx[rownames(gamm.S2.seurat.exp.mtx)
-    %in% rownames(human_F49B7.seurat.exp.mtx), ]
-gamm.S2.seurat.exp.mtx<- gamm.S2.seurat.exp.mtx[rownames(gamm.S2.seurat.exp.mtx)
-    %in% rownames(human_IMR90.seurat.exp.mtx), ]
-# subset human refernce based on gamm data
-human_F49B7.seurat.exp.mtx<- human_F49B7.seurat.exp.mtx[rownames(human_F49B7.seurat.exp.mtx)
- %in% rownames(gamm.S2.seurat.exp.mtx), ]
-human_IMR90.seurat.exp.mtx<- human_IMR90.seurat.exp.mtx[rownames(human_IMR90.seurat.exp.mtx)
- %in% rownames(gamm.S2.seurat.exp.mtx), ]
-
-dim(human_F49B7.seurat.exp.mtx)
-dim(human_IMR90.seurat.exp.mtx)
-dim(gamm.S2.seurat.exp.mtx)
+# read in orthologs and subset
+```{r ortho_subset}
+project_names= list("F49B7","gammS2")
+objs.list <- ortholog_subset(human_F49B7.seurat_mt_filtered,gamm.S2.seurat_mt_filtered,project_names)
+ref.seurat <- objs.list[[1]]
+query.seurat <- objs.list[[2]]
+orthologs <- objs.list[[3]]
+print(ref.seurat)
+print(query.seurat)
 ```
-# set data in new seurat object
-```{r}
-human_F49B7.seurat_mt_filtered_subset<- CreateSeuratObject(human_F49B7.seurat.exp.mtx, 
-    project = "human_F49B7", assay = "RNA")
-human_F49B7.seurat_mt_filtered_subset<-AddMetaData(object=
-    human_F49B7.seurat_mt_filtered_subset, metadata=metadata1)
-human_IMR90.seurat_mt_filtered_subset<- CreateSeuratObject(human_IMR90.seurat.exp.mtx, 
-    project = "human_IMR90", assay = "RNA")
-human_IMR90.seurat_mt_filtered_subset<-AddMetaData(object=
-    human_IMR90.seurat_mt_filtered_subset, metadata=metadata2)
-gamm.S2.seurat_mt_filtered_subset<- CreateSeuratObject(gamm.S2.seurat.exp.mtx, 
-    project = "gamm_S2", assay = "RNA")
-
-dim(human_F49B7.seurat_mt_filtered_subset)
-dim(human_IMR90.seurat_mt_filtered_subset)
-dim(gamm.S2.seurat_mt_filtered_subset)
+```{r ortho_subset2}
+project_names= list("IMR90","gammS2")
+objs.list <- ortholog_subset(human_IMR90.seurat_mt_filtered,gamm.S2.seurat_mt_filtered,project_names)
+ref2.seurat <- objs.list[[1]]
+query2.seurat <- objs.list[[2]]
+orthologs2 <- objs.list[[3]]
+print(ref2.seurat)
+print(query2.seurat)
 ```
 
+# get metadata
+```{r metadata}
+# "f49b7"
+ref.seurat <- get_metadata(ref.seurat)
+print(colnames(ref.seurat@meta.data))
+print(table(ref.seurat$orig.ident))
+print(table(ref.seurat$EGA))
+print(table(ref.seurat$cell_type2))
+```
+
+```{r metadata}
+# "imr90"
+ref2.seurat <- get_metadata(ref2.seurat)
+print(colnames(ref2.seurat@meta.data))
+print(table(ref2.seurat$orig.ident))
+print(table(ref2.seurat$EGA))
+print(table(ref2.seurat$cell_type2))
+```
+# save seurat object
+```{r}
+saveRDS(ref.seurat, file = paste0(output,"human_F49B7_ortholog.rds"))
+saveRDS(ref2.seurat, file = paste0(output,"human_IMR90_ortholog.rds"))
+saveRDS(query.seurat, file = paste0(output,"GAMM_S2_ortholog_forF49B7.rds"))
+saveRDS(query2.seurat, file = paste0(output,"GAMM_S2_ortholog_forIMR90.rds"))
+```
 # Normalization
-```{r}
-human_F49B7.seurat_norm <- normalize_data(human_F49B7.seurat_mt_filtered_subset)
-human_IMR90.seurat_norm <- normalize_data(human_IMR90.seurat_mt_filtered_subset)
-gamm.S2.seurat_norm <- normalize_data(gamm.S2.seurat_mt_filtered_subset)
-saveRDS(human_F49B7.seurat_norm, file = paste0(output,"human_F49B7_norm.rds"))
-saveRDS(human_IMR90.seurat_norm, file = paste0(output,"human_IMR90_norm.rds"))
-saveRDS(gamm.S2.seurat_norm, file = paste0(output,"GAMM_S2_norm.rds"))
+```{r normalization}
+ref.seurat_norm <- normalize_data(ref.seurat)
+ref2.seurat_norm <- normalize_data(ref2.seurat)
+query.seurat_norm <- normalize_data(query.seurat)
+query2.seurat_norm <- normalize_data(query2.seurat)
+saveRDS(ref.seurat_norm, file = paste0(output,"human_F49B7_norm.rds"))
+saveRDS(ref2.seurat_norm, file = paste0(output,"human_IMR90_norm.rds"))
+saveRDS(query.seurat_norm, file = paste0(output,"GAMM_S2_norm_forF49B7.rds"))
+saveRDS(query2.seurat_norm, file = paste0(output,"GAMM_S2_norm_forIMR90.rds"))
 ```
 ## further steps: 
 # for scPRED: reference undergoes feature selection, scaling, and dimensional reduction, query does not
@@ -310,64 +181,50 @@ saveRDS(gamm.S2.seurat_norm, file = paste0(output,"GAMM_S2_norm.rds"))
 # for Seurat integration or mapping: query also undergoes feature selection
 
 # Feature selection
-```{r}
+```{r feat_select}
 #gamm.S2.seurat_norm<-readRDS(file = "output_20230711_155556/GAMM_S2_norm.rds")
 #human_D205.seurat_norm<-readRDS(file = "output_20230711_155556/human_D205_norm.rds")
-gamm.S2.seurat_feat_select <- feature_selection(gamm.S2.seurat_norm)
-human_F49B7.seurat_feat_select <- feature_selection(human_F49B7.seurat_norm)
-human_IMR90.seurat_feat_select <- feature_selection(human_IMR90.seurat_norm)
-saveRDS(gamm.S2.seurat_feat_select, file = paste0(output,"GAMM_S2_feat_select.rds"))
-saveRDS(human_F49B7.seurat_feat_select, file = paste0(output,"human_F49B7_feat_select.rds"))
-saveRDS(human_IMR90.seurat_feat_select, file = paste0(output,"human_IMR90_feat_select.rds"))
+query.seurat_feat_select <- feature_selection(query.seurat_norm)
+query2.seurat_feat_select <- feature_selection(query2.seurat_norm)
+ref.seurat_feat_select <- feature_selection(ref.seurat_norm)
+ref2.seurat_feat_select <- feature_selection(ref2.seurat_norm)
 ```
-
 # Scaling data
-```{r}
-#gamm.S2.seurat_feat_select <- readRDS(file = "output_preprocess20230912_144047_cc/GAMM_S2_feat_select.rds")
-gamm.S2.seurat_scaled <- scale_data(gamm.S2.seurat_feat_select)
-human_F49B7.seurat_scaled <- scale_data(human_F49B7.seurat_feat_select)
-human_IMR90.seurat_scaled <- scale_data(human_IMR90.seurat_feat_select)
+```{r scale}
+query.seurat_scaled <- scale_data(query.seurat_feat_select)
+query2.seurat_scaled <- scale_data(query.seurat_feat_select)
+ref.seurat_scaled <- scale_data(ref.seurat_feat_select)
+ref2.seurat_scaled <- scale_data(ref2.seurat_feat_select)
 ```
-
 # Dimensional reduction
-```{r}
-gamm.S2.seurat_dim_reduced <- run_and_visualize_pca(gamm.S2.seurat_scaled)
-human_F49B7.seurat_dim_reduced <- run_and_visualize_pca(human_F49B7.seurat_scaled)
-human_IMR90.seurat_dim_reduced <- run_and_visualize_pca(human_IMR90.seurat_scaled)
+```{r dim_reduct}
+query.seurat_dim_reduced <- run_and_visualize_pca(query.seurat_scaled)
+query2.seurat_dim_reduced <- run_and_visualize_pca(query2.seurat_scaled)
+ref.seurat_dim_reduced <- run_and_visualize_pca(ref.seurat_scaled)
+ref2.seurat_dim_reduced <- run_and_visualize_pca(ref2.seurat_scaled)
 ```
 # Run umap
-```{r}
-gamm.S2.seurat_umap <- run_umap(gamm.S2.seurat_dim_reduced)
-#human_D205.seurat_umap <- readRDS(file = "output_preprocess20230912_144047_cc/human_D205_umap.rds")
-human_F49B7.seurat_umap <- run_umap(human_F49B7.seurat_dim_reduced)
-human_IMR90.seurat_umap <- run_umap(human_IMR90.seurat_dim_reduced)
-#saveRDS(human_D205.seurat_umap, file = paste0(output, "human_D205_umap.rds"))
+```{r umap}
+query.seurat_umap <- run_umap(query.seurat_dim_reduced)
+query2.seurat_umap <- run_umap(query2.seurat_dim_reduced)
+ref.seurat_umap <- run_umap(ref.seurat_dim_reduced)
+ref2.seurat_umap <- run_umap(ref2.seurat_dim_reduced)
 ```
 # clustering
-```{r}
-gamm.S2.seurat_clustered <- perform_clustering(gamm.S2.seurat_umap)
-human_F49B7.seurat_clustered <- perform_clustering(human_F49B7.seurat_umap)
-human_IMR90.seurat_clustered <- perform_clustering(human_IMR90.seurat_umap)
-saveRDS(gamm.S2.seurat_clustered, file = paste0(output, "gamm.S2_clustered.rds"))
-saveRDS(human_F49B7.seurat_clustered, file = paste0(output, "human_F49B7_clustered.rds"))
-saveRDS(human_IMR90.seurat_clustered, file = paste0(output, "human_IMR90_clustered.rds"))
-```
-# check metadata and add to object
-```{r}
-metadata1[1:5,]
-metadata2[1:5,]
-human_F49B7.seurat_clustered<-AddMetaData(object=human_F49B7.seurat_clustered, metadata=metadata1)
-human_IMR90.seurat_clustered<-AddMetaData(object=human_IMR90.seurat_clustered, metadata=metadata2)
-colnames(human_IMR90.seurat_clustered@meta.data)
-table(human_IMR90.seurat_clustered$cell_type2)
-colnames(human_F49B7.seurat_clustered@meta.data)
-table(human_F49B7.seurat_clustered$cell_type2)
+```{r cluster}
+query.seurat_clustered <- perform_clustering(query.seurat_umap)
+query2.seurat_clustered <- perform_clustering(query2.seurat_umap)
+ref.seurat_clustered <- perform_clustering(ref.seurat_umap)
+ref.seurat_clustered <- perform_clustering(ref.seurat_umap)
+
 ```
 # save
 ```{r save}
 # save objects
-saveRDS(human_F49B7.seurat_clustered, file = paste0(output, "human_F49B7_clustered.rds"))
-saveRDS(human_IMR90.seurat_clustered, file = paste0(output, "human_IMR90_clustered.rds"))
+saveRDS(query.seurat_clustered, file = paste0(output, "gamm.S2-F49B7_clustered.rds"))
+saveRDS(query2.seurat_clustered, file = paste0(output, "gamm.S2-IMR90_clustered.rds"))
+saveRDS(ref.seurat_clustered, file = paste0(output, "human_F49B7_clustered.rds"))
+saveRDS(ref.seurat_clustered, file = paste0(output, "human_IMR90_clustered.rds"))
 # save session info
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
 ```
