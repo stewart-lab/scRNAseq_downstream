@@ -86,7 +86,7 @@
     "top_n": 11
   },
   "score_and_plot_markers": {
-    "top_n_markers": 10,
+    "top_n_markers": 100,
     "known_markers": "False",
     "known_markers_path": "/w5home/bmoore/scRNAseq/GAMM/known_markers/Kims_retinal_markers.txt",
     "cluster_type": "seurat_clusters",
@@ -95,7 +95,8 @@
     "auc_thresh": 0.5
   },
   "process_known_markers":{
-   "annot_type": "other"
+   "annot_type": "other",
+   "n_rank": 10
   },
   "transfer_anchors": {
     "reduc.type": "cca"

@@ -767,19 +767,19 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
   top100 <- head(ordered, n = top_n_markers)
 
   # Create a subdirectory for Top100 DE genes
-  top100_dir <- file.path(output_path, "Top100_DE_Genes")
+  top100_dir <- file.path(output_path, paste0("Top",top_n_markers,"_DE_Genes"))
   if (!dir.exists(top100_dir)) {
     dir.create(top100_dir, recursive = TRUE)
   }
 
   # Write out top100 genes
   write.table(top100,
-    file = file.path(top100_dir, paste0("Top100DEgenes_clust_", clusters[i], ".txt")),
+    file = file.path(top100_dir, paste0("Top",top_n_markers,"DEgenes_clust_", clusters[i], ".txt")),
     quote = FALSE, sep = "\t", row.names = TRUE
   )
 
   # Process known markers
-  return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, top_n_markers, seurat_obj, annot_df))
+  return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df))
 }
 
 
@@ -839,8 +839,9 @@ process_pairwise_comparisons <- function(clusters, i, marker.info, output_path, 
 
 
 
-process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, top_n_markers, seurat_obj, annot_df) {
+process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df) {
   annot_type <- config$process_known_markers$annot_type
+  n_rank <- config$process_known_markers$n_rank
   if (known_markers_flag) {
     marker_df <- merge(top100, known_markers_df, by = "row.names")
 
@@ -864,7 +865,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       new_vec <- unique(as.vector(new_df$Row.names))
 
       # Get top ranked
-      rank <- top_n_markers + 1
+      rank <- n_rank + 1
       new_df.ordered <- new_df[order(new_df$rank.logFC.cohen), ]
 
       if (annot_type == "manual"){
@@ -872,12 +873,12 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
         new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
 
         if (identical(new_vec2, character(0))) {
-          print(paste0("This vector does not have any ranks in top ", top_n_markers, ": ", clusters[i]))
+          print(paste0("This vector does not have any ranks in top ", n_rank, ": ", clusters[i]))
           new_row <- data.frame(Cluster = clusters[i], Cell.type = "unknown")
           annot_df <- rbind(annot_df, new_row)
         } else {
         # UMAP plot highlighting gene expression
-          pdf(paste0(output_path, clusters[i], "_featureplot_top", top_n_markers, "ranks.pdf"), bg = "white")
+          pdf(paste0(output_path, clusters[i], "_featureplot_top", n_rank, "ranks.pdf"), bg = "white")
           print(FeaturePlot(seurat_obj, features = new_vec2), label = TRUE)
           dev.off()
           allcelltypes <- unique(as.vector(new_df.ordered$Cell.type))
@@ -1001,7 +1002,6 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
   }
   return(annot_df)
 }
-
 
 
 annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output) {
