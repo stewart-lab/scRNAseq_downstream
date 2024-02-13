@@ -17,15 +17,16 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(ggplot2)
-library(stringr)
+#library(stringr)
+library(tibble)
 
 BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
 GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
 use_condaenv("scRNAseq_best")
-setwd(paste0(BETHS_GAMM_DATA_DIR, "GAMM_S2/output_20230830_155530/"))
-output <- paste0(BETHS_GAMM_DATA_DIR, "GAMM_S2/output_20230830_155530/")
+setwd(paste0(BETHS_GAMM_DATA_DIR, "GAMM_S1/output_20230921_142919/"))
+output <- paste0(BETHS_GAMM_DATA_DIR, "GAMM_S1/output_20230921_142919/")
 # copy config and source functions
-file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config.json")))
+file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config2.json")))
 config <- fromJSON(file.path(output, "config2.json"))
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```
@@ -50,7 +51,7 @@ annot_df <- score_and_plot_markers(gamms2)
 
 annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
 new.cluster.ids <- annot_df.ordered$Cell.type
-
+print(new.cluster.ids)
 ```
 # annotate
 ```{r annotate}
@@ -59,7 +60,7 @@ gamms2.annot <- annotate_clusters_and_save(gamms2, new.cluster.ids)
 # save annotation as dataframe
 ```{r save_annot}
 gamm.metadata<- as.data.frame(gamms2.annot@meta.data)
-write.table(gamm.metadata, file = "gamm_manual_annot_metadata_c0.5.txt", sep="\t", 
+write.table(gamm.metadata, file = "gammS1_manual_annot_metadata_c0.5_KR.txt", sep="\t", 
             quote=F, row.names = T)
 ```
 

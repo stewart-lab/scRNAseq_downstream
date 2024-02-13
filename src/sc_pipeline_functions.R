@@ -886,7 +886,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           new_row <- data.frame(Cluster = clusters[i], Cell.type = result_string)
           annot_df <- rbind(annot_df, new_row)
         }
-      } else if (annot_type == "other"){
+      } else if (annot_type == "d120"| annot_type == "d40"){
         new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
         cell_types <- unique(as.vector(known_markers_df[,"Cell.type"]))
         # create empty list to store cell types
@@ -925,7 +925,9 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             }
             if (count2 >= 2){
               new_cell_type <- "Cone"
-            } 
+            } else {
+              new_cell_type <- "NA"
+            }
           } else if (count >= 1 && cell_type == "Ganglion Cell") {
             # check Amacrine-Ganglion
             count3 <- 0
@@ -941,7 +943,11 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             }
             if (count3 >= 2){
               new_cell_type <- "Ganglion Cell"
-            }
+            } else if (annot_type == "d40" && count3 >= 1){
+              new_cell_type <- "Ganglion Cell"
+            } else {
+              new_cell_type <- "NA"
+            } 
           } else if (count >= 1 && cell_type == "Amacrine Cell") {
             # check Amacrine-Ganglion
             count4 <- 0
@@ -957,6 +963,8 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             }
             if (count4 >= 2){
               new_cell_type <- "Amacrine Cell"
+            } else {
+              new_cell_type <- "NA"
             }
           } else if (count == 1 && length(new_vec2) == 1){
             new_cell_type <- cell_type
