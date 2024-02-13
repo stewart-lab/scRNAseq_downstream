@@ -37,7 +37,7 @@
   },
   "get_metadata": {
     "metadata_file": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/metadata/meta_30weeks_mod.txt",
-    "metadata_subset": "imr90"
+    "metadata_subset": "f49b7"
   },
   "normalize_data": {
     "min_size": 100,
@@ -88,11 +88,14 @@
   "score_and_plot_markers": {
     "top_n_markers": 10,
     "known_markers": "False",
-    "known_markers_path": "../known_marker_lists/Gamm_lab_Consolidated_markerList.txt",
+    "known_markers_path": "/w5home/bmoore/scRNAseq/GAMM/known_markers/Kims_retinal_markers.txt",
     "cluster_type": "seurat_clusters",
     "pairwise": "TRUE",
     "logFC_thresh": 0.5,
     "auc_thresh": 0.5
+  },
+  "process_known_markers":{
+   "annot_type": "other"
   },
   "transfer_anchors": {
     "reduc.type": "cca"

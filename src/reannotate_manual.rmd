@@ -17,14 +17,21 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(ggplot2)
+library(stringr)
 
-BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/" #"/Users/bmoore/Desktop/GitHub/scRNAseq/GAMM/"
+BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
+GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
 use_condaenv("scRNAseq_best")
 setwd(paste0(BETHS_GAMM_DATA_DIR, "GAMM_S2/output_20230830_155530/"))
+output <- paste0(BETHS_GAMM_DATA_DIR, "GAMM_S2/output_20230830_155530/")
+# copy config and source functions
+file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config.json")))
+config <- fromJSON(file.path(output, "config2.json"))
+source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```
 # Load Data
 ```{r load_data}
-gamms2<- readRDS(file = "GAMM_S2_clabeled-clusters_0.5.rds")
+gamms2<- readRDS(file = "clustered_seurat_obj.rds")
 ```
 # check metadata
 ```{r metadata}
@@ -33,11 +40,34 @@ unique(gamms2@active.ident)
 unique(gamms2@meta.data$seurat_clusters)
 colnames(gamms2@assays$RNA@data)[1:10]
 ```
-# get new manual annotations based on gamm group
+
+# score an plot markers using new markers
+```{r score_markers}
+annot_df <- score_and_plot_markers(gamms2)
+```
+
+```{r}
+
+annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
+new.cluster.ids <- annot_df.ordered$Cell.type
+
+```
+# annotate
+```{r annotate}
+gamms2.annot <- annotate_clusters_and_save(gamms2, new.cluster.ids)
+```
+# save annotation as dataframe
+```{r save_annot}
+gamm.metadata<- as.data.frame(gamms2.annot@meta.data)
+write.table(gamm.metadata, file = "gamm_manual_annot_metadata_c0.5.txt", sep="\t", 
+            quote=F, row.names = T)
+```
+
+# read back in metadata
 ```{r get_meta}
 # add in metadata from previous analysis
-metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt", row.names = 1, 
-            header = TRUE, sep = "\t")
+metadata.gamm <- read.csv("/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt", 
+            row.names = 1, header = TRUE, sep = "\t")
 # check metadata with query data
 colnames(gamms2@assays$RNA@data)[1:10]
 rownames(metadata.gamm)[1:10]

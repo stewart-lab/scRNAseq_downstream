@@ -763,7 +763,7 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
   known_markers <- config$score_and_plot_markers$known_markers
 
   # Order by median Cohen's d and subset
-  ordered <- subset(clust[order(clust$median.logFC.cohen, decreasing = TRUE), ], median.logFC.cohen > logFC_thresh & median.AUC > auc_thresh)
+  ordered <- subset(clust[order(clust$median.logFC.cohen, decreasing = TRUE), ], abs(median.logFC.cohen) > logFC_thresh & median.AUC > auc_thresh)
   top100 <- head(ordered, n = top_n_markers)
 
   # Create a subdirectory for Top100 DE genes
@@ -840,6 +840,7 @@ process_pairwise_comparisons <- function(clusters, i, marker.info, output_path, 
 
 
 process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, top_n_markers, seurat_obj, annot_df) {
+  annot_type <- config$process_known_markers$annot_type
   if (known_markers_flag) {
     marker_df <- merge(top100, known_markers_df, by = "row.names")
 
@@ -854,7 +855,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       }
       # Write out marker dataframe with known DE markers
       write.table(marker_df,
-        file = paste0(output_path, "KnownDE.markers_clust_", clusters[i], ".txt"),
+        file = paste0(subdirectory_path, "/KnownDE.markers_clust_", clusters[i], ".txt"),
         quote = FALSE, sep = "\t", row.names = FALSE
       )
 
@@ -865,25 +866,137 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       # Get top ranked
       rank <- top_n_markers + 1
       new_df.ordered <- new_df[order(new_df$rank.logFC.cohen), ]
-      new_df.ordered <- subset(new_df.ordered, rank.logFC.cohen < rank)
-      new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
 
-      if (identical(new_vec2, character(0))) {
-        print(paste0("This vector does not have any ranks in top ", top_n_markers, ": ", clusters[i]))
-        new_row <- data.frame(Cluster = clusters[i], Cell.type = "unknown")
-        annot_df <- rbind(annot_df, new_row)
-      } else {
+      if (annot_type == "manual"){
+        new_df.ordered <- subset(new_df.ordered, rank.logFC.cohen < rank)
+        new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
+
+        if (identical(new_vec2, character(0))) {
+          print(paste0("This vector does not have any ranks in top ", top_n_markers, ": ", clusters[i]))
+          new_row <- data.frame(Cluster = clusters[i], Cell.type = "unknown")
+          annot_df <- rbind(annot_df, new_row)
+        } else {
         # UMAP plot highlighting gene expression
-        pdf(paste0(output_path, clusters[i], "_featureplot_top", top_n_markers, "ranks.pdf"), bg = "white")
-        print(FeaturePlot(seurat_obj, features = new_vec2), label = TRUE)
-        dev.off()
-        allcelltypes <- unique(as.vector(new_df.ordered$Cell.type))
-        result_string <- paste(allcelltypes, collapse = "-")
+          pdf(paste0(output_path, clusters[i], "_featureplot_top", top_n_markers, "ranks.pdf"), bg = "white")
+          print(FeaturePlot(seurat_obj, features = new_vec2), label = TRUE)
+          dev.off()
+          allcelltypes <- unique(as.vector(new_df.ordered$Cell.type))
+          result_string <- paste(allcelltypes, collapse = "-")
+          new_row <- data.frame(Cluster = clusters[i], Cell.type = result_string)
+          annot_df <- rbind(annot_df, new_row)
+        }
+      } else if (annot_type == "other"){
+        new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
+        cell_types <- unique(as.vector(known_markers_df[,"Cell.type"]))
+        # create empty list to store cell types
+        cell_type_list <- c()
+        for (j in 1:length(cell_types)){
+          cell_type <- cell_types[j]
+          #print(cell_type)
+          genes_df <- subset(known_markers_df, Cell.type == cell_type)
+          #print(colnames(genes_df))
+          genes <- unique(rownames(genes_df))
+          #print(genes)
+          count = 0
+          for (k in 1:length(new_vec2)){
+            gene <- new_vec2[k]
+            if (gene %in% genes){
+              count <- count + 1
+            } else {
+                next
+            }
+          }
+          if (count >= 2){
+            new_cell_type <- cell_type
+            #print(new_cell_type)
+          } else if (count >= 1 && cell_type == "Cone") {
+            # check Pan PRs
+            count2 <- 0
+            genes_df <- subset(known_markers_df, Cell.type == "Pan PR")
+            genes <- unique(rownames(genes_df))
+            for (k in 1:length(new_vec2)){
+              gene <- new_vec2[k]
+              if (gene %in% genes){
+                count2 <- count2 + 1
+              } else {
+                next
+              }
+            }
+            if (count2 >= 2){
+              new_cell_type <- "Cone"
+            } 
+          } else if (count >= 1 && cell_type == "Ganglion Cell") {
+            # check Amacrine-Ganglion
+            count3 <- 0
+            genes_df <- subset(known_markers_df, Cell.type == "Amacrine-Ganglion")
+            genes <- unique(rownames(genes_df))
+            for (k in 1:length(new_vec2)){
+              gene <- new_vec2[k]
+              if (gene %in% genes){
+                count3 <- count3 + 1
+              } else {
+                next
+              }
+            }
+            if (count3 >= 2){
+              new_cell_type <- "Ganglion Cell"
+            }
+          } else if (count >= 1 && cell_type == "Amacrine Cell") {
+            # check Amacrine-Ganglion
+            count4 <- 0
+            genes_df <- subset(known_markers_df, Cell.type == "Amacrine-Ganglion")
+            genes <- unique(rownames(genes_df))
+            for (k in 1:length(new_vec2)){
+              gene <- new_vec2[k]
+              if (gene %in% genes){
+                count4 <- count4 + 1
+              } else {
+                next
+              }
+            }
+            if (count4 >= 2){
+              new_cell_type <- "Amacrine Cell"
+            }
+          } else if (count == 1 && length(new_vec2) == 1){
+            new_cell_type <- cell_type
+
+          } else {
+            new_cell_type <- "NA"
+          }
+        cell_type_list <- c(cell_type_list, new_cell_type)
+        }
+        #print(paste0("cell type list ", cell_type_list))
+        if ("Cone" %in% cell_type_list && "Pan PR" %in% cell_type_list){
+          cell_type_list <- c("Cone")
+          print("Cone!")
+        }
+        else if ("Rod" %in% cell_type_list && "Pan PR" %in% cell_type_list){
+          print("Rod!")
+          cell_type_list <- c("Rod")
+        }
+        else if ("Amacrine Cell" %in% cell_type_list && "Amacrine-Ganglion" %in% cell_type_list){
+          cell_type_list <- c("Amacrine Cell")
+          print("Amacrine Cell!")
+        }
+        else if ("Ganglion Cell" %in% cell_type_list && "Amacrine-Ganglion" %in% cell_type_list){
+          cell_type_list <- c("Ganglion Cell")
+          print("Ganglion Cell!")
+        }
+        else if (all(is.na(c("NA")) %in% names(cell_type_list))){
+          cell_type_list <- c("unknown")
+        }
+        else {
+          cell_type_list <- cell_type_list[cell_type_list != "NA"]
+        }
+        result_string <- paste(cell_type_list, collapse = "-")
+        print(paste0("final cell type ", clusters[i], " ",result_string))
         new_row <- data.frame(Cluster = clusters[i], Cell.type = result_string)
         annot_df <- rbind(annot_df, new_row)
+        } else {
+          print("Need to set annotation type in config")
+        }
       }
-    }
-  } else {
+    } else {
     print("No known marker set")
   }
   return(annot_df)
@@ -895,6 +1008,8 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
   # Rename the clusters based on the new IDs
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
+  # put in CellType metadata
+  seurat_obj$CellType <- Idents(seurat_obj)
 
   # Generate and plot the UMAP plot
 
