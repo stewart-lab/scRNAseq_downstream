@@ -252,10 +252,22 @@ ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = outp
   return(obj.list)
 }
 
-get_metadata <- function(seurat_obj, path = output) {
+get_metadata <- function(seurat_obj, type, path = output) {
   # Get parameters from config
-  metadata_file <- config$get_metadata$metadata_file
-  metadata_subset <- config$get_metadata$metadata_subset
+  metadata_file1 <- config$get_metadata$metadata_file1
+  metadata_file2 <- config$get_metadata$metadata_file2
+  metadata_subset1 <- config$get_metadata$metadata_subset1
+  metadata_subset2 <- config$get_metadata$metadata_subset2
+  # check type
+  if (type == "ref") {
+    metadata_file <- metadata_file1
+    metadata_subset <- metadata_subset1
+  } else if (type == "query") {
+    metadata_file <- metadata_file2
+    metadata_subset <- metadata_subset2
+  } else {
+    stop("Invalid type. Please choose 'ref' or 'query'.")
+  }
   # read in metadata file
   metadata <- read.csv2(metadata_file, sep="\t", header=TRUE, row.names=1)
   # subset metadata if needed
@@ -891,6 +903,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
         cell_types <- unique(as.vector(known_markers_df[,"Cell.type"]))
         # create empty list to store cell types
         cell_type_list <- c()
+        cell_type_list1 <- c()
         for (j in 1:length(cell_types)){
           cell_type <- cell_types[j]
           #print(cell_type)
@@ -966,11 +979,13 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             } else {
               new_cell_type <- "NA"
             }
-          } else if (count == 1 && length(new_vec2) == 1){
-            new_cell_type <- cell_type
-
           } else {
             new_cell_type <- "NA"
+          }
+          if (count >= 1){
+            new_cell_type1 <- cell_type
+            cell_type_list1 <- c(cell_type_list1, new_cell_type1)
+            # print(paste0("cell type list 1: ",cell_type_list1))
           }
         cell_type_list <- c(cell_type_list, new_cell_type)
         }
@@ -996,6 +1011,21 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
         }
         else {
           cell_type_list <- cell_type_list[cell_type_list != "NA"]
+        }
+        #print(paste0("cluster ", clusters[i], "cell types: ",cell_type_list))
+        # check second list
+        if ("unknown" %in% cell_type_list | length(cell_type_list) == 0 | length(cell_type_list) > 1){
+          if (length(unique(cell_type_list1)) > 2){
+            cell_type_list <- c("Retinal Prog")
+          } else if (length(unique(cell_type_list1)) == 1){
+            cell_type_list <- unique(cell_type_list1)
+          } else if (length(unique(cell_type_list1)) == 2){
+            cell_type_list <- unique(cell_type_list1)
+          } else {
+            cell_type_list <- c("unknown")
+          }
+        } else {
+          cell_type_list <- cell_type_list
         }
         result_string <- paste(cell_type_list, collapse = "-")
         print(paste0("final cell type ", clusters[i], " ",result_string))
@@ -1136,4 +1166,121 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
 
   # Save object with clustifyr annotation
   saveRDS(clustered_seurat_obj, file = paste0(output, "seurat_obj_clustifyr.rds"))
+}
+
+count_and_feature_plots <- function(ref_seurat_obj, query_seurat_obj, path = output){
+  # raw counts
+  p1<- FeaturePlot(ref_seurat_obj, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+  pdf(paste0(output, "human_ref-rnacounts-featureplot.pdf"), width = 8, height = 6)
+  print(p1)
+  dev.off()
+  p2<- FeaturePlot(query_seurat_obj, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+  pdf(paste0(output, "query-rnacounts-featureplot.pdf"), width = 8, height = 6)
+  print(p2)
+  dev.off()
+  # number of unique genes expressed per cell
+  p3<-FeaturePlot(ref_seurat_obj, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+  pdf(paste0(output, "human_ref-nfeature-featureplot.pdf"), width = 8, height = 6)
+  print(p3)
+  dev.off()
+  p4<-FeaturePlot(query_seurat_obj, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+  pdf(paste0(output, "query-nfeature-featureplot.pdf"), width = 8, height = 6)
+  print(p4)
+  dev.off()
+}
+
+visualize_and_subset_ref <- function(ref_seurat_obj, path = output) {
+  groupby <- config$visualize_and_subset_ref$groupby
+  removal_list <- config$visualize_and_subset_ref$celltype_removal_list
+  # Visualize the reference object
+  pdf(paste0(path, "ref_seurat_obj_umap.pdf"), width = 8, height = 6)
+  print(DimPlot(ref_seurat_obj, reduction = "umap", group.by = groupby, 
+        label = TRUE, repel = TRUE))
+  dev.off()
+  # set identity class to existing meta data
+  Idents(object = ref_seurat_obj) <- groupby
+  print(table(Idents(ref_seurat_obj)))
+  # stash idents in another column
+  ref_seurat_obj[["idents"]] <- Idents(object = ref_seurat_obj)
+  # remove NAs
+  ref_seurat_obj <- subset(x = ref_seurat_obj, subset = idents != "<NA>")
+  # Subset the reference object
+  for(i in 1:length(removal_list)) {
+    ref_seurat_obj <- subset(x = ref_seurat_obj, idents = removal_list[i], invert = TRUE)
+  }
+  # Visualize the subsetted reference object
+  pdf(paste0(path, "ref_seurat_obj_subset_umap.pdf"), width = 8, height = 6)
+  print(DimPlot(ref_seurat_obj, reduction = "umap", group.by = groupby, 
+        label = TRUE, repel = TRUE))
+  dev.off()
+
+  tablex<- table(Idents(ref_seurat_obj))
+  write.table(tablex, file = paste0(output,"subset_celltype_table.txt"), 
+              sep="\t", row.names = FALSE)
+  return(ref_seurat_obj)
+}
+
+transfer_anchors<- function(ref.seurat, query.seurat, path = output){
+  reduc.type <- config$transfer_anchors$reduc.type
+  query_manual_annot <- config$transfer_anchors$query_manual_annot
+  # integrate features
+  ret.list<- list(query.seurat,ref.seurat)
+  features <- SelectIntegrationFeatures(object.list = ret.list, nfeatures = 3000)
+  # find anchors and transfer data
+  if (reduc.type== "cca"){
+  # for cca
+  anchors <- FindTransferAnchors(reference = ref.seurat, query = query.seurat,
+                                        dims = 1:30,reduction= "cca")
+  predictions <- TransferData(anchorset = anchors, refdata = ref.seurat$idents,
+                            dims = 1:30, weight.reduction="cca")
+  } else if (reduc.type== "pca"){
+  # for pca
+  anchors <- FindTransferAnchors(reference = ref.seurat, query = query.seurat,
+                                        dims = 1:30, referemce.reduction= "pca")
+  predictions <- TransferData(anchorset = anchors, refdata = ref.seurat$idents,
+                            dims = 1:30)
+  } else {
+    print("choose reduc.type either cc or pca")
+  }
+  # add predictions to query
+  query.seurat <- AddMetaData(query.seurat, metadata = predictions)
+  print(table(query.seurat$predicted.id))
+  # visualize with umap
+  pg <- DimPlot(query.seurat, reduction = "umap", group.by = "predicted.id", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+  pdf(paste0(output, "query-celltype_seurat_predictions_umap.pdf"), width = 8, height = 6)
+    print(pg)
+  dev.off()
+  pc <- DimPlot(query.seurat, reduction = "umap", group.by = query_manual_annot, label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query manually annotated labels")
+  pdf(paste0(output, "query-manual_annotation_umap.pdf"), width = 8, height = 6)
+    print(pc)
+  dev.off()
+
+  # return query and anchors
+  obj.list <- list(query.seurat, anchors)
+  return(obj.list)
+}
+
+project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = output){
+  reduc.type <- config$transfer_anchors$reduc.type
+  ref_annot <- config$visualize_and_subset_ref$groupby
+  query_manual_annot <- config$transfer_anchors$query_manual_annot
+  # need to rerun umap to store model
+  ref.seurat <- RunUMAP(ref.seurat, dims = 1:30, reduction = "pca", return.model = TRUE)
+  # map query
+  if (reduc.type== "cca"){
+    # for cca
+    query.seurat <- MapQuery(anchorset = anchors, reference = ref.seurat, query = query.seurat,
+                           refdata = list(celltype = ref_annot), reference.reduction = "cca", reduction.model = "umap")
+
+  } else if (reduc.type== "pca"){
+    # for pca
+    query.seurat <- MapQuery(anchorset = anchors, reference = ref.seurat, query = query.seurat,
+                           refdata = list(celltype = ref_annot), reference.reduction = "pca", reduction.model = "umap")
+  } else {print("choose reduc.type either cc or pca")} 
+
+  # return ref and query seurats
+  obj.list <- list(ref.seurat, query.seurat)
+  return(obj.list)
 }
