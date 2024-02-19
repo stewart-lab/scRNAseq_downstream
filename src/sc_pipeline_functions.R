@@ -1015,8 +1015,10 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
         #print(paste0("cluster ", clusters[i], "cell types: ",cell_type_list))
         # check second list
         if ("unknown" %in% cell_type_list | length(cell_type_list) == 0 | length(cell_type_list) > 1){
-          if (length(unique(cell_type_list1)) > 2){
+          if (length(unique(cell_type_list1)) > 2 && annot_type == "d40"){
             cell_type_list <- c("Retinal Prog")
+          } else if (cell_type_list == 2 && annot_type == "d120"){
+            cell_type_list <- cell_type_list
           } else if (length(unique(cell_type_list1)) == 1){
             cell_type_list <- unique(cell_type_list1)
           } else if (length(unique(cell_type_list1)) == 2){
@@ -1280,7 +1282,41 @@ project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = outpu
                            refdata = list(celltype = ref_annot), reference.reduction = "pca", reduction.model = "umap")
   } else {print("choose reduc.type either cc or pca")} 
 
+  # visualize with umap
+  p1 <- DimPlot(ref.seurat, reduction = "umap", group.by = ref_annot, label = TRUE, label.size = 3,
+              repel = TRUE) + ggtitle("Reference annotations")# + NoLegend()
+  p2 <- DimPlot(query.seurat, reduction = "ref.umap", group.by = "predicted.celltype", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+  pdf(paste0(output, "celltype_seurat_predictions-umap_cca_clabels.pdf"), width = 11, height = 6)
+  print(p1 + p2)
+  dev.off()
+  p3 <- DimPlot(query.seurat, reduction = "ref.umap", group.by = query_manual_annot, label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Manually annotated labels")
+  pdf(paste0(output, "celltype_seurat_predictionsvsmanual-umap_0.5_cca_clabels.pdf"), width = 11, height = 6)
+  print(p2 + p3)
+  dev.off()
   # return ref and query seurats
   obj.list <- list(ref.seurat, query.seurat)
   return(obj.list)
+}
+
+get_manual_comparison <- function(query.seurat, path = output){
+  query_manual_annot <- config$transfer_anchors$query_manual_annot
+  rowvec <- config$get_manual_comparison$rowvec
+  colvec <- config$get_manual_comparison$colvec
+  # verify model performance in query data
+  query.ref.data.table1<- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype"))
+  # check out proportion of cells
+  query.ref.data.table2<- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype", output = "prop"))
+  # order according to rowvec and colvec
+  query.ref.data.table1<- query.ref.data.table1[order(match(rownames(query.ref.data.table1), rowvec)), , drop = FALSE]
+  query.ref.data.table1<- query.ref.data.table1[colvec]
+  query.ref.data.table2<- query.ref.data.table2[order(match(rownames(query.ref.data.table2), rowvec)), , drop = FALSE]
+  query.ref.data.table2<- query.ref.data.table2[colvec]
+  # write out tables
+  write.table(query.ref.data.table1, file = paste0(output,"query_ref_data_table.txt"), 
+              sep="\t", row.names = TRUE)
+  write.table(query.ref.data.table2, file = paste0(output,"query_ref_data_table_proportion.txt"), 
+              sep="\t", row.names = TRUE)
+  return(query.ref.data.table2)
 }

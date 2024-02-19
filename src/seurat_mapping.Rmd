@@ -76,55 +76,29 @@ ref.seurat.sub <- visualize_and_subset_ref(ref.seurat)
 ```{r find_anchors_and_transfer}
 obj.list <- transfer_anchors(ref.seurat.sub, query.seurat)
 print(obj.list)
-#query.seurat <- obj.list[1]
-#anchors <- obj.list[2]
+query.seurat <- obj.list[[1]]
+anchors <- obj.list[[2]]
 ```
 
 
 # projection of a query onto the reference UMAP structure.
 ```{r project_query_on_ref}
-obj.list <- project_query_on_ref(ref.seurat, query.seurat, anchors)
+obj.list <- project_query_on_ref(ref.seurat.sub, query.seurat, anchors)
+ref.seurat <- obj.list[[1]]
+query.seurat <- obj.list[[2]]
 ```
-# visualize
-```{r visualize}
-p1 <- DimPlot(human_F49B7.seurat, reduction = "umap", group.by = "cell_type2", label = TRUE, label.size = 3,
-              repel = TRUE) + ggtitle("Reference annotations")# + NoLegend()
-p2 <- DimPlot(gamms2.1, reduction = "ref.umap", group.by = "predicted.celltype", label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
-pdf(paste0(output, "celltype_seurat_predictions-umap2.1_cca_clabels.pdf"), width = 11, height = 6)
-print(p1 + p2)
-dev.off()
-p3 <- DimPlot(gamms2.1, reduction = "ref.umap", group.by = "CellType_manual", label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Manually annotated labels")
-pdf(paste0(output, "celltype_seurat_predictions-umap2.1_0.5_cca_clabels.pdf"), width = 11, height = 6)
-print(p2 + p3)
-dev.off()
 
-```
 # visualize probabilities
 ```{r visualize_prob}
 #  probabilities of each cell in the @meta.data slot of the query Seurat object.
 # get labels
-labels<- as.vector(unique(colnames(gamms2.1@meta.data)))
-labels<-labels[! labels %in% c('orig.ident', 'nCount_RNA', 'nFeature_RNA', 
-        'predicted.id','sizeFactors','scDblFinder.score','percent.mt','CellType','CellType_manual',
-        'ident','scDblFinder.weighted', 'prediction.score.max','prediction.match', 
-        'RNA_snn_res.0.14','RNA_snn_res.0.5',"predicted.celltype.score","predicted.celltype",
-        'scDblFinder.class','scDblFinder.cxds_score','seurat_clusters','S.Score','G2M.Score',
-        'Phase','old.ident')]
+labels<- as.vector(unique(colnames(query.seurat@meta.data)))
+library(stringr)
+labels <- labels[startsWith(labels, "prediction.score.")]
+labels<-labels[! labels %in% c('prediction.score.max')]
 # visualize the probabilities over the UMAP plot:
-pdf(paste0(output, "gamm2.1_celltype_prediction_featureplot.pdf"), width = 10, height = 10)
-print(FeaturePlot(gamms2.1, labels, keep.scale = "all"))
-dev.off()
-labels<- as.vector(unique(colnames(gamms2.2@meta.data)))
-labels<-labels[! labels %in% c('orig.ident', 'nCount_RNA', 'nFeature_RNA', 
-        'predicted.id','sizeFactors','scDblFinder.score','percent.mt','CellType','CellType_manual',
-        'ident','scDblFinder.weighted', 'prediction.score.max','prediction.match', 
-        'RNA_snn_res.0.14','RNA_snn_res.0.5',"predicted.celltype.score","predicted.celltype",
-        'scDblFinder.class','scDblFinder.cxds_score','seurat_clusters','S.Score','G2M.Score',
-        'Phase','old.ident')]
-pdf(paste0(output, "gamm2.2_celltype_prediction_featureplot.pdf"), width = 10, height = 10)
-print(FeaturePlot(gamms2.2, labels, keep.scale = "all"))
+pdf(paste0(output, "query_celltype_prediction_featureplot.pdf"), width = 10, height = 10)
+print(FeaturePlot(query.seurat, labels, keep.scale = "all"))
 dev.off()
 ```
 # get comparison between predicted and manual annotations
