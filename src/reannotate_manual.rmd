@@ -64,7 +64,7 @@ gamms2.annot <- annotate_clusters_and_save(gamms2, new.cluster.ids)
 # save annotation as dataframe
 ```{r save_annot}
 gamm.metadata<- as.data.frame(gamms2.annot@meta.data)
-write.table(gamm.metadata, file = "gammS1_manual_annot_metadata_c0.5_KR.txt", sep="\t", 
+write.table(gamm.metadata, file = paste0(output,"gammS2_manual_annot_metadata_c0.5_KR.txt"), sep="\t", 
             quote=F, row.names = T)
 ```
 

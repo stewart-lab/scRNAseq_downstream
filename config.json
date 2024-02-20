@@ -97,7 +97,7 @@
     "auc_thresh": 0.5
   },
   "process_known_markers":{
-   "annot_type": "d40",
+   "annot_type": "d120",
    "n_rank": 10
   },
   "transfer_anchors": {

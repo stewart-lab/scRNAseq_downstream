@@ -1017,12 +1017,12 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
         if ("unknown" %in% cell_type_list | length(cell_type_list) == 0 | length(cell_type_list) > 1){
           if (length(unique(cell_type_list1)) > 2 && annot_type == "d40"){
             cell_type_list <- c("Retinal Prog")
-          } else if (cell_type_list == 2 && annot_type == "d120"){
+          } else if (length(unique(cell_type_list)) == 2 && annot_type == "d120"){
             cell_type_list <- cell_type_list
-          } else if (length(unique(cell_type_list1)) == 1){
-            cell_type_list <- unique(cell_type_list1)
-          } else if (length(unique(cell_type_list1)) == 2){
-            cell_type_list <- unique(cell_type_list1)
+          # } else if (length(unique(cell_type_list1)) == 1){
+          #   cell_type_list <- unique(cell_type_list1)
+          # } else if (length(unique(cell_type_list1)) == 2){
+          #   cell_type_list <- unique(cell_type_list1)
           } else {
             cell_type_list <- c("unknown")
           }
