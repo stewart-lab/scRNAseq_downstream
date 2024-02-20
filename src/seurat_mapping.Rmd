@@ -34,8 +34,12 @@ library(ComplexHeatmap)
 library(circlize)
 library(colorspace)
 library(GetoptLong)
+# set variables
 WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/"
 GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
+REF.SEURAT <- "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds"
+QUERY.SEURAT <- "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds"
+# set up environment and output
 use_condaenv("scRNAseq_best", required=TRUE)
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -49,8 +53,8 @@ source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 
 # read in seurat objects that were preprocessed
 ```{r read_data}
-query.seurat <- readRDS(file = "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds")
-ref.seurat <- readRDS(file = "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds")
+query.seurat <- readRDS(file = QUERY.SEURAT)
+ref.seurat <- readRDS(file = REF.SEURAT)
 ```
 # get metadata- if needed
 ```{r metadata}

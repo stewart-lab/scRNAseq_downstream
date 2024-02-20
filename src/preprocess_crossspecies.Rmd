@@ -31,36 +31,32 @@ library(Matrix)
 # set up dirs
 WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/"
 GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
-PROJECT_NAMES <- list("F49B7","gammS2")
+REF.MATRIX <- "STAR_output/output_F49i-N-B7/Solo.out/GeneFull/"
+QUERY.MATRIX <- "/w5home/bmoore/scRNAseq/GAMM/STAR_output/output_S2_mm_mt/Solo.out/GeneFull/"
+REF.PROJ.NAME <- "F49i-N-B7"
+QUERY.PROJ.NAME <- "gamm.data.S2"
 # use environment
 use_condaenv("scRNAseq_best")
 # set working directory
 setwd(WD)
 # create output folder
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_preprocess_test_", timestamp)
+output <- paste0("output_preprocess_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 # copy config and source functions
 file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config.json")))
 config <- fromJSON(file.path(output, "config.json"))
-
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 
 ```
 # Read in data
 ```{r data}
 # refernce data
-ref.matrix <- read_aligned_data(
-    paste0(WD,"STAR_output/output_F49i-N-B7/Solo.out/GeneFull/"),
-    "F49i-N-B7",output
-    )
+ref.matrix <- read_aligned_data(paste0(WD,REF.MATRIX),REF.PROJ.NAME, output)
 
-# load gamm pig data sample 2
-query.matrix <- read_aligned_data(
-    "/w5home/bmoore/scRNAseq/GAMM/STAR_output/output_S2_mm_mt/Solo.out/GeneFull/",
-    "gamm.data.S2",output
-    )
+# load query data
+query.matrix <- read_aligned_data(QUERY.MATRIX,QUERY.PROJ.NAME, output)
 ```
 
 # run soupx
@@ -98,7 +94,6 @@ rm(ref.matrix.soupx,query.matrix.soupx)
 ```
 # create seurat object
 ```{r} 
-#project_names= PROJECT_NAMES
 human_ref.seurat<- CreateSeuratObject(ref.matrix.flt, project = project_names[[1]], assay = "RNA",
                                        min.cells = 3, min.features = 200)
 pig_query.seurat<- CreateSeuratObject(gam.matrix.flt, project = project_names[[2]], assay = "RNA",
@@ -164,6 +159,20 @@ ref.seurat_scaled <- scale_data(ref.seurat_feat_select)
 ```{r dim_reduct}
 query.seurat_dim_reduced <- run_and_visualize_pca(query.seurat_scaled)
 ref.seurat_dim_reduced <- run_and_visualize_pca(ref.seurat_scaled)
+```
+# add in batch correction
+# grab variable features
+# do ortho subsetting
+# initialize seurat object
+# add back in variable features from previous object
+```{r}
+# get variable genes from seurat:
+#FEARURE_LIST <- query.seurat@var.genes
+# or variable genes from seurat 3
+FEATURE_LIST <- query.seurat@assays$RNA@var.features
+FEATURE_LIST <- as.vector(FEATURE_LIST)
+# add variable feature back in
+VariableFeatures(query.seurat) <- FEATURE_LIST
 ```
 # Run umap
 ```{r umap}
