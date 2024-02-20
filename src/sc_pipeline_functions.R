@@ -1320,3 +1320,25 @@ get_manual_comparison <- function(query.seurat, path = output){
               sep="\t", row.names = TRUE)
   return(query.ref.data.table2)
 }
+
+heatmap_func <- function(df, path = output){
+  # turn df into matrix
+  mat <- as.matrix(sapply(df, as.numeric, rownames=TRUE))  
+  y <- rownames(df)
+  rownames(mat) <- y
+
+  # make heatmap
+  hm<- Heatmap(mat, name= "Proportion of cells", column_title = "Cell types - manual", 
+             row_title = "Cell types - predicted", column_title_side = "top",row_title_side = "left", 
+             col = colorRamp2(c(0, 0.5, 1), c("blue","white","darkred")),
+             cluster_columns = F, cluster_rows= F, show_row_dend = F, 
+             column_names_gp = gpar(fontsize = 10), show_column_names = T, 
+             show_row_names = T, row_names_gp = gpar(fontsize = 10), 
+             cell_fun = function(j, i, x, y, width, height, fill) {
+               grid.text(sprintf("%.2f", mat[i, j]), x, y, gp = gpar(fontsize = 8))})
+  # save as pdf
+  pdf(file = paste0(output,"celltype_manualvs.predicted_heatmap.pdf"), width = 7, height = 5)
+  print(hm)
+  dev.off()
+  return(hm)
+}

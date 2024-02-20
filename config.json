@@ -107,6 +107,10 @@
   "visualize_and_subset_ref": {
     "groupby": "cell_type2",
     "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"]
+  },
+  "get_manual_comparison": {
+    "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
+    "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
   }
 
 }

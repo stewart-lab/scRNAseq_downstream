@@ -103,63 +103,17 @@ dev.off()
 ```
 # get comparison between predicted and manual annotations
 ```{r get_comparison}
-# verify model performance in query data
-query.ref.data.table1.2.1<- as.data.frame(crossTab(gamms2.1, "CellType_manual", "predicted.celltype"))
-# check out proportion of cells
-query.ref.data.table2.2.1<- as.data.frame(crossTab(gamms2.1, "CellType_manual", "predicted.celltype", output = "prop"))
-# verify model performance in query data
-query.ref.data.table1.2.2<- as.data.frame(crossTab(gamms2.2, "CellType_manual", "predicted.celltype"))
-# check out proportion of cells
-query.ref.data.table2.2.2<- as.data.frame(crossTab(gamms2.2, "CellType_manual", "predicted.celltype", output = "prop"))
-rowvec1 <- c("CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC")
-rowvec2 <- c("BC","rod","L/M cone","MC","AC","HC")
-colvec <- c("Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia",
-"Muller Glia - Retinal Prog","Retinal progenitors","Amacrine cells","unknown")
-query.ref.data.table2.2.1<- query.ref.data.table2.2.1[order(match(rownames(query.ref.data.table2.2.1), rowvec1)), , drop = FALSE]
-query.ref.data.table2.2.1<- query.ref.data.table2.2.1[colvec]
-query.ref.data.table2.2.2<- query.ref.data.table2.2.2[order(match(rownames(query.ref.data.table2.2.2), rowvec2)), , drop = FALSE]
-query.ref.data.table2.2.2<- query.ref.data.table2.2.2[colvec]
-# write out data
-write.table(query.ref.data.table1.2.1, file = paste0(output, "query_ref_data_table_s2.1.txt"), sep = "\t")
-write.table(query.ref.data.table2.2.1, file = paste0(output, "query_ref_data_table_proportion_s2.1.txt"), sep = "\t")
-write.table(query.ref.data.table1.2.2, file = paste0(output, "query_ref_data_table_s2.2.txt"), sep = "\t")
-write.table(query.ref.data.table2.2.2, file = paste0(output, "query_ref_data_table_proportion_s2.2.txt"), sep = "\t")
+query.ref.data.table <- get_manual_comparison(query.seurat)
+print(query.ref.data.table)
 ```
+
 # make heatmap
 ```{r heatmap}
-heatmap_func <- function(df){
-  # turn df into matrix
-  mat <- as.matrix(sapply(df, as.numeric, rownames=TRUE))  
-  y <- rownames(df)
-  rownames(mat) <- y
-  print(df[1,1])
-  print(mat[1,1])
-
-  # make heatmap
-  hm<- Heatmap(mat, name= "Proportion of cells", column_title = "Cell types - manual", 
-             row_title = "Cell types - predicted", column_title_side = "top",row_title_side = "left", 
-             col = colorRamp2(c(0, 0.5, 1), c("blue","white","darkred")),
-             cluster_columns = F, cluster_rows= F, show_row_dend = F, 
-             column_names_gp = gpar(fontsize = 10), show_column_names = T, 
-             show_row_names = T, row_names_gp = gpar(fontsize = 10), 
-             cell_fun = function(j, i, x, y, width, height, fill) {
-               grid.text(sprintf("%.2f", mat[i, j]), x, y, gp = gpar(fontsize = 8))})
-  return(hm)
-}
-hm <- heatmap_func(query.ref.data.table2.2.1)
-pdf(file = paste0(output,"celltype_manualvs.predicted_2.1_heatmap.pdf"), width = 7, height = 5)
-print(hm)
-dev.off()
-hm2 <- heatmap_func(query.ref.data.table2.2.2)
-pdf(file = paste0(output,"celltype_manualvs.predicted_2.2_heatmap.pdf"), width = 7, height = 5)
-print(hm2)
-dev.off()
+hm <- heatmap_func(query.ref.data.table)
 ```
 ```{r save_data}
-saveRDS(gamms2.1, file= paste0(output,"gamms2.1_cca_pred.rds"))
-saveRDS(gamms2.2, file= paste0(output,"gamms2.2_cca_pred.rds"))
-#saveRDS(human_F49B7.seurat, file= paste0(output,"human_F49B7_cca_pred.rds"))
-#saveRDS(human_IMR90.seurat, file= paste0(output,"human_IMR90_cca_pred.rds"))
+saveRDS(query.seurat, file= paste0(output,"query_seurat_pred.rds"))
+saveRDS(ref.seurat, file= paste0(output,"human_seurat_map.rds"))
 ```
 # save session info
 ```{r sessioninfo}
