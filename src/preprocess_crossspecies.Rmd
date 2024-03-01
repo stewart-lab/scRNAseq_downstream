@@ -36,16 +36,17 @@ QUERY.MATRIX <- "/w5home/bmoore/scRNAseq/GAMM/STAR_output/output_S2_mm_mt/Solo.o
 REF.PROJ.NAME <- "F49i-N-B7"
 QUERY.PROJ.NAME <- "gamm.data.S2"
 # use environment
-use_condaenv("scRNAseq_best")
+use_condaenv(condaenv="/w5home/bmoore/miniconda3/envs/scRNAseq_best/")
 # set working directory
 setwd(WD)
 # create output folder
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_preprocess_", timestamp)
-dir.create(output, showWarnings = FALSE)
-output <- paste0(output, "/")
+#timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+#output <- paste0("output_preprocess_", timestamp)
+#dir.create(output, showWarnings = FALSE)
+#output <- paste0(output, "/")
+output <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/output_preprocess_20240229_101646/"
 # copy config and source functions
-file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config.json")))
+#file.copy(paste0(GIT_DIR,"config.json"), file.path(paste0(output, "config.json")))
 config <- fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 
@@ -63,7 +64,7 @@ query.matrix <- read_aligned_data(QUERY.MATRIX,QUERY.PROJ.NAME, output)
 ```{r soupx}
 all_aligned_data <- list(ref.matrix,query.matrix)
 soupX_objs <- purrr::map(all_aligned_data, ~prep_seurat_and_soupX(data.raw = .x$raw, data = .x$filtered, project = .x$project), .names = purrr::map_chr(all_data, 'project'))
-
+# if umap-learn error try: reticulate::py_install(packages ='umap-learn')
 # get soup matrices
 ref.matrix.soupx<- soupX_objs[[1]]$out
 query.matrix.soupx<- soupX_objs[[2]]$out
@@ -104,9 +105,70 @@ pig_query.seurat<- CreateSeuratObject(gam.matrix.flt, project = project_names[[2
 human_ref.seurat_mt_filtered <- filter_cells(human_ref.seurat)
 pig_query.seurat_mt_filtered <- filter_cells(pig_query.seurat)
 ```
+
+# Normalization
+```{r normalization}
+ref.seurat_norm <- normalize_data(human_ref.seurat_mt_filtered)
+query.seurat_norm <- normalize_data(pig_query.seurat_mt_filtered)
+saveRDS(ref.seurat_norm, file = paste0(output,"human_",project_names[[1]],"_norm.rds"))
+saveRDS(query.seurat_norm, file = paste0(output,"query_",project_names[[2]],"_norm.rds"))
+rm(human_ref.seurat,pig_query.seurat)
+```
+
+# Feature selection
+```{r feat_select}
+#gamm.S2.seurat_norm<-readRDS(file = "output_20230711_155556/GAMM_S2_norm.rds")
+#human_D205.seurat_norm<-readRDS(file = "output_20230711_155556/human_D205_norm.rds")
+query.seurat_feat_select <- feature_selection(query.seurat_norm)
+ref.seurat_feat_select <- feature_selection(ref.seurat_norm)
+rm(human_ref.seurat_mt_filtered,pig_query.seurat_mt_filtered)
+```
+# Scaling data
+```{r scale}
+#query.seurat_scaled <- scale_data(query.seurat_feat_select)
+ref.seurat_feat_select<- readRDS(file= paste0(output,"human_F49i-N-B7_featsel.rds"))
+query.seurat_scaled<- readRDS(file=paste0(output,"query_gamm.data.S2_scaled.rds"))
+ref.seurat_scaled <- scale_data(ref.seurat_feat_select)
+#rm(ref.seurat_norm,query.seurat_norm)
+```
+# Dimensional reduction
+```{r dim_reduct}
+query.seurat_dim_reduced <- run_and_visualize_pca(query.seurat_scaled)
+ref.seurat_dim_reduced <- run_and_visualize_pca(ref.seurat_scaled)
+```
+# add in batch correction
+```{r batch_corr}
+query.seurat_batch_corr <- perform_batch_correction(query.seurat_dim_reduced)
+ref.seurat_batch_corr <- perform_batch_correction(ref.seurat_dim_reduced)
+```
+# grab variable features
+```{r}
+# get variable genes from seurat:
+#FEARURE_LIST <- query.seurat@var.genes
+# or variable genes from seurat 3
+feature_list_Q <- query.seurat_dim_reduced@assays$RNA@var.features
+feature_list_Q <- as.vector(feature_list_Q)
+feature_list_R <- ref.seurat_dim_reduced@assays$RNA@var.features
+feature_list_R <- as.vector(feature_list_R)
+print(feature_list_Q)
+print(feature_list_R)
+```
+```{r}
+# get scale data
+scaled_matrix_Q <- query.seurat_dim_reduced@assays$RNA@scale.data
+scaled_matrix_R <- ref.seurat_dim_reduced@assays$RNA@scale.data
+```
+# save seurat object
+```{r}
+saveRDS(ref.seurat_dim_reduced, file = paste0(output,"human_",project_names[[1]],"_dim_reduced.rds"))
+saveRDS(query.seurat_dim_reduced, file = paste0(output,"query_",project_names[[2]],"_dim_reduced.rds"))
+rm(human_ref.seurat_mt_filtered,human_ref.seurat,pig_query.seurat_mt_filtered,pig_query.seurat)
+```
+# do ortho subsetting
 # read in orthologs and subset
 ```{r ortho_subset}
-objs.list <- ortholog_subset(human_ref.seurat_mt_filtered,pig_query.seurat_mt_filtered,project_names)
+project_names <- list("F49i-N-B7","gamm.data.S2")
+objs.list <- ortholog_subset(ref.seurat_dim_reduced,query.seurat_dim_reduced,project_names)
 ref.seurat <- objs.list[[1]]
 query.seurat <- objs.list[[2]]
 orthologs <- objs.list[[3]]
@@ -122,57 +184,21 @@ print(table(ref.seurat$orig.ident))
 print(table(ref.seurat$EGA))
 print(table(ref.seurat$cell_type2))
 ```
-
-# save seurat object
-```{r}
-saveRDS(ref.seurat, file = paste0(output,"human_",project_names[[1]],"_ortholog.rds"))
-saveRDS(query.seurat, file = paste0(output,"query_",project_names[[2]],"_ortholog.rds"))
-rm(human_ref.seurat_mt_filtered,human_ref.seurat,pig_query.seurat_mt_filtered,pig_query.seurat)
-```
-# Normalization
-```{r normalization}
-ref.seurat_norm <- normalize_data(ref.seurat)
-query.seurat_norm <- normalize_data(query.seurat)
-saveRDS(ref.seurat_norm, file = paste0(output,"human_",project_names[[1]],"_norm.rds"))
-saveRDS(query.seurat_norm, file = paste0(output,"query_",project_names[[2]],"_norm.rds"))
-rm(ref.seurat,query.seurat)
-```
-## further steps: 
-# for scPRED: reference undergoes feature selection, scaling, and dimensional reduction, query does not
-#    # if doing a test set for scPred, stop here and load normalized data into scPred. 
-#    # Scpred will split the reference into training and testing, then do the rest of the steps.
-# for Seurat integration or mapping: query also undergoes feature selection
-
-# Feature selection
-```{r feat_select}
-#gamm.S2.seurat_norm<-readRDS(file = "output_20230711_155556/GAMM_S2_norm.rds")
-#human_D205.seurat_norm<-readRDS(file = "output_20230711_155556/human_D205_norm.rds")
-query.seurat_feat_select <- feature_selection(query.seurat_norm)
-ref.seurat_feat_select <- feature_selection(ref.seurat_norm)
-```
-# Scaling data
-```{r scale}
-query.seurat_scaled <- scale_data(query.seurat_feat_select)
-ref.seurat_scaled <- scale_data(ref.seurat_feat_select)
-```
-# Dimensional reduction
-```{r dim_reduct}
-query.seurat_dim_reduced <- run_and_visualize_pca(query.seurat_scaled)
-ref.seurat_dim_reduced <- run_and_visualize_pca(ref.seurat_scaled)
-```
-# add in batch correction
-# grab variable features
-# do ortho subsetting
-# initialize seurat object
 # add back in variable features from previous object
 ```{r}
-# get variable genes from seurat:
-#FEARURE_LIST <- query.seurat@var.genes
-# or variable genes from seurat 3
-FEATURE_LIST <- query.seurat@assays$RNA@var.features
-FEATURE_LIST <- as.vector(FEATURE_LIST)
 # add variable feature back in
-VariableFeatures(query.seurat) <- FEATURE_LIST
+VariableFeatures(query.seurat) <- feature_list_Q
+VariableFeatures(ref.seurat) <- feature_list_R
+```
+```{r}
+# add scaled data back in
+query.seurat@assays$RNA@scale.data <- scaled_matrix_Q 
+ref.seurat@assays$RNA@scale.data <- scaled_matrix_R
+```
+```{r}
+# redo PCA
+query.seurat_dim_reduced <- run_and_visualize_pca(query.seurat)
+ref.seurat_dim_reduced <- run_and_visualize_pca(ref.seurat)
 ```
 # Run umap
 ```{r umap}
