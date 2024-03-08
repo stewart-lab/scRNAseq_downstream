@@ -7,7 +7,7 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(ggplot2)
-use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
+use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 # set variables
 WD <- "/w5home/bmoore/scRNAseq/GAMM/GAMM_S1/output_20230921_142919/"
 SEURAT_OBJ <- "GAMM_S1_clabeled-clusters_0.5.rds"
