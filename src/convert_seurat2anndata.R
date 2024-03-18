@@ -4,7 +4,7 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(Seurat)
-use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
+use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 ## to install SeuratDisk
 # first install hdf5r:
 # conda install -c conda-forge r-hdf5r
@@ -19,10 +19,10 @@ use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
 
 library(SeuratDisk)
 # variables
-WD <- "~/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/"
-SEURAT_OBJ <- "GAMM_S2_clabeled-clusters_0.5.rds"
-METADATA_GAMM <- "/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
-OUTPUT_name <- "GAMM_S2_clabeled-clusters_0.5.h5Seurat"
+WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20240125_112552/"
+SEURAT_OBJ <- "gamms2_cca_pred.rds"
+METADATA_GAMM <- "/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
+OUTPUT_name <- "GAMM_S2_ortho_clabeled-clusters_0.5.h5Seurat"
 
 setwd(WD)
 
@@ -34,8 +34,9 @@ gamms2<- readRDS(file = SEURAT_OBJ)
 metadata.gamm <- read.csv(METADATA_GAMM, row.names = 1,
                           header = TRUE, sep = "\t")
 # check metadata with query data
-colnames(gamms2@assays$RNA@data)[1:10]
-rownames(metadata.gamm)[1:10]
+print(colnames(gamms2@assays$RNA@data)[1:10])
+print(rownames(metadata.gamm)[1:10])
+print(colnames(gamms2@meta.data))
 # add metadata to query data
 # remove "_1" from metadata
 #rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))

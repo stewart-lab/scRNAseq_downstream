@@ -27,6 +27,7 @@ seurat.obj.2 <- readRDS(file = "gamms2_cca_pred.rds")
 table(seurat.obj.2$predicted.id)
 colnames(seurat.obj.2@meta.data)
 table(seurat.obj.2$orig.ident)
+print(seurat.obj.2)
 # Idents(object = seurat.obj.2) <- "orig.ident"
 # seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `output_S2-2_mm_mt_GeneFull` = "pig", `gamm_S2` = "pig")
 # seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
