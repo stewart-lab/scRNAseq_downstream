@@ -91,7 +91,7 @@ obj.list <- project_query_on_ref(ref.seurat.sub, query.seurat, anchors)
 ref.seurat <- obj.list[[1]]
 query.seurat <- obj.list[[2]]
 ```
-
+b
 # visualize probabilities
 ```{r visualize_prob}
 #  probabilities of each cell in the @meta.data slot of the query Seurat object.

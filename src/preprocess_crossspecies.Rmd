@@ -179,6 +179,7 @@ print(query.seurat)
 ```{r metadata}
 # "f49b7"
 ref.seurat <- get_metadata(ref.seurat, "ref")
+
 print(colnames(ref.seurat@meta.data))
 print(table(ref.seurat$orig.ident))
 print(table(ref.seurat$EGA))

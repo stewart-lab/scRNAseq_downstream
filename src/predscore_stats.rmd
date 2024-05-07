@@ -23,17 +23,44 @@ setwd(WD)
 ```
 
 ```{r}
+seurat.obj.1 <- readRDS(file = "human_D205_subset_annot.rds")
 seurat.obj.2 <- readRDS(file = "gamms2_cca_pred.rds")
-table(seurat.obj.2$predicted.id)
 colnames(seurat.obj.2@meta.data)
+table(seurat.obj.2$predicted.id)
 table(seurat.obj.2$orig.ident)
-print(seurat.obj.2)
+colnames(seurat.obj.1@meta.data)
+table(seurat.obj.1$type)
+
 # Idents(object = seurat.obj.2) <- "orig.ident"
 # seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `output_S2-2_mm_mt_GeneFull` = "pig", `gamm_S2` = "pig")
 # seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
 # table(seurat.obj.2$orig.ident)
 # saveRDS(seurat.obj.2, file =  "output_seurat_mapping_20231218_161017/gamms2.1_cca_pred.rds")
 ```
+```{r}
+gamms1 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/GAMM_S1/output_reannotate_20240220_110714/seurat_obj_labeled.rds")
+gamms2 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_reannotate_20240220_100630/seurat_obj_labeled.rds")
+colnames(gamms1@meta.data)
+colnames(gamms2@meta.data)
+table(gamms1$CellType)
+table(gamms2$CellType)
+```
+
+```{r}
+gamms2.1 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/output_seurat_mapping_20240125_140749/gamms2.1_cca_pred.rds")
+cowan1 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/output_preprocess20231130_141317/human_F49B7_ortholog.rds")
+gamms2.2 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/output_seurat_mapping_20240125_140749/gamms2.2_cca_pred.rds")
+cowan2 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/output_preprocess20231130_141317/human_IMR90_ortholog.rds")
+colnames(gamms2.1@meta.data)
+colnames(cowan1@meta.data)
+colnames(gamms2.2@meta.data)
+colnames(cowan2@meta.data)
+```
+```{r}
+table(gamms2.1$predicted.id)
+table(gamms2.2$predicted.id)
+```
+
 # for Reh data
 ```{r cluster_stats}
 seurat.obj.2a <- subset(seurat.obj.2, subset = predicted.id == 'PR')
@@ -142,10 +169,11 @@ print(RGC.med)
 ```{r cluster_stats}
 seurat.obj.2a <- subset(seurat.obj.2, subset = predicted.id == 'rod')
 rod.mean <- mean(seurat.obj.2a$prediction.score.rod)
-rod.med <- median(seurat.obj.2a$prediction.score.rod)
-pdf(file = paste0(output,"rod_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+rod.med <- round(median(seurat.obj.2a$prediction.score.rod), digits = 3)
+pdf(file = "rod_pred.score_histplot_2.2.pdf", width = 3.5, height = 3.5, 
      bg = "white")
-print(hist(seurat.obj.2a$prediction.score.rod, plot=TRUE, xlim = c(0,1)))
+print(hist(seurat.obj.2a$prediction.score.rod, plot=TRUE, xlim = c(0,1), 
+     main=paste0("Rod_pred.score median: ",rod.med)))
 dev.off()
 print(rod.mean)
 print(rod.med)
@@ -153,10 +181,11 @@ print(rod.med)
 ```{r}
 seurat.obj.2b <- subset(seurat.obj.2, subset = predicted.id == 'L/M cone')
 cone.mean <- mean(seurat.obj.2b$prediction.score.L.M.cone)
-cone.med <- median(seurat.obj.2b$prediction.score.L.M.cone)
-pdf(file = paste0(output,"cone_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+cone.med <- round(median(seurat.obj.2b$prediction.score.L.M.cone), digits = 3)
+pdf(file = "cone_pred.score_histplot_2.2.pdf", width = 3.5, height = 3.5, 
      bg = "white")
-print(hist(seurat.obj.2b$prediction.score.L.M.cone, plot=TRUE, xlim = c(0,1)))
+print(hist(seurat.obj.2b$prediction.score.L.M.cone, plot=TRUE, xlim = c(0,1), 
+     main=paste0("L.M.cone_pred.score median: ",cone.med )))
 dev.off()
 print(cone.mean)
 print(cone.med)
@@ -165,10 +194,11 @@ print(cone.med)
 ```{r}
 seurat.obj.2c <- subset(seurat.obj.2, subset = predicted.id == 'HC')
 HC.mean <- mean(seurat.obj.2c$prediction.score.HC)
-HC.med <- median(seurat.obj.2c$prediction.score.HC)
-pdf(file = paste0(output,"HC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+HC.med <- round(median(seurat.obj.2c$prediction.score.HC), digits = 3)
+pdf(file = "HC_pred.score_histplot_2.2.pdf", width = 3.5, height = 3.5, 
      bg = "white")
-print(hist(seurat.obj.2c$prediction.score.HC, plot=TRUE, xlim = c(0,1)))
+print(hist(seurat.obj.2c$prediction.score.HC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("HC_pred.score median: ", HC.med)))
 dev.off()
 print(HC.mean)
 print(HC.med)
@@ -177,10 +207,11 @@ print(HC.med)
 ```{r}
 seurat.obj.2d <- subset(seurat.obj.2, subset = predicted.id == 'MC')
 MC.mean <- mean(seurat.obj.2d$prediction.score.MC)
-MC.med <- median(seurat.obj.2d$prediction.score.MC)
-pdf(file = paste0(output,"MC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+MC.med <- round(median(seurat.obj.2d$prediction.score.MC), digits = 3)
+pdf(file = "MC_pred.score_histplot_2.2.pdf", width = 3.5, height = 3.5, 
      bg = "white")
-print(hist(seurat.obj.2d$prediction.score.MC, plot=TRUE, xlim = c(0,1)))
+print(hist(seurat.obj.2d$prediction.score.MC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("MC_pred.score median: ", MC.med)))
 dev.off()
 print(MC.mean)
 print(MC.med)
@@ -189,23 +220,60 @@ print(MC.med)
 ```{r}
 seurat.obj.2e <- subset(seurat.obj.2, subset = predicted.id == 'CdBC')
 CdBC.mean <- mean(seurat.obj.2e$prediction.score.CdBC)
-CdBC.med <- median(seurat.obj.2e$prediction.score.CdBC)
-pdf(file = paste0(output,"CdBC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+CdBC.med <- round(median(seurat.obj.2e$prediction.score.CdBC), digits = 3)
+pdf(file = "CdBC_pred.score_histplot_2.1.pdf", width = 3.5, height = 3.5, 
      bg = "white")
-print(hist(seurat.obj.2e$prediction.score.CdBC, plot=TRUE, xlim = c(0,1)))
+print(hist(seurat.obj.2e$prediction.score.CdBC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("CdBC_pred.score median: ", CdBC.med)))
 dev.off()
 print(CdBC.mean)
 print(CdBC.med)
 ```
-
 ```{r}
 seurat.obj.2f <- subset(seurat.obj.2, subset = predicted.id == 'AC')
 AC.mean <- mean(seurat.obj.2f$prediction.score.AC)
-AC.med <- median(seurat.obj.2f$prediction.score.AC)
-pdf(file = paste0(output,"AC_pred.score_histplot_2.1.pdf"), width = 3.5, height = 3.5, 
+AC.med <- round(median(seurat.obj.2f$prediction.score.AC), digits = 3)
+pdf(file = "AC_pred.score_histplot_2.2.pdf", width = 3.5, height = 3.5, 
      bg = "white")
-print(hist(seurat.obj.2f$prediction.score.AC, plot=TRUE, xlim = c(0,1)))
+print(hist(seurat.obj.2f$prediction.score.AC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("AC_pred.score median: ", AC.med)))
 dev.off()
 print(AC.mean)
 print(AC.med)
+```
+```{r}
+seurat.obj.2g <- subset(seurat.obj.2, subset = predicted.id == 'ChBC')
+ChBC.mean <- mean(seurat.obj.2g$prediction.score.ChBC)
+ChBC.med <- round(median(seurat.obj.2g$prediction.score.ChBC), digits = 3)
+pdf(file = "ChBC_pred.score_histplot_2.1.pdf", width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2g$prediction.score.ChBC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("ChBC_pred.score median: ", ChBC.med)))
+dev.off()
+print(ChBC.mean)
+print(ChBC.med)
+```
+```{r}
+seurat.obj.2h <- subset(seurat.obj.2, subset = predicted.id == 'RBC')
+RBC.mean <- mean(seurat.obj.2h$prediction.score.RBC)
+RBC.med <- round(median(seurat.obj.2h$prediction.score.RBC), digits = 3)
+pdf(file = "RBC_pred.score_histplot_2.1.pdf", width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2h$prediction.score.RBC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("RBC_pred.score median: ", RBC.med)))
+dev.off()
+print(RBC.mean)
+print(RBC.med)
+```
+```{r cluster_stats}
+seurat.obj.2i <- subset(seurat.obj.2, subset = predicted.id == 'BC')
+BC.mean <- mean(seurat.obj.2i$prediction.score.BC)
+BC.med <- round(median(seurat.obj.2i$prediction.score.BC), digits = 3)
+pdf(file = "BC_pred.score_histplot_s2.2.pdf", width = 3.5, height = 3.5, 
+     bg = "white")
+print(hist(seurat.obj.2i$prediction.score.BC, plot=TRUE, xlim = c(0,1), 
+     main=paste0("BC_pred.score median: ",BC.med)))
+dev.off()
+print(BC.mean)
+print(BC.med)
 ```
