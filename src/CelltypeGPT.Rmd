@@ -1,0 +1,97 @@
+---
+title: "scGPT"
+author: "Beth Moore"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(patchwork)
+library(scran)
+library(dplyr)
+```
+# install packages
+```{r install}
+install.packages("openai")
+remotes::install_github("Winnie09/GPTCelltype")
+```
+# set api key
+```{r}
+Sys.setenv(OPENAI_API_KEY = '')
+```
+# load GPT packages
+```{r}
+library(GPTCelltype)
+library(openai)
+```
+# load seurat object
+```{r}
+setwd("/Users/bmoore/Desktop/scRNAseq/GAMM/GAMM_S2/output_20230830_155530")
+seurat.obj <- readRDS(file = "clustered_seurat_obj.rds")
+seurat.obj
+
+```
+```{r markers}
+# to get markers
+sce_obj <- as.SingleCellExperiment(seurat.obj)
+marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[["seurat_clusters"]], full.stats = TRUE)
+```
+
+```{r}
+markers2 <- FindAllMarkers(seurat.obj, only.pos = TRUE)
+markers2 <- markers2 %>%
+            group_by(cluster) %>%
+            dplyr::filter(avg_log2FC > 1)
+```
+```{r}
+clusters <- unique(seurat.obj@meta.data$seurat_clusters)
+combined_df <- data.frame(cluster = character(), gene = character(), 
+                       rank.logFC.cohen = integer(), median.logFC.cohen = numeric(), 
+                       median.AUC = numeric())
+for (i in 1:length(clusters)){
+  clust <- as.data.frame(marker_info[[clusters[i]]])
+# Order by median Cohen's d and subset
+  ordered <- subset(clust[order(clust$median.logFC.cohen, decreasing = TRUE), ], 
+                    median.logFC.cohen > 0.5 & median.AUC > 0.5)
+  # get top 100
+  top100 <- head(ordered, n = 100)
+  new_df <- top100[, c("rank.logFC.cohen", "median.logFC.cohen", "median.AUC")]
+  # add cluster to dataframe
+  new_df['cluster'] <- clusters[i]
+  # add gene name from rownames
+  new_df['gene'] <-  row.names(top100)
+  # add new_df to combined_df
+  combined_df <- rbind(combined_df, new_df)
+}
+names(combined_df)[2]<- paste("avg_log2FC")
+```
+# annotate with GPT4
+```{r gpt4}
+# Cell type annotation by GPT-4
+res <- gptcelltype(combined_df, model = 'gpt-4') # tissuename='eye', 'retina'
+```
+```{r}
+# Assign cell type annotation back to Seurat object
+seurat.obj@meta.data$celltype_gpt4.3 <- as.factor(res[as.character(Idents(seurat.obj))])
+
+# Visualize cell type annotation on UMAP
+DimPlot(seurat.obj,group.by='celltype_gpt4.3')
+```
+# try with the markers2 set
+```{r}
+markers2 <- as.data.frame(markers2)
+res2 <- gptcelltype(markers2, model = 'gpt-4', tissuename='retina') 
+```
+```{r}
+# Assign cell type annotation back to Seurat object
+seurat.obj@meta.data$celltype_gpt4.3 <- as.factor(res2[as.character(Idents(seurat.obj))])
+
+# Visualize cell type annotation on UMAP
+DimPlot(seurat.obj,group.by='celltype_gpt4.3')
+```
