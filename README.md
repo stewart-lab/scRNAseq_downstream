@@ -1,5 +1,6 @@
-# Gamm_scRNAseq
-Code for the analysis of the pig retinal organoid data from the David Gamm group.
+# scRNAseq_downstream
+
+Code for the analysis of the pig retinal organoid data from the David Gamm group. Also contains other downstream applications to scRNAseq including different types of annotation using a reference (Seurat Mapping, scPred), integration of datasets using Seurat, compositional analysis with scComp, and pseudotime analysis.
 
 Clone this repository:
 
@@ -10,52 +11,20 @@ You will also need anaconda or miniconda to install environments. To install min
 
 https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html
 
-## For normal single-cell processing without cross-species, visit our companion single-cell repo:
+## For single-cell pre-processing with or without cross-species, visit our companion single-cell repo:
 
 https://github.com/stewart-lab/scRNAseq_library
 
-## Pre-processing for cross-species
-R notebooks for processing the pig and human data. We take the orthologs across species, but process each species as a separate seurat object. NOTE: R notebooks can be run by opening up in R-studio or VS code, and running either by chunk, or running the whole thing at once.
+## Annotation via a reference
 
-First we need to install the single cell environment using conda and activate it
-```
-conda env create -f environment_scRNAseqbest.yml
-conda activate scRNAseq_best
-```
-To run the following scripts- make sure to change your working directory, the GitHub directory with this repository, as well as the directory where your gene expression, cell, and gene matrices are in the .Rmd.
+### Seurat mapping
+For mapping annotations across species, we used Seurat mapping.Seurat mapping also uses a reference object/ dataset to predict annotations of clusters based on similairty of cell expression to the reference. It does this by doing a canonical correlation analysis to find "anchor" cells between the reference and query, then annotated clusters based on these anchor cells.
 
-You will also need to update the config file for the location of the orthologs from Ensemble and the meta data for the human reference (both are provided in the data/ folder).
-
-Variables in .Rmd:
-```
-WD <- working directory
-GIT_DIR <- Github directory for Gamm_scRNAseq
-REF.MATRIX <- location of STAR output for reference
-QUERY.MATRIX <- location of STAR output for query
-REF.PROJ.NAME <- name for reference
-QUERY.PROJ.NAME <- name for query
-```
-Variables in config file:
-```
-in "ortholog_subset": 
-    "ortholog_file": location of ortholog file from ensemble
-in "get_metadata":
-  "metadata_file1": location of metadata for reference
-  "metadata_file2": location of metadata for query
-  "metadata_subset1": if needed, what to subset the reference metadata by (ie sample name), else "NA"
-  "metadata_subset2": if needed, what to subset the query metadata by, else "NA"
-```
-
-Now run:
-```
-Rscript -e "rmarkdown::render('preprocess_crossspecies.Rmd')"
-```
-
-## Seurat mapping
-For mapping annotations across species, we used Seurat mapping.
 For more details on Seurat mapping check out their webpage: https://satijalab.org/seurat/articles/multimodal_reference_mapping.html
 
-First make sure the single cell environment we used previously is activated:
+First: **Make sure query and reference data were preprocessed the same way using the scRNAseq_library repo.**
+
+Next activate the single cell environment we used previously is activated:
 ```
 conda activate scRNAseq_best
 ```
@@ -81,8 +50,41 @@ Now run:
 ```
 Rscript -e "rmarkdown::render('seurat_mapping.Rmd')"
 ```
+### scPred
 
-## SC-comp
+scPred uses a reference object/ dataset to predict annotations of clusters in query data based on similarity of cell expression to the reference. The default algorithm is SVM-radial, however many different models/algorithms can be applied from the caret package: https://topepo.github.io/caret/available-models.html. 
+
+The introduction vignette for scPred can be found here: https://powellgenomicslab.github.io/scPred/articles/introduction.html
+
+To run, your query and reference data must first be processed the same way. 
+
+Next run the scPred script with your preprocessed query and reference objects. scPred will divide the reference into training and testing objects, where the model is trained on the training set, and then applied to the testing set. Watch for cell types that don't predict well in the test set- this may mean the model for that cell type isn't good, and you can try a different one. After a final model is built (you can have different algorithms for each cell type if you want), then you can apply to the query data. To run, update with your reference and query objects, you can also specify different algorithms/models after first running your training data with the SVM-radial algorithm.
+
+```
+src/scPred_GAMM.Rmd
+```
+
+- R requirements
+```
+library(devtools)
+devtools::install_github("powellgenomicslab/scPred")
+library(scPred)
+library(Seurat)
+library(magrittr)
+library(harmony)
+library(rmarkdown)
+library(jsonlite)
+library(purrr)
+library(scran)
+library(patchwork)
+library(dplyr)
+library(reticulate)
+```
+
+
+## Cell type composition analysis
+
+### SC-comp
 To determine how the cell composition changed, we used sccomp, a Bayesian analysis that models changes in cell counts. For more information on sccomp: https://github.com/stemangiola/sccomp
 
 First install and activate the sccomp environment:
@@ -105,7 +107,7 @@ sccomp.Rmd
 ## Pseudotime analysis
 Cells are often in transition from one cell type to another, and pseudotime captures relationships between clusters, beginning with the least differentiated state to the most mature/terminal state(s).
 
-## Palantir and CellRank
+### Palantir and CellRank
 
 Palantir models trajectories of differentiated cells by treating cell fate as a probabilistic process and leverages entropy to measure cell plasticity along the trajectory. CellRank uses Palantir in it's pseudotime kernel, but can also use RNA velocity, similarity, cytotrace, time-series, or matebolic labeling to calculate trajectories. Here we use it with Palantir. Together they identify initial and terminal states, cell fate probabilities, and driver genes.
 
@@ -184,3 +186,14 @@ To get histograms of prediction scores:
 ```
 predscore_stats.rmd
 ```
+# References: 
+
+scPred paper: https://doi.org/10.1186/s13059-019-1862-5
+
+Seurat paper: https://doi.org/10.1016/j.cell.2019.05.031
+
+sccomp paper: https://doi.org/10.1073/pnas.2203828120
+
+Palantir paper: https://doi.org/10.1038/s41587-019-0068-4
+
+CellRank2 paper: https://doi.org/10.1101/2023.07.19.549685
