@@ -36,7 +36,7 @@ library(colorspace)
 library(GetoptLong)
 # set variables
 WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/"
-GIT_DIR <- "/w5home/bmoore/Gamm_scRNAseq/"
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 REF.SEURAT <- "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds"
 QUERY.SEURAT <- "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds"
 # set up environment and output

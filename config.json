@@ -36,9 +36,9 @@
     "ref_species": "human"
   },
   "get_metadata": {
-    "metadata_file1": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/metadata/meta_30weeks_mod.txt",
+    "metadata_file1": "/w5home/bmoore/scRNAseq_downstream/data/reh_metadata/Reh_cca_org_205_metadata.txt",
     "metadata_file2": "/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
-    "metadata_subset1": "f49b7",
+    "metadata_subset1": "NA",
     "metadata_subset2": "NA"
   },
   "normalize_data": {

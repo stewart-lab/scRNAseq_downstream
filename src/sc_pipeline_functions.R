@@ -337,7 +337,7 @@ feature_selection <- function(seurat_obj) {
     seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = n_features)
   } else if (analysis_type == "Scry") {
     # Scry method
-    m <- GetAssayData(seurat_obj, slot = "counts", assay = "RNA")
+    m <- LayerData(seurat_obj, layer = "counts", assay = "RNA")
     devi <- scry::devianceFeatureSelection(m)
     dev_ranked_genes <- rownames(seurat_obj)[order(devi, decreasing = TRUE)]
     topdev <- head(dev_ranked_genes, n_features)
@@ -562,11 +562,11 @@ run_umap <- function(seurat_obj, path = output) {
   # Run UMAP
   seurat_obj <- RunUMAP(seurat_obj,
     dims = dims_umap, umap.method = umap.method,
-    reduction = umap.red, group.by = "orig.ident"
+    reduction = umap.red
   )
   # Generate UMAP plot
   pdf(paste0(path, "umap_plot.pdf"), width = 8, height = 6)
-  print(DimPlot(seurat_obj, reduction = "umap"))
+  print(DimPlot(seurat_obj, reduction = "umap", group.by = "orig.ident"))
   dev.off()
 
   # Return the updated Seurat object
@@ -578,6 +578,7 @@ perform_clustering <- function(seurat_obj, path = output) {
   algorithm <- config$perform_clustering$algorithm
   reduction <- config$perform_clustering$reduction
   dims_snn <- 1:config$perform_clustering$dims_snn
+  cluster_name <- config$perform_clustering$cluster_name
 
   # Check if Harmony embeddings exist in the Seurat object
   batch_corrected <- "harmony" %in% names(Embeddings(seurat_obj))
@@ -598,11 +599,13 @@ perform_clustering <- function(seurat_obj, path = output) {
   dev.off()
 
   # Cluster cells
-  seurat_obj <- FindClusters(seurat_obj, resolution = resolution, algorithm = algorithm)
+  seurat_obj <- FindClusters(seurat_obj, resolution = resolution, algorithm = algorithm,
+                cluster.name = cluster_name)
 
   # Save UMAP clusters plot
   pdf(paste0(path, "umap_clusters.pdf"), width = 8, height = 6)
-  umap_clusters <- DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = .5)
+  umap_clusters <- DimPlot(seurat_obj, reduction = "umap", label = TRUE, 
+                    group.by = cluster_name, pt.size = .5)
   print(umap_clusters)
   dev.off()
 

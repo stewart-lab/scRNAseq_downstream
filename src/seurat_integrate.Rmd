@@ -8,7 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(Seurat)
-library(SeuratData)
 library(patchwork)
 library(purrr)
 library(jsonlite)
@@ -16,22 +15,26 @@ library(rmarkdown)
 library(reticulate)
 library(multtest)
 library(metap)
-BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
-use_condaenv("scRNAseq_best")
-setwd(paste0(BETHS_GAMM_DATA_DIR, "human_data/reh_cellrep_2020/"))
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
+
+# set variables
+WD <- "/w5home/bmoore/scRNAseq/LiFangChu/public_data/GSE199571/"
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+filename_list= c("output_20240709_144815/48h/seurat_obj_labeled_48h.rds",
+"output_20240710_224842/72h/seurat_obj_labeled_72h.rds",
+"output_20240708_202335/96h/seurat_obj_labeled_96h.rds",
+"output_20240709_171809/96h_MG/seurat_obj_labeled_96_MG.rds",
+"output_20240709_171809/120h/seurat_obj_labeled_120h.rds",
+"output_20240709_171809/120h_MG/seurat_obj_labeled_120h_MG.rds")
+# set up environment and output
+setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seurat_", timestamp)
 dir.create(output, showWarnings = FALSE)
-file.copy("/w5home/bmoore/scRNAseq_library/config.json", file.path(output, "config.json"))
-#output <- "output_seurat_20230731_094648/"
-cell.cycle.markers.s <- read.csv2("/w5home/bmoore/scRNAseq_library/cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt", 
-    sep = "\t", header = TRUE, row.names = 1)
-cell.cycle.markers.g2m <- read.csv2("/w5home/bmoore/scRNAseq_library/cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt", 
-    sep = "\t", header = TRUE, row.names = 1)
-varslist <- c(cell.cycle.markers.s, cell.cycle.markers.g2m)
+file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 output <- paste0(output, "/")
 config <- fromJSON(file.path(output, "config.json"))
-source("/w5home/bmoore/scRNAseq_library/sc_pipeline/src/sc_pipeline_functions.R")
+source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```
 # if needed, install python packages
 ```{r}
@@ -42,39 +45,65 @@ py_install("pandas")
 ```
 # other packages
 ```{r}
-install.packages('BiocManager')
-BiocManager::install('multtest')
-install.packages('metap')
+# install.packages('BiocManager')
+# BiocManager::install('multtest')
+# install.packages('metap')
 ```
 
 # load data
 ```{r load_data}
-gamms2<- readRDS(file = "~/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_preprocess20230808_113032/GAMM_S2_feat_select.rds")
-human_D205.seurat<- readRDS(file = "~/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_preprocess20230808_113032/human_D205_feat_select.rds")
+# Create an empty list to store the imported objects
+imported_objects <- list()
+
+# Loop through the filenames
+for (i in seq_along(filename_list)) {
+  # Extract the base filename without extension
+  base_name <- tools::file_path_sans_ext(basename(filename_list[i]))
+  
+  # Import the file
+  imported_object <- readRDS(filename_list[i])
+  
+  # Assign the imported object to the list with the base filename as the name
+  imported_objects[[base_name]] <- imported_object
+}
 ```
 # select features for integration across specues
 ```{r select_features}
-# create list of seurat objects
-object.list <- list(gamms2, human_D205.seurat)
 # select features
-features <- SelectIntegrationFeatures(object.list = object.list)
+features <- SelectIntegrationFeatures(object.list = imported_objects)
 ```
 # integrate data
 ```{r integrate_data}
 # find anchors
-gamm.anchors <- FindIntegrationAnchors(object.list = object.list, anchor.features = features)
+anchors <- FindIntegrationAnchors(object.list = imported_objects, anchor.features = features)
 # integrate data
 # this command creates an 'integrated' data assay
-gamm.combined <- IntegrateData(anchorset = gamm.anchors)
+combined.seurat <- IntegrateData(anchorset = anchors)
 ```
 ```{r set_default_assay}
-DefaultAssay(gamm.combined) <- "integrated"
+DefaultAssay(combined.seurat) <- "integrated"
+print(combined.seurat)
 ```
 
 # scale, dimensionality reduction, and clustering on combined data
 ```{r scale}
 # scale data
-gamm.combined<- scale_data(gamm.combined, vars_list = varslist, path = output)
+vars.2.regress <- config$scale_data$vars.2.regress
+cell.cycle.markers.s <- config$scale_data$marker.path.s
+cell.cycle.markers.g2m <- config$scale_data$marker.path.g2m
+
+if(vars.2.regress=="cell.cycle"){
+    # read in cell cycle genes
+    cell.cycle.markers.s.r <- read.csv2(cell.cycle.markers.s, 
+    sep = "\t", header = TRUE, row.names = 1)
+    cell.cycle.markers.g2m.r <- read.csv2(cell.cycle.markers.g2m, 
+    sep = "\t", header = TRUE, row.names = 1)
+    varslist <- c(cell.cycle.markers.s.r, cell.cycle.markers.g2m.r)
+    # scale
+    gamm.combined<- scale_data(gamm.combined, vars_list = varslist, path = output)
+} else{
+    gamm.combined<- scale_data(gamm.combined, path = output)
+}
 ```
 ```{r run_dim_reduction}
 # run PCA

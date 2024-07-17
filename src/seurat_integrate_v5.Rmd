@@ -1,0 +1,177 @@
+---
+title: "seurat_integration_for_cross_species"
+author: "Beth Moore"
+date: "2023-07-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(patchwork)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(reticulate)
+library(multtest)
+library(metap)
+library(harmony)
+library(SeuratWrappers)
+library(Azimuth)
+library(ggplot2)
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
+
+# set variables
+WD <- "/w5home/bmoore/scRNAseq/LiFangChu/public_data/GSE199571/"
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+filename_list= c("output_20240709_144815/48h/seurat_obj_labeled_48h.rds",
+"output_20240710_224842/72h/seurat_obj_labeled_72h.rds",
+"output_20240708_202335/96h/seurat_obj_labeled_96h.rds",
+"output_20240709_171809/96h_MG/seurat_obj_labeled_96_MG.rds",
+"output_20240709_171809/120h/seurat_obj_labeled_120h.rds",
+"output_20240709_171809/120h_MG/seurat_obj_labeled_120h_MG.rds")
+# set up environment and output
+setwd(WD)
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("output_seurat_", timestamp)
+dir.create(output, showWarnings = FALSE)
+file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+output <- paste0(output, "/")
+config <- fromJSON(file.path(output, "config.json"))
+source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
+```
+# if needed, install python packages
+```{r}
+# py_install("umap-learn")
+# py_install("leidenalg")
+# py_install("pandas")
+```
+# other packages
+```{r}
+# install.packages('BiocManager')
+# BiocManager::install('multtest')
+# install.packages('metap')
+```
+
+# load data
+```{r load_data}
+# Create an empty list to store the imported objects
+imported_objects <- list()
+
+# Loop through the filenames
+for (i in seq_along(filename_list)) {
+  # Extract the base filename without extension
+  base_name <- tools::file_path_sans_ext(basename(filename_list[i]))
+  
+  # Import the file
+  imported_object <- readRDS(filename_list[i])
+  
+  # Assign the imported object to the list with the base filename as the name
+  imported_objects[[base_name]] <- imported_object
+}
+```
+# merge into one object
+```{r merge}
+# merge
+# Convert the list to a vector
+seurat_vector <- unlist(imported_objects)
+vector<- seurat_vector[[2]]
+for(i in 3:length(seurat_vector)){
+    vector <- c(vector, seurat_vector[[i]])
+}
+# This will be used to give unique identifiers to cells from each object
+object_names <- names(imported_objects)
+if (is.null(object_names)) {
+  object_names <- paste0("Object", seq_along(imported_objects))
+}
+
+# Now, we'll merge the objects
+
+merged_seurat <- merge(seurat_vector[[1]], y = vector, 
+                        add.cell.ids = object_names, 
+                        project = "GSE199571_merged_timepoints")
+ 
+head(colnames(merged_seurat))
+```
+# split layers
+```{r split_layers}
+merged_seurat[["RNA"]] <- split(merged_seurat[["RNA"]], f = merged_seurat$orig.ident)
+merged_seurat
+```
+# feature selection, scale, dimensionality reduction on combined data
+```{r feat_select}
+merged_seurat <- feature_selection(merged_seurat)
+```
+```{r scale}
+# scale data
+vars.2.regress <- config$scale_data$vars.2.regress
+cell.cycle.markers.s <- config$scale_data$marker.path.s
+cell.cycle.markers.g2m <- config$scale_data$marker.path.g2m
+
+if(vars.2.regress=="cell.cycle"){
+    # read in cell cycle genes
+    cell.cycle.markers.s.r <- read.csv2(cell.cycle.markers.s, 
+    sep = "\t", header = TRUE, row.names = 1)
+    cell.cycle.markers.g2m.r <- read.csv2(cell.cycle.markers.g2m, 
+    sep = "\t", header = TRUE, row.names = 1)
+    varslist <- c(cell.cycle.markers.s.r, cell.cycle.markers.g2m.r)
+    # scale
+    merged_seurat<- scale_data(merged_seurat, vars_list = varslist, path = output)
+} else{
+    merged_seurat<- scale_data(merged_seurat, path = output)
+}
+```
+```{r run_dim_reduction}
+# run PCA
+merged_seurat<- run_and_visualize_pca(merged_seurat)
+# run UMAP
+merged_seurat<- run_umap(merged_seurat)
+```
+
+# integrate data
+```{r integrate_data}
+merged_seurat <- IntegrateLayers(
+  object = merged_seurat, method = CCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.cca",
+  verbose = FALSE
+)
+```
+# cluster integrated data and run umap again
+```{r run_clustering}
+# run clustering
+## Note: you must have the reduction in the config file set to pca in order for this to work
+merged_seurat <- perform_clustering(merged_seurat)
+```
+```{r umap}
+# run umap again
+merged_seurat <- RunUMAP(merged_seurat, reduction = "integrated.cca", 
+                        dims = 1:30, reduction.name = "umap.cca")
+# visualize
+p1 <- DimPlot(merged_seurat,reduction = "umap.cca",
+  group.by = c("orig.ident", "CellType", "cca_clusters"),
+  combine = FALSE, label.size = 2
+)
+pdf(paste0(output,"umap_merged_cca.pdf"))
+print(p1)
+dev.off()
+```
+# save
+```{r save_data}
+saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
+```
+```{r load_data}
+#gamm.combined<- readRDS(file = "gamm.combined.rds")
+levels(merged_seurat)
+```
+
+# join layers
+```{r join}
+merged_seurat <- JoinLayers(merged_seurat)
+merged_seurat
+```
+# now perform DE analysis
+
+# save session info
+```{r sessioninfo}
+writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+```
