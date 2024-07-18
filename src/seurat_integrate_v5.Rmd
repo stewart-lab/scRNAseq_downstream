@@ -20,6 +20,7 @@ library(SeuratWrappers)
 library(Azimuth)
 library(ggplot2)
 library(scran)
+library(clustifyr)
 use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 
 # set variables
