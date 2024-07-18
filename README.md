@@ -50,37 +50,54 @@ Now run:
 ```
 Rscript -e "rmarkdown::render('seurat_mapping.Rmd')"
 ```
-### scPred
 
-scPred uses a reference object/ dataset to predict annotations of clusters in query data based on similarity of cell expression to the reference. The default algorithm is SVM-radial, however many different models/algorithms can be applied from the caret package: https://topepo.github.io/caret/available-models.html. 
+## Integration using Seurat
+Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
 
-The introduction vignette for scPred can be found here: https://powellgenomicslab.github.io/scPred/articles/introduction.html
-
-To run, your query and reference data must first be processed the same way. 
-
-Next run the scPred script with your preprocessed query and reference objects. scPred will divide the reference into training and testing objects, where the model is trained on the training set, and then applied to the testing set. Watch for cell types that don't predict well in the test set- this may mean the model for that cell type isn't good, and you can try a different one. After a final model is built (you can have different algorithms for each cell type if you want), then you can apply to the query data. To run, update with your reference and query objects, you can also specify different algorithms/models after first running your training data with the SVM-radial algorithm.
-
+Variables in .Rmd file:
 ```
-src/scPred_GAMM.Rmd
+WD <- working directory
+GIT_DIR <- Github directory for Gamm_scRNAseq
+filename_list <- list of seurat objects to be integrated with path relative to working directory. i.e. c("output/object1.rds","output/object2.rds")
 ```
 
-- R requirements
+Variables in config file:
 ```
-library(devtools)
-devtools::install_github("powellgenomicslab/scPred")
-library(scPred)
-library(Seurat)
-library(magrittr)
-library(harmony)
-library(rmarkdown)
-library(jsonlite)
-library(purrr)
-library(scran)
-library(patchwork)
-library(dplyr)
-library(reticulate)
+"feature_selection":
+    "n_features": 2000,
+    "analysis_type": "Seurat"
+"scale_data": 
+    "vars.2.regress": "NA",
+    "marker.path.s": "../cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt",
+    "marker.path.g2m": "../cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt"
+"run_and_visualize_pca": 
+    "top_n_dims": 2,
+    "heatmap_dims": 15,
+    "num_cells": 500,
+    "dims": 20,
+    "num.replicate": "NA"
+  "run_umap": 
+    "dims_umap": 20,
+    "umap.method": "umap-learn",
+    "umap.red": "pca"
+"perform_clustering": 
+    "reduction": "integrated.cca",
+    "resolution": 0.5,
+    "algorithm": "leiden",
+    "dims_snn": 10,
+    "cluster_name": "cca_clusters"
+"score_and_plot_markers": 
+    "top_n_markers": 100,
+    "known_markers": "True",
+    "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
+    "cluster_type": "cca_clusters",
+    "pairwise": "FALSE",
+    "logFC_thresh": 0.25,
+    "auc_thresh": 0.5
+"process_known_markers":
+   "annot_type": "manual",
+   "n_rank": 10
 ```
-
 
 ## Cell type composition analysis
 
