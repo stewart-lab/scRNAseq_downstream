@@ -19,6 +19,7 @@ library(harmony)
 library(SeuratWrappers)
 library(Azimuth)
 library(ggplot2)
+library(scran)
 use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 
 # set variables
@@ -33,24 +34,13 @@ filename_list= c("output_20240709_144815/48h/seurat_obj_labeled_48h.rds",
 # set up environment and output
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_seurat_", timestamp)
-dir.create(output, showWarnings = FALSE)
-file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
-output <- paste0(output, "/")
+#output <- paste0("output_seuratintegrate_", timestamp)
+#dir.create(output, showWarnings = FALSE)
+#file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+#output <- paste0(output, "/")
+output <- "/w5home/bmoore/scRNAseq/LiFangChu/public_data/GSE199571/output_seurat_20240717_091724/"
 config <- fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
-```
-# if needed, install python packages
-```{r}
-# py_install("umap-learn")
-# py_install("leidenalg")
-# py_install("pandas")
-```
-# other packages
-```{r}
-# install.packages('BiocManager')
-# BiocManager::install('multtest')
-# install.packages('metap')
 ```
 
 # load data
@@ -160,8 +150,8 @@ dev.off()
 saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
 ```
 ```{r load_data}
-#gamm.combined<- readRDS(file = "gamm.combined.rds")
-levels(merged_seurat)
+merged_seurat <- readRDS(file = paste0(output,"merged_seurat.rds"))
+merged_seurat
 ```
 
 # join layers
@@ -170,7 +160,25 @@ merged_seurat <- JoinLayers(merged_seurat)
 merged_seurat
 ```
 # now perform DE analysis
+```{r de_analysis}
+annot_df <- score_and_plot_markers(merged_seurat)
+```
+# annotate
+```{r annotate}
+if (config$score_and_plot_markers$known_markers) {
+    new_df_ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
+    # Get new cluster names ordered by cluster number
+    new_cluster_ids <- new_df_ordered$Cell.type
+    labeled_seurat_obj <- annotate_clusters_and_save(merged_seurat, new_cluster_ids, output)
 
+    clustifyR_obj <- annotate_with_clustifyR(merged_seurat, output)
+    # Append both annotated objects to the return list
+    return(list(labeled_seurat_obj = labeled_seurat_obj, clustifyR_obj = clustifyR_obj))
+  } else {
+    # If no known markers scoring and plotting, return the clustered object only
+    return(list(merged_seurat = merged_seurat))
+  }
+```
 # save session info
 ```{r sessioninfo}
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))

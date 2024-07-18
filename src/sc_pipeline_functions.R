@@ -753,20 +753,20 @@ score_and_plot_markers <- function(seurat_obj, output_path = output) {
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  if (cluster_type %in% c("seurat_clusters", "orig.ident")) {
+  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters")) {
     marker_field <- cluster_type
     marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
   } else {
-    stop("Invalid cluster_type. Please choose 'seurat_clusters' or 'orig.ident'.")
+    stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
   }
   return(marker_info)
 }
 
 get_clusters <- function(seurat_obj, cluster_type) {
-  if (cluster_type %in% c("seurat_clusters", "orig.ident")) {
+  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters")) {
     return(unique(seurat_obj@meta.data[[cluster_type]]))
   } else {
-    stop("Invalid cluster_type. Please choose 'seurat_clusters' or 'orig.ident'.")
+    stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
   }
 }
 
@@ -1052,12 +1052,13 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
   # put in CellType metadata
-  seurat_obj$CellType <- Idents(seurat_obj)
+  seurat_obj$CellType1 <- Idents(seurat_obj)
 
   # Generate and plot the UMAP plot
 
   pdf(paste0(output_path, "labeled-clusters.pdf"), bg = "white")
-  print(DimPlot(seurat_obj, reduction = "umap", label = TRUE, pt.size = 0.5))
+  print(DimPlot(seurat_obj, reduction = "umap", label = TRUE, 
+        pt.size = 0.5, group.by = "CellType1"))
   dev.off()
   # Save the Seurat object
   saveRDS(seurat_obj, file = paste0(output_path, "seurat_obj_labeled.rds"))
@@ -1115,6 +1116,7 @@ combine_feature_plots <- function(seurat_objs_list, feature_set1, feature_set2 =
 annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
   # Access the markers path
   markers_path <- config$score_and_plot_markers$known_markers_path
+  cluster_type <- config$score_and_plot_markers$cluster_type
   markers <- read.csv2(markers_path, sep = "\t", header = TRUE)
   markers_df <- data.frame(markers$gene, markers$Cell.type)
   colnames(markers_df) <- c("gene", "cluster")
@@ -1122,7 +1124,7 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
   # Clustify lists
   list_res <- clustify_lists(
     input = clustered_seurat_obj,
-    cluster_col = "seurat_clusters",
+    cluster_col = cluster_type,
     marker = markers_df,
     metric = "pct",
     marker_inmatrix = FALSE,
@@ -1147,14 +1149,14 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
   # Call cell types
   list_res2 <- cor_to_call(
     cor_mat = list_res,
-    cluster_col = "seurat_clusters"
+    cluster_col = cluster_type
   )
 
   # Add clustifyr calls as metadata
   clust_call <- call_to_metadata(
     res = list_res2,
     metadata = clustered_seurat_obj@meta.data,
-    cluster_col = "seurat_clusters",
+    cluster_col = cluster_type,
     rename_prefix = "clustifyr_call"
   )
   clustered_seurat_obj <- AddMetaData(clustered_seurat_obj, metadata = clust_call)
@@ -1170,7 +1172,7 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
   dev.off()
 
   # Save object with clustifyr annotation
-  saveRDS(clustered_seurat_obj, file = paste0(output, "seurat_obj_clustifyr.rds"))
+  saveRDS(clustered_seurat_obj, file = paste0(output, "seurat_obj_labeled.rds"))
 }
 
 count_and_feature_plots <- function(ref_seurat_obj, query_seurat_obj, path = output){
