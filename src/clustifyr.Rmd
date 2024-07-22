@@ -51,8 +51,6 @@ ref.seurat<- readRDS(file = REF.SEURAT)
 } else {
   print("No reference, using marker list only")
 }
-# load marker list
-markers <- read.csv2(MARKER_PATH, sep="\t", header = TRUE)
 ```
 # rename identities if necessary
 ```{r rename_idents}

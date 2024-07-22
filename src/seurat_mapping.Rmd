@@ -40,7 +40,7 @@ GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 REF.SEURAT <- "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds"
 QUERY.SEURAT <- "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds"
 # set up environment and output
-use_condaenv("scRNAseq_best", required=TRUE)
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seurat_mapping_", timestamp)
@@ -91,7 +91,6 @@ obj.list <- project_query_on_ref(ref.seurat.sub, query.seurat, anchors)
 ref.seurat <- obj.list[[1]]
 query.seurat <- obj.list[[2]]
 ```
-b
 # visualize probabilities
 ```{r visualize_prob}
 #  probabilities of each cell in the @meta.data slot of the query Seurat object.
@@ -105,6 +104,47 @@ pdf(paste0(output, "query_celltype_prediction_featureplot.pdf"), width = 10, hei
 print(FeaturePlot(query.seurat, labels, keep.scale = "all"))
 dev.off()
 ```
+# get prediction score histograms
+```{r histograms}
+for(l in seq_along(1:length(labels))){
+    # get celltype from prediction score label
+    l.list <-  strsplit(labels[l], split = "score.", fixed = TRUE)
+    celltype <- sapply(l.list, tail, 1)
+    print(celltype)
+    # fix cones
+    if(celltype=="L.M.cone"){
+        celltype <- "L/M cone"
+    }else if(celltype=="S.cone"){
+        celltype <- "S cone"
+    }
+    # check if selltype is in predicted.id
+    if(celltype %in% query.seurat$predicted.id){
+        # subset seurat object for cell type
+        query.seurat.sub <- subset(query.seurat, subset = predicted.id == celltype)
+        # get prediction scores for label
+        data <- FetchData(object = query.seurat.sub, vars =labels[l])
+        # get mean and median
+        x.mean <- mean(data[[1]])
+        x.med <- round(median(data[[1]]), digits = 3)
+        # remove unwanted characters before writing
+        celltype <- str_replace_all(celltype," ","")
+        celltype <- str_replace_all(celltype,"/","")
+        # plot histogram
+        pdf(file = paste0(output, celltype, "_pred.score_histplot.pdf"), width = 3.5, height = 3.5, 
+        bg = "white")
+        print(hist(data[[1]], plot=TRUE, xlim = c(0,1), 
+            main=paste0(celltype,"_pred.score median: ",x.med)))
+        dev.off()
+        print(paste0("mean: " ,x.mean))
+        print(paste0("median: " ,x.med))
+    }else{
+        print(paste0(celltype, " not in predicted ids"))
+    }
+    
+}
+
+
+```
 # get comparison between predicted and manual annotations
 ```{r get_comparison}
 query.ref.data.table <- get_manual_comparison(query.seurat)
@@ -113,7 +153,7 @@ print(query.ref.data.table)
 
 # make heatmap
 ```{r heatmap}
-hm <- heatmap_func(query.ref.data.table)
+hm <- heatmap_func(query.ref.data.table, output)
 ```
 ```{r save_data}
 saveRDS(query.seurat, file= paste0(output,"query_seurat_pred.rds"))
