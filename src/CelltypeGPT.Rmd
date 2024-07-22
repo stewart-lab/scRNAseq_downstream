@@ -93,5 +93,5 @@ res2 <- gptcelltype(markers2, model = 'gpt-4', tissuename='retina')
 seurat.obj@meta.data$celltype_gpt4.3 <- as.factor(res2[as.character(Idents(seurat.obj))])
 
 # Visualize cell type annotation on UMAP
-DimPlot(seurat.obj,group.by='celltype_gpt4.3')
+DimPlot(seurat.obj,group.by='celltype_gpt4')
 ```

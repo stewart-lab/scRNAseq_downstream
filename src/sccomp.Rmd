@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### load libraries ###
 library(reticulate)
-use_condaenv("sccomp", required=TRUE)
+use_condaenv("/w5home/bmoore/miniconda3/envs/sccomp", required=TRUE)
 # devtools::install_github("Oshlack/speckle")
 library(sccomp)
 library(Seurat)
@@ -30,12 +30,15 @@ library(speckle)
 library(ggplot2)
 library(limma)
 ### set variables ###
-BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/"
+WD <- "/w5home/bmoore/scRNAseq/GAMM/cell_composition/"
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)
 COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual 
+SEURAT.1 <- "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds"
+SEURAT.2 <- "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
 
 ### set working directory and output ###
-setwd(paste0(BETHS_GAMM_DATA_DIR, "cell_composition/"))
+setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_cell_composition_", timestamp)
 dir.create(output, showWarnings = FALSE)
@@ -44,8 +47,8 @@ packageVersion("sccomp") # should be >= 1.4.0
 ```
 # Read in processed and labeled data
 ```{r read_in}
-seurat.obj.1 <- readRDS(file = "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds") # reference
-seurat.obj.2 <- readRDS(file = "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds") # query
+seurat.obj.1 <- readRDS(file = ) # reference
+seurat.obj.2 <- readRDS(file = ) # query
 # reference cell type column
 annot_ref<- seurat.obj.1$CellType_manual
 ```
