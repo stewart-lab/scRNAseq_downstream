@@ -35,11 +35,11 @@ filename_list= c("output_20240709_144815/48h/seurat_obj_labeled_48h.rds",
 # set up environment and output
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-#output <- paste0("output_seuratintegrate_", timestamp)
-#dir.create(output, showWarnings = FALSE)
-#file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
-#output <- paste0(output, "/")
-output <- "/w5home/bmoore/scRNAseq/LiFangChu/public_data/GSE199571/output_seurat_20240717_091724/"
+output <- paste0("output_seuratintegrate_", timestamp)
+dir.create(output, showWarnings = FALSE)
+file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+output <- paste0(output, "/")
+#output <- "/w5home/bmoore/scRNAseq/LiFangChu/public_data/GSE199571/output_seurat_20240717_091724/"
 config <- fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```
@@ -170,15 +170,22 @@ if (config$score_and_plot_markers$known_markers) {
     new_df_ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
     # Get new cluster names ordered by cluster number
     new_cluster_ids <- new_df_ordered$Cell.type
-    labeled_seurat_obj <- annotate_clusters_and_save(merged_seurat, new_cluster_ids, output)
-
-    clustifyR_obj <- annotate_with_clustifyR(merged_seurat, output)
-    # Append both annotated objects to the return list
-    return(list(labeled_seurat_obj = labeled_seurat_obj, clustifyR_obj = clustifyR_obj))
+    merged_seurat <- annotate_clusters_and_save(merged_seurat, new_cluster_ids, output)
+    # return labeled object
+    return(merged_seurat) # labeled_seurat_obj
   } else {
     # If no known markers scoring and plotting, return the clustered object only
-    return(list(merged_seurat = merged_seurat))
+    return(merged_seurat)
   }
+```
+# annotate with clustifyr
+```{r clustifyr}
+# convert to v3 object
+merged_seurat[["RNA3"]] <- as(object = merged_seurat[["RNA"]], Class = "Assay")
+# convert to single cell experiment
+SCE <- as.SingleCellExperiment(merged_seurat)
+# run clustifyr
+annotate_with_clustifyR(merged_seurat, SCE, output)
 ```
 # save session info
 ```{r sessioninfo}

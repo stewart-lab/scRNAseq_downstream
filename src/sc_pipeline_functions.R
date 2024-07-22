@@ -1049,6 +1049,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 
 annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output) {
   # Rename the clusters based on the new IDs
+  reduction <- config$score_and_plot_markers$reduction
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
   # put in CellType metadata
@@ -1057,7 +1058,7 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
   # Generate and plot the UMAP plot
 
   pdf(paste0(output_path, "labeled-clusters.pdf"), bg = "white")
-  print(DimPlot(seurat_obj, reduction = "umap", label = TRUE, 
+  print(DimPlot(seurat_obj, reduction = reduction, label = TRUE, 
         pt.size = 0.5, group.by = "CellType1"))
   dev.off()
   # Save the Seurat object
@@ -1113,17 +1114,18 @@ combine_feature_plots <- function(seurat_objs_list, feature_set1, feature_set2 =
   return(combined_plot)
 }
 
-annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
+annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output) {
   # Access the markers path
   markers_path <- config$score_and_plot_markers$known_markers_path
   cluster_type <- config$score_and_plot_markers$cluster_type
+  reduction <- config$score_and_plot_markers$reduction
   markers <- read.csv2(markers_path, sep = "\t", header = TRUE)
-  markers_df <- data.frame(markers$gene, markers$Cell.type)
+  markers_df <- data.frame(markers)
   colnames(markers_df) <- c("gene", "cluster")
 
   # Clustify lists
   list_res <- clustify_lists(
-    input = clustered_seurat_obj,
+    input = SCE,
     cluster_col = cluster_type,
     marker = markers_df,
     metric = "pct",
@@ -1163,7 +1165,7 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
 
   # Plot with clustifyr annotations
   pc <- DimPlot(clustered_seurat_obj,
-    reduction = "umap", group.by = "clustifyr_call_type", label = TRUE,
+    reduction = reduction, group.by = "clustifyr_call_type", label = TRUE,
     label.size = 3, repel = TRUE
   ) + ggtitle("Clustifyr annotated labels") +
     guides(fill = guide_legend(label.theme = element_text(size = 8)))
@@ -1173,6 +1175,41 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, output) {
 
   # Save object with clustifyr annotation
   saveRDS(clustered_seurat_obj, file = paste0(output, "seurat_obj_labeled.rds"))
+  return(clustered_seurat_obj)
+}
+
+annotate_with_clustifyR_ref <- function(ref.seurat, query.seurat, SCE, output) {
+  # get cluster type and reduction
+  groupby <- config$visualize_and_subset_ref$groupby # reference annotation
+  cluster_type <- config$score_and_plot_markers$cluster_type # clusters in query to annotate
+  reduction <- config$score_and_plot_markers$reduction
+  
+  # get ref matrix
+  new_ref_matrix <- seurat_ref(
+    seurat_object = ref.seurat,        # SeuratV3 object
+    cluster_col = groupby)
+
+  # run clustify (spearman corr is default)
+  res <- clustify(
+    input = query.seurat,       # a Seurat object
+    ref_mat = new_ref_matrix,    # matrix of RNA-seq expression data for each cell type
+    cluster_col = cluster_type, # name of column in meta.data containing cell clusters
+    obj_out = TRUE,      # output Seurat object with cell type inserted as "type" column
+    rename_prefix= "clustify_pred_ref",
+    n_genes= 2000
+  )
+  print(table(res$clustify_pred_ref_type))
+
+  # visualize
+  pc <- DimPlot(res, reduction = reduction, group.by = "clustify_pred_ref_type", label = TRUE,
+              label.size = 3, repel = TRUE) + ggtitle("Clustifyr predicted labels- spearmans") +
+  guides(fill = guide_legend(label.theme = element_text(size = 8)))
+  pdf(paste0(output, "clustifyr_predicted_labels_umap.pdf"), width = 10, height = 6)
+  print(pc)
+  dev.off()
+  # save
+  saveRDS(res, file= paste0(output, "seurat.obj_clustifyr.rds"))
+  return(res)
 }
 
 count_and_feature_plots <- function(ref_seurat_obj, query_seurat_obj, path = output){
@@ -1204,6 +1241,7 @@ visualize_and_subset_ref <- function(ref_seurat_obj, path = output) {
   print(DimPlot(ref_seurat_obj, reduction = "umap", group.by = groupby, 
         label = TRUE, repel = TRUE))
   dev.off()
+  table(ref.seurat[[groupby]])
   # set identity class to existing meta data
   Idents(object = ref_seurat_obj) <- groupby
   print(table(Idents(ref_seurat_obj)))
@@ -1213,7 +1251,9 @@ visualize_and_subset_ref <- function(ref_seurat_obj, path = output) {
   ref_seurat_obj <- subset(x = ref_seurat_obj, subset = idents != "<NA>")
   # Subset the reference object
   for(i in 1:length(removal_list)) {
+    if (removal_list[i] %in% Idents(ref_seurat_obj)) {
     ref_seurat_obj <- subset(x = ref_seurat_obj, idents = removal_list[i], invert = TRUE)
+  }
   }
   # Visualize the subsetted reference object
   pdf(paste0(path, "ref_seurat_obj_subset_umap.pdf"), width = 8, height = 6)

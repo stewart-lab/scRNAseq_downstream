@@ -1,5 +1,5 @@
 {
-  "title": "Seurat integration",
+  "title": "Clustifyr",
   "annotation_reference": "FALSE",
   "DE_method": "Scran",
   "species": "human",
@@ -61,11 +61,12 @@
   "score_and_plot_markers": {
     "top_n_markers": 100,
     "known_markers": "True",
-    "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
-    "cluster_type": "cca_clusters",
+    "known_markers_path": "/w5home/bmoore/scRNAseq_library/sc_pipeline/known_marker_lists/Kims_retinal_markers.txt",
+    "cluster_type": "seurat_clusters",
     "pairwise": "FALSE",
     "logFC_thresh": 0.25,
-    "auc_thresh": 0.5
+    "auc_thresh": 0.5,
+    "reduction": "umap"
   },
   "process_known_markers":{
    "annot_type": "manual",
