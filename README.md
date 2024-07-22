@@ -164,9 +164,12 @@ conda activate sccomp
 Next update the .Rmd script with your working directory and the relative location of your **clustered** and **annotated** seurat objects.
 Variables to set in .Rmd:
 ```
-BETHS_GAMM_DATA_DIR <- "/w5home/bmoore/scRNAseq/GAMM/" # main directory
-CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)?
-COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual
+WD <- "/w5home/bmoore/scRNAseq/GAMM/cell_composition/"
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)
+COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual 
+SEURAT.1 <- "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds"
+SEURAT.2 <- "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
 ```
 Now run.
 ```
@@ -251,13 +254,11 @@ To get the list of all DE genes and their annotation from each cluster for a seu
 ```
 parse_markers.py
 ```
-To get histograms of prediction scores:
-```
-predscore_stats.rmd
-```
+
 # References: 
 
 scPred paper: https://doi.org/10.1186/s13059-019-1862-5
+**Note: scPRed is archived because it is not compatible with Seurat v5**
 
 Seurat paper: https://doi.org/10.1016/j.cell.2019.05.031
 
