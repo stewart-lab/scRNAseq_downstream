@@ -47,8 +47,8 @@ packageVersion("sccomp") # should be >= 1.4.0
 ```
 # Read in processed and labeled data
 ```{r read_in}
-seurat.obj.1 <- readRDS(file = ) # reference
-seurat.obj.2 <- readRDS(file = ) # query
+seurat.obj.1 <- readRDS(file = SEURAT.1) # reference
+seurat.obj.2 <- readRDS(file = SEURAT.2) # query
 # reference cell type column
 annot_ref<- seurat.obj.1$CellType_manual
 ```
