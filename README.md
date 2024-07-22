@@ -5,20 +5,20 @@ Code for the analysis of the pig retinal organoid data from the David Gamm group
 Clone this repository:
 
 ```
-git clone git@github.com:stewart-lab/Gamm_scRNAseq.git
+git clone git@github.com:stewart-lab/scRNAseq_downstream.git
 ```
 You will also need anaconda or miniconda to install environments. To install miniconda:
 
 https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html
 
-## For single-cell pre-processing with or without cross-species, visit our companion single-cell repo:
+## For single-cell pre-processing, visit our companion single-cell repo:
 
 https://github.com/stewart-lab/scRNAseq_library
 
 ## Annotation via a reference
 
 ### Seurat mapping
-For mapping annotations across species, we used Seurat mapping.Seurat mapping also uses a reference object/ dataset to predict annotations of clusters based on similairty of cell expression to the reference. It does this by doing a canonical correlation analysis to find "anchor" cells between the reference and query, then annotated clusters based on these anchor cells.
+For mapping annotations across species, we used Seurat mapping. Seurat mapping also uses a reference object/ dataset to predict annotations of clusters based on similairty of cell expression to the reference. It does this by doing a canonical correlation analysis to find "anchor" cells between the reference and query, then annotated clusters based on these anchor cells. 
 
 For more details on Seurat mapping check out their webpage: https://satijalab.org/seurat/articles/multimodal_reference_mapping.html
 
@@ -33,7 +33,7 @@ Next, change the working directory, the GitHub directory with this repository, a
 Variables in .Rmd file:
 ```
 WD <- working directory
-GIT_DIR <- Github directory for Gamm_scRNAseq
+GIT_DIR <- Github directory for scRNAseq_downstream
 REF.SEURAT <- location and file name of reference seurat (from pre-processing)
 QUERY.SEURAT <- location and file name of query seurat (from pre-processing)
 ```
@@ -44,12 +44,64 @@ in "get_metadata":
   "metadata_file2": location of metadata for query
   "metadata_subset1": if needed, what to subset the reference metadata by (ie sample name), else "NA"
   "metadata_subset2": if needed, what to subset the query metadata by, else "NA"
+in "transfer_anchors":
+    "reduc.type": type of reduction to use for anchors: "cca" or "pca"
+    "query_manual_annot": manual annotation label in query for comparisons, i.e. "CellType_manual"
+in "visualize_and_subset_ref":
+    "groupby": label column in reference used for annotating, i.e. "type"
+    "celltype_removal_list": list of cell types in reference to remove, i.e. ["AC2","miG","T2"]
+in "get_manual_comparison": order of prediction cell types ("rowvec") compared to manual cell types ("colvec")
+    for proportion and cell count tables.
+    "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
+    "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog",
+"Retinal Prog","Amacrine cells","unknown"]
 ```
 
 Now run:
 ```
 Rscript -e "rmarkdown::render('seurat_mapping.Rmd')"
 ```
+
+Outputs:
+* annotated query Seurat object
+* Subsetted reference object
+* Umaps of transferred labels to query in query space and reference space
+* Umap feature plots showing prediction score of each cell type
+* Proportion and cell count tables comparing prediction to manual annotation
+* Heatmap of proportion comparison to manual annotation
+
+### ClustifyR
+ClustifyR uses either a marker list of genes or a reference (or both!) to annotate a query object. For a marker list, Clustifyr annotates based on percent cells expressed in a given cluster for a given marker. It can also use enrichment tests. For a reference, Clustifyr performs a Spearman's correlation between the reference expression matrix and query expression matrix to find maximally correlated clusters, annotating with the highest correlated reference cluster (above a threshold).
+
+For more information on ClustifyR see: https://www.bioconductor.org/packages/release/bioc/vignettes/clustifyr/inst/doc/clustifyr.html
+
+To run, first set variables:
+
+Variables in .Rmd file:
+```
+WD <- working directory
+GIT_DIR <- Github directory for scRNAseq_downstream
+REF.SEURAT <- location and file name of reference seurat (from pre-processing)
+QUERY.SEURAT <- location and file name of query seurat (from pre-processing)
+```
+Variables in config file:
+```
+ in "score_and_plot_markers":
+    "known_markers": "True" if using known marker list, otherwise "False"
+    "known_markers_path": path where known markers are relative to working dir
+    "cluster_type": which clusters to annotate
+    "reduction": dim reduction for visulaization, ie. "umap", "pca"
+in visualize_and_subset_ref:
+    "groupby" : label column in reference used for annotating, i.e. "cell_type2"
+```
+
+Now run:
+```
+Rscript -e "rmarkdown::render('clustifyr.Rmd')"
+```
+Outputs:
+* labeled Seurat object
+* 2 query labeled annotation visualizations (one for marker list, one for reference)
 
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
@@ -63,40 +115,40 @@ filename_list <- list of seurat objects to be integrated with path relative to w
 
 Variables in config file:
 ```
-"feature_selection":
-    "n_features": 2000,
-    "analysis_type": "Seurat"
-"scale_data": 
-    "vars.2.regress": "NA",
-    "marker.path.s": "../cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt",
-    "marker.path.g2m": "../cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt"
-"run_and_visualize_pca": 
-    "top_n_dims": 2,
-    "heatmap_dims": 15,
-    "num_cells": 500,
-    "dims": 20,
-    "num.replicate": "NA"
-  "run_umap": 
-    "dims_umap": 20,
-    "umap.method": "umap-learn",
-    "umap.red": "pca"
-"perform_clustering": 
-    "reduction": "integrated.cca",
+in "feature_selection":
+    "n_features": number of genes to use, i.e. 2000
+    "analysis_type": must be "Seurat" for integrated data
+in "scale_data": 
+    "vars.2.regress": "NA" or "cell.cycle"
+    "marker.path.s": path to s cell cycle genes, ie. "../cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt",
+    "marker.path.g2m": path to g2m cell cycle genes, ie. "../cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt"
+in "run_and_visualize_pca": 
+    "top_n_dims": number of pcs to visualize, i.e. 2
+    "heatmap_dims": number of pcs for heatmap, i.e. 15
+    "num_cells": number of cellls to visualize on pca map, i.e. 500
+    "dims": number of dimensions to use for jack straw, i.e. 20
+    "num.replicate": number of replicates to use for jack straw, i.e. 100. if "NA", jack straw not run
+in "run_umap": 
+    "dims_umap": number of pcs to use for umap, i.e. 20
+    "umap.method": umap reduction method, "umap-learn" or "uwot"
+    "umap.red": reduction to use for umap, "pca" or "harmony"
+in "perform_clustering": (performed after integration)
+    "reduction": "integrated.cca"
     "resolution": 0.5,
-    "algorithm": "leiden",
-    "dims_snn": 10,
+    "algorithm": "leiden"
+    "dims_snn": 10
     "cluster_name": "cca_clusters"
-"score_and_plot_markers": 
-    "top_n_markers": 100,
-    "known_markers": "True",
-    "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
-    "cluster_type": "cca_clusters",
-    "pairwise": "FALSE",
-    "logFC_thresh": 0.25,
+in "score_and_plot_markers": 
+    "top_n_markers": number of DE markers to consider, i.e. 100
+    "known_markers": if known markers, "True" or "False"
+    "known_markers_path": path to known markers
+    "cluster_type": cluster type to annotate, i.e. "cca_clusters"
+    "pairwise": perform pairwise DE between clusters, "TRUE" or "FALSE"
+    "logFC_thresh": 0.25
     "auc_thresh": 0.5
 "process_known_markers":
-   "annot_type": "manual",
-   "n_rank": 10
+   "annot_type": "manual"
+   "n_rank": lowest median rank to consider for marker annotation, i.e. 10
 ```
 
 ## Cell type composition analysis
