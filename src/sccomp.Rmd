@@ -208,7 +208,7 @@ saveRDS(seurat.combined, file = paste0(output,"seurat.combined.rds"))
 ```{r model_comp}
 # model composition
 comp.tibble <- seurat.combined |>
-  sccomp_glm( 
+  sccomp_estimate( 
     formula_composition = ~ idents, 
     .sample =  orig.ident, 
     .cell_group = CellType, 
@@ -233,11 +233,10 @@ write.table(pr.table, file= paste0(output, celltype,"_composition_result_table.t
 # Fit first model
 model_with_factor_association = 
   seurat.combined |>
-  sccomp_glm( 
+  sccomp_estimate( 
     formula_composition = ~ idents, 
     .sample =  orig.ident, 
     .cell_group = CellType, 
-    check_outliers = FALSE, 
     bimodal_mean_variability_association = TRUE,
     cores = 1, 
     enable_loo = TRUE
@@ -245,11 +244,10 @@ model_with_factor_association =
 # Fit second model
 model_without_association = 
   seurat.combined |>
-  sccomp_glm( 
+  sccomp_estimate( 
     formula_composition = ~ 1, 
     .sample =  orig.ident, 
     .cell_group = CellType, 
-    check_outliers = FALSE, 
     bimodal_mean_variability_association = TRUE,
     cores = 1 , 
     enable_loo = TRUE
@@ -269,7 +267,7 @@ print(paste0("if ",c.res," is greater than abs(5), significant"))
 ```{r diff_var_model}
 res = 
   seurat.combined |>
-  sccomp_glm( 
+  sccomp_estimate( 
     formula_composition = ~ idents, 
     formula_variability = ~ idents,
     .sample = orig.ident,
@@ -280,8 +278,11 @@ res =
 res.table <- as.data.frame(res)
 res.table.1 <- res.table[,1:17]
 write.table(res.table.1, file= paste0(output, "celltype_x_develop_composition_result_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
+```
+# plot
+```{r plot}
 # plot results
-plots = plot_summary(res)
+plots = res |> sccomp_test() |> plot()
 # group proportion boxplot 
 # blue box is posterior predictive check and colors are 
 # associated with significant associations for composition and/or variability
