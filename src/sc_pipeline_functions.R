@@ -753,7 +753,7 @@ score_and_plot_markers <- function(seurat_obj, output_path = output) {
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters")) {
+  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2")) {
     marker_field <- cluster_type
     marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
   } else {
@@ -763,7 +763,7 @@ score_markers <- function(sce_obj, cluster_type) {
 }
 
 get_clusters <- function(seurat_obj, cluster_type) {
-  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters")) {
+  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2")) {
     return(unique(seurat_obj@meta.data[[cluster_type]]))
   } else {
     stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
