@@ -64,11 +64,12 @@ dependencies:
   - bzip2=1.0.8=hd590300_5
   - c-ares=1.24.0=hd590300_0
   - c-compiler=1.5.2=h0b41bf4_0
-  - ca-certificates=2023.11.17=hbcca054_0
+  - ca-certificates=2024.7.4=hbcca054_0
   - cairo=1.16.0=hb05425b_5
   - curl=7.88.1=hdc1c0ab_1
   - cxx-compiler=1.5.2=hf52228f_0
   - expat=2.5.0=hcb278e6_1
+  - fftw=3.3.10=nompi_hf1063bd_110
   - fontconfig=2.14.2=h14ed4e7_0
   - freetype=2.12.1=h267a509_2
   - fribidi=1.0.10=h36c2ea0_0
@@ -76,7 +77,7 @@ dependencies:
   - gcc_impl_linux-64=11.2.0=h1234567_1
   - gcc_linux-64=11.2.0=h5c386dc_0
   - geos=3.12.1=h59595ed_0
-  - gfortran_impl_linux-64=11.2.0=h1234567_1
+  - gfortran_impl_linux-64=11.2.0=h7a446d4_16
   - gfortran_linux-64=11.2.0=hc2dff05_0
   - glib=2.69.1=he621ea3_2
   - gmp=6.3.0=h59595ed_0
@@ -104,8 +105,8 @@ dependencies:
   - libffi=3.4.2=h7f98852_5
   - libgcc-devel_linux-64=11.2.0=h1234567_1
   - libgcc-ng=13.2.0=h807b86a_3
-  - libgfortran-ng=11.2.0=h00389a5_1
-  - libgfortran5=11.2.0=h1234567_1
+  - libgfortran-ng=13.2.0=h69a702a_13
+  - libgfortran5=13.2.0=h3d2ce59_13
   - libgomp=13.2.0=h807b86a_3
   - liblapack=3.9.0=16_linux64_openblas
   - libnghttp2=1.58.0=h47da74e_1
@@ -127,7 +128,7 @@ dependencies:
   - ncurses=6.4=h59595ed_2
   - oniguruma=6.9.9=hd590300_0
   - openblas=0.3.21=pthreads_h320a7e8_3
-  - openssl=3.2.0=hd590300_1
+  - openssl=3.3.1=h4ab18f5_1
   - pandoc=3.1.3=h32600fe_0
   - pango=1.50.7=h05da053_0
   - pcre=8.45=h9c3ff4c_0
@@ -177,6 +178,7 @@ dependencies:
   - r-cyclocomp=1.1.1=r42hc72bb7e_0
   - r-data.table=1.14.10=r42h029312a_0
   - r-deldir=1.0_6=r42h640688f_0
+  - r-deoptimr=1.1_3=r42hc72bb7e_0
   - r-desc=1.4.3=r42hc72bb7e_0
   - r-devtools=2.4.5=r42hc72bb7e_2
   - r-diffobj=0.3.5=r42h57805ef_2
@@ -272,7 +274,7 @@ dependencies:
   - r-npsurv=0.5_0=r42hc72bb7e_2
   - r-openssl=2.1.1=r42hb353fa6_0
   - r-parallelly=1.36.0=r42hc72bb7e_1
-  - r-patchwork=1.1.3=r42hc72bb7e_0
+  - r-patchwork=1.2.0=r42hc72bb7e_0
   - r-pbapply=1.7_2=r42hc72bb7e_0
   - r-pheatmap=1.0.12=r42hc72bb7e_4
   - r-pillar=1.9.0=r42hc72bb7e_1
@@ -294,6 +296,7 @@ dependencies:
   - r-proxy=0.4_27=r42h57805ef_2
   - r-ps=1.7.5=r42h57805ef_1
   - r-purrr=1.0.2=r42h57805ef_0
+  - r-qqconf=1.3.2=r42ha503ecb_1
   - r-r.cache=0.16.0=r42hc72bb7e_2
   - r-r.methodss3=1.8.2=r42hc72bb7e_2
   - r-r.oo=1.25.0=r42hc72bb7e_2
@@ -306,7 +309,7 @@ dependencies:
   - r-rcmdcheck=1.4.0=r42h785f33e_2
   - r-rcolorbrewer=1.1_3=r42h785f33e_2
   - r-rcpp=1.0.11=r42h7df8631_0
-  - r-rcppannoy=0.0.21=r42ha503ecb_0
+  - r-rcppannoy=0.0.22=r42ha503ecb_0
   - r-rcpparmadillo=0.12.6.4.0=r42h08d816e_0
   - r-rcppeigen=0.3.3.9.4=r42h08d816e_0
   - r-rcpphnsw=0.5.0=r42ha503ecb_0
@@ -322,12 +325,13 @@ dependencies:
   - r-repr=1.1.6=r42h785f33e_1
   - r-reshape2=1.4.4=r42ha503ecb_3
   - r-restfulr=0.0.15=r42h56115f1_2
-  - r-reticulate=1.34.0=r42ha503ecb_0
+  - r-reticulate=1.38.0=r42ha18555a_0
   - r-rex=1.2.1=r42hc72bb7e_2
   - r-rgeos=0.6_4=r42h72d82f6_1
   - r-rjson=0.2.21=r42ha503ecb_3
   - r-rlang=1.1.2=r42ha503ecb_0
   - r-rmarkdown=2.25=r42hc72bb7e_0
+  - r-robustbase=0.99_2=r42hd9ac46e_0
   - r-rocr=1.0_11=r42hc72bb7e_3
   - r-roxygen2=7.2.3=r42ha503ecb_1
   - r-rprojroot=2.0.4=r42hc72bb7e_0
