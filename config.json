@@ -83,6 +83,19 @@
   "get_manual_comparison": {
     "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
     "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
+  },
+  "pseudotime":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "ADATA_FILE": "seurat_obj_labeled.h5ad", 
+    "ANNOT_TYPE": "manual",
+    "CROSS_SPECIES": "FALSE",
+    "NC": 10,
+    "annot_label": "CellType1",
+    "gene_list": ["CNGA3","RCVRN", "CA10", "TUBB3","SOX2"],
+    "terminal_celltypes": ["Muller Glia-Retinal Prog", "Rod", "Cone", "Bipolar Cells", "Amacrine Cell"],
+    "start_celltype": "Retinal Prog",
+    "magic_impute": "FALSE"
+
   }
 
 }

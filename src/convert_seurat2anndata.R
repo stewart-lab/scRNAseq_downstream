@@ -19,10 +19,10 @@ use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', require
 
 library(SeuratDisk)
 # variables
-WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20240125_112552/"
-SEURAT_OBJ <- "human_D205_subset_annot.rds"
-METADATA_GAMM <- "NA" #"/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
-OUTPUT_name <- "Reh_human_ortho_labeled-clusters.h5Seurat"
+WD <- "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/"
+SEURAT_OBJ <- "seurat_obj_labeled.rds"
+METADATA <- "NA" #"/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
+OUTPUT_name <- "seurat_obj_labeled.h5Seurat"
 
 setwd(WD)
 
@@ -30,22 +30,22 @@ setwd(WD)
 # read in Seurat object
 seurat <- readRDS(file = SEURAT_OBJ)
 
-if(METADATA_GAMM=="NA"){
+if(METADATA=="NA"){
   print("No metadata file provided")
 } else {
     print("Metadata file provided")
-    print(METADATA_GAMM)
+    print(METADATA)
     print("Reading in metadata")
     # add in metadata from previous analysis
-    metadata.gamm <- read.csv(METADATA_GAMM, row.names = 1,
+    metadata <- read.csv(METADATA, row.names = 1,
                             header = TRUE, sep = "\t")
     # check metadata with query data
     print(colnames(seurat@assays$RNA@data)[1:10])
-    print(rownames(metadata.gamm)[1:10])
+    print(rownames(metadata)[1:10])
     print(colnames(seurat@meta.data))
 
     # add metadata to query data
-    seurat <- AddMetaData(seurat, metadata.gamm)
+    seurat <- AddMetaData(seurat, metadata)
     print(colnames(seurat@meta.data))
 }
 

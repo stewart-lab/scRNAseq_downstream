@@ -45,11 +45,12 @@ seurat.obj <- readRDS(file = SEURAT.FILE)
 ```
 # recluster
 ```{r recluster}
-seurat.obj_recluster <- perform_clustering (seurat.obj, output)
+seurat.obj_recluster <- perform_clustering(seurat.obj, output)
 ```
 # save object
 ```{r save}
-saveRDS(seurat.obj_recluster, file = paste0(SEURAT.FILE, "_recluster_res", resolution, ".rds"))
+resolution <- as.character(config$perform_clustering$resolution)
+saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
 ```
 # Find markers with Differential expressed features (genes)
 # analyse known markers
@@ -63,10 +64,31 @@ annot_df <- score_and_plot_markers(seurat.obj_recluster,output)
 annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
 new.cluster.ids <- annot_df.ordered$Cell.type
 # annotate
-gseurat.obj_recluster<-annotate_clusters_and_save(seurat.obj_recluster, new.cluster.ids, output)
-
+seurat.obj_recluster<-annotate_clusters_and_save(seurat.obj_recluster, new.cluster.ids, output)
+# print table of celltypes
+print(table(seurat.obj_recluster@meta.data$CellType1))
+```
+# save annotation as dataframe
+```{r save_annot}
+seurat.obj_recluster.metadata<- as.data.frame(seurat.obj_recluster@meta.data)
+write.table(seurat.obj_recluster.metadata, file = paste0(output,"manual_annot_metadata_",resolution,".txt"), sep="\t", 
+            quote=F, row.names = T)
 ```
 # save session info
 ```{r sessioninfo}
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+```
+# optional- 
+# read back in metadata
+```{r get_meta}
+# # add in metadata from previous analysis
+# metadata <- read.csv(paste0(output,"manual_annot_metadata_",resolution,".txt"), 
+#             row.names = 1, header = TRUE, sep = "\t")
+
+# # add metadata to query data
+# seurat.obj_recluster <- AddMetaData(seurat.obj_recluster, metadata)
+
+# # check again
+# colnames(seurat.obj_recluster@meta.data)
+# table(seurat.obj_recluster@meta.data$CellType1)
 ```
