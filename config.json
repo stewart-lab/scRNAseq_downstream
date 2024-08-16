@@ -95,7 +95,12 @@
     "terminal_celltypes": ["Muller Glia-Retinal Prog", "Rod", "Cone", "Bipolar Cells", "Amacrine Cell"],
     "start_celltype": "Retinal Prog",
     "magic_impute": "FALSE"
-
+  },
+  "celltypeGPT":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "seurat.obj": "seurat_obj_labeled.rds",
+    "openAI_key": "",
+    "cluster_name": "seurat_clusters2",
+    "tissue_name": "retina"
   }
-
 }
