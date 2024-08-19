@@ -21,57 +21,17 @@
     "min_mean": 0.1,
     "feature": "ECHS1"
   },
-  "feature_selection": {
-    "n_features": 2000,
-    "analysis_type": "Seurat"
-  },
-  "scale_data": {
-    "vars.2.regress": "NA",
-    "marker.path.s": "../cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt",
-    "marker.path.g2m": "../cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt"
-  },
-  "run_and_visualize_pca": {
-    "top_n_dims": 2,
-    "heatmap_dims": 15,
-    "num_cells": 500,
-    "dims": 20,
-    "num.replicate": 100
-  },
-  "run_umap": {
-    "dims_umap": 20,
-    "umap.method": "umap-learn",
-    "umap.red": "pca"
-  },
   "perform_batch_correction": {
     "dims.use": 20,
     "max_iter": 50
   },
-  "perform_clustering": {
-    "reduction": "integrated.cca",
-    "resolution": 0.5,
-    "algorithm": "leiden",
-    "dims_snn": 10,
-    "cluster_name": "cca_clusters"
-  },
+  
   "find_differentially_expressed_features": {
     "min_pct": 0.25,
     "logfc_threshold": 0.25,
     "top_n": 11
   },
-  "score_and_plot_markers": {
-    "top_n_markers": 100,
-    "known_markers": "True",
-    "known_markers_path": "/w5home/bmoore/scRNAseq_library/sc_pipeline/known_marker_lists/Kims_retinal_markers.txt",
-    "cluster_type": "seurat_clusters",
-    "pairwise": "FALSE",
-    "logFC_thresh": 0.25,
-    "auc_thresh": 0.5,
-    "reduction": "umap"
-  },
-  "process_known_markers":{
-   "annot_type": "manual",
-   "n_rank": 10
-  },
+  
   "transfer_anchors": {
     "reduc.type": "cca",
     "query_manual_annot": "CellType_manual"
@@ -83,6 +43,57 @@
   "get_manual_comparison": {
     "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
     "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
+  },
+  "seurat_integration":{
+    "DATA_DIR":"/w5home/bmoore/scRNAseq/LiFangChu/",
+    "filename_list": ["fluidigm_gup_expr_results/output_20240417_134352/clustered_seurat_obj.rds",
+    "public_data/GSE199571/output_20240709_144815/48h/seurat_obj_labeled_48h.rds","public_data/GSE199571/output_20240710_224842/72h/seurat_obj_labeled_72h.rds",
+    "public_data/GSE199571/output_20240708_202335/96h/seurat_obj_labeled_96h.rds","public_data/GSE199571/output_20240709_171809/96h_MG/seurat_obj_labeled_96_MG.rds",
+    "public_data/GSE199571/output_20240709_171809/120h/seurat_obj_labeled_120h.rds","public_data/GSE199571/output_20240709_171809/120h_MG/seurat_obj_labeled_120h_MG.rds"],
+    "project_name": "GSE199571_merged_timepoints_with_fluidigm",
+    "feature_selection": {
+      "n_features": 2000,
+      "analysis_type": "Seurat"
+    },
+    "scale_data": {
+      "vars.2.regress": "NA",
+      "marker.path.s": "../cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt",
+      "marker.path.g2m": "../cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt"
+    },
+    "run_and_visualize_pca": {
+      "top_n_dims": 2,
+      "heatmap_dims": 15,
+      "num_cells": 500,
+      "dims": 20,
+      "num.replicate": "NA"
+    },
+    "run_umap": {
+      "dims_umap": 20,
+      "umap.method": "umap-learn",
+      "umap.red": "pca"
+    },
+    "integration_type": "cca",
+    "perform_clustering": {
+      "reduction": "integrated.cca",
+      "resolution": 0.5,
+      "algorithm": "leiden",
+      "dims_snn": 10,
+      "cluster_name": "cca_clusters"
+    },
+    "score_and_plot_markers": {
+      "top_n_markers": 100,
+      "known_markers": "True",
+      "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
+      "cluster_type": "cca_clusters",
+      "pairwise": "FALSE",
+      "logFC_thresh": 0.25,
+      "auc_thresh": 0.5,
+      "reduction": "integrated.cca"
+    },
+    "process_known_markers":{
+      "annot_type": "manual",
+      "n_rank": 10
+    }
   },
   "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",

@@ -328,9 +328,14 @@ normalize_data <- function(seurat_obj, path = output) {
   return(seurat_obj)
 }
 
-feature_selection <- function(seurat_obj) {
-  n_features <- config$feature_selection$n_features
-  analysis_type <- config$feature_selection$analysis_type
+feature_selection <- function(seurat_obj, type) {
+  if (type=="integration"){
+    n_features <- config$seurat_integration$feature_selection$n_features
+    analysis_type <- config$seurat_integration$feature_selection$analysis_type
+  } else {
+    n_features <- config$feature_selection$n_features
+    analysis_type <- config$feature_selection$analysis_type
+  }
 
   if (analysis_type == "Seurat") {
     # Seurat method
@@ -350,12 +355,17 @@ feature_selection <- function(seurat_obj) {
   return(seurat_obj)
 }
 
-scale_data <- function(seurat_obj, path = output) {
-  vars.2.regress <- config$scale_data$vars.2.regress
-  marker.path.s <- config$scale_data$marker.path.s
-  marker.path.g2m <- config$scale_data$marker.path.g2m
-  species <- config$species # Get species information
-
+scale_data <- function(seurat_obj, path = output, type) {
+  if (type=="integration"){
+    vars.2.regress <- config$seurat_integration$scale_data$vars.2.regress
+    marker.path.s <- config$seurat_integration$scale_data$marker.path.s
+    marker.path.g2m <- config$seurat_integration$scale_data$marker.path.g2m
+  } else {
+    vars.2.regress <- config$scale_data$vars.2.regress
+    marker.path.s <- config$scale_data$marker.path.s
+    marker.path.g2m <- config$scale_data$marker.path.g2m
+    species <- config$species # Get species information
+  }
   # Get all gene names
   all.genes <- rownames(seurat_obj)
 
@@ -479,12 +489,20 @@ sc_transform <- function(seurat_obj, path = output) {
   return(seurat_obj)
 }
 
-run_and_visualize_pca <- function(seurat_obj, path = output) {
-  top_n_dims <- config$run_and_visualize_pca$top_n_dims
-  heatmap_dims <- 1:config$run_and_visualize_pca$heatmap_dims
-  num_cells <- config$run_and_visualize_pca$num_cells
-  dims <- 1:config$run_and_visualize_pca$dims
-  num_replicate <- config$run_and_visualize_pca$num.replicate
+run_and_visualize_pca <- function(seurat_obj, path = output, type) {
+  if (type=="integration"){
+    top_n_dims <- config$seurat_integration$run_and_visualize_pca$top_n_dims
+    heatmap_dims <- 1:config$seurat_integration$run_and_visualize_pca$heatmap_dims
+    num_cells <- config$seurat_integration$run_and_visualize_pca$num_cells
+    dims <- 1:config$seurat_integration$run_and_visualize_pca$dims
+    num_replicate <- config$seurat_integration$run_and_visualize_pca$num.replicate
+  } else {
+    top_n_dims <- config$run_and_visualize_pca$top_n_dims
+    heatmap_dims <- 1:config$run_and_visualize_pca$heatmap_dims
+    num_cells <- config$run_and_visualize_pca$num_cells
+    dims <- 1:config$run_and_visualize_pca$dims
+    num_replicate <- config$run_and_visualize_pca$num.replicate
+  }
 
   # Perform PCA
   seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
@@ -555,10 +573,16 @@ perform_batch_correction <- function(seurat_obj, path = output) {
   return(list(seurat_obj = seurat_obj, harmony_embeddings = harmony_embeddings))
 }
 
-run_umap <- function(seurat_obj, path = output) {
-  dims_umap <- 1:config$run_umap$dims_umap
-  umap.method <- config$run_umap$umap.method
-  umap.red <- config$run_umap$umap.red
+run_umap <- function(seurat_obj, path = output, type) {
+  if (type=="integration"){
+    dims_umap <- 1:config$seurat_integration$run_umap$dims_umap
+    umap.method <- config$seurat_integration$run_umap$umap.method
+    umap.red <- config$seurat_integration$run_umap$umap.red
+  } else {
+    dims_umap <- 1:config$run_umap$dims_umap
+    umap.method <- config$run_umap$umap.method
+    umap.red <- config$run_umap$umap.red
+  }
   # Run UMAP
   seurat_obj <- RunUMAP(seurat_obj,
     dims = dims_umap, umap.method = umap.method,
@@ -573,13 +597,20 @@ run_umap <- function(seurat_obj, path = output) {
   return(seurat_obj)
 }
 
-perform_clustering <- function(seurat_obj, path = output) {
-  resolution <- config$perform_clustering$resolution
-  algorithm <- config$perform_clustering$algorithm
-  reduction <- config$perform_clustering$reduction
-  dims_snn <- 1:config$perform_clustering$dims_snn
-  cluster_name <- config$perform_clustering$cluster_name
-
+perform_clustering <- function(seurat_obj, path = output, type) {
+  if (type=="integration"){
+    resolution <- config$seurat_integration$perform_clustering$resolution
+    algorithm <- config$seurat_integration$perform_clustering$algorithm
+    reduction <- config$seurat_integration$perform_clustering$reduction
+    dims_snn <- 1:config$seurat_integration$perform_clustering$dims_snn
+    cluster_name <- config$seurat_integration$perform_clustering$cluster_name
+  } else {
+    resolution <- config$perform_clustering$resolution
+    algorithm <- config$perform_clustering$algorithm
+    reduction <- config$perform_clustering$reduction
+    dims_snn <- 1:config$perform_clustering$dims_snn
+    cluster_name <- config$perform_clustering$cluster_name
+  }
   # Check if Harmony embeddings exist in the Seurat object
   batch_corrected <- "harmony" %in% names(Embeddings(seurat_obj))
 
@@ -662,8 +693,12 @@ find_differentially_expressed_features <- function(seurat_obj, path = output) {
 }
 
 analyze_known_markers <- function(seurat_obj, de_results, output_path = output) {
-  # read in known GAMM retinoid markers
+  # read in known markers
+  if (type=="integration"){
+    known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
+  } else {
   known_markers_path <- config$score_and_plot_markers$known_markers_path
+  }
   known.markers <- read.csv2(known_markers_path, sep = "\t", header = TRUE)
   de.markers <- de_results[[1]]
   # match with any DE markers from data by merging dataframes
@@ -707,15 +742,24 @@ analyze_known_markers <- function(seurat_obj, de_results, output_path = output) 
   }
 }
 
-score_and_plot_markers <- function(seurat_obj, output_path = output) {
-  known_markers_path <- config$score_and_plot_markers$known_markers_path
-  known_markers <- config$score_and_plot_markers$known_markers
-  top_n_markers <- config$score_and_plot_markers$top_n_markers
-  cluster_type <- config$score_and_plot_markers$cluster_type
-  pairwise <- config$score_and_plot_markers$pairwise
-  logFC_thresh <- config$score_and_plot_markers$logFC_thresh
-  auc_thresh <- config$score_and_plot_markers$auc_thresh
-
+score_and_plot_markers <- function(seurat_obj, output_path = output, type) {
+  if (type=="integration"){
+    known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
+    known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
+    top_n_markers <- config$seurat_integration$score_and_plot_markers$top_n_markers
+    cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
+    pairwise <- config$seurat_integration$score_and_plot_markers$pairwise
+    logFC_thresh <- config$seurat_integration$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$seurat_integration$score_and_plot_markers$auc_thresh
+  } else {
+    known_markers_path <- config$score_and_plot_markers$known_markers_path
+    known_markers <- config$score_and_plot_markers$known_markers
+    top_n_markers <- config$score_and_plot_markers$top_n_markers
+    cluster_type <- config$score_and_plot_markers$cluster_type
+    pairwise <- config$score_and_plot_markers$pairwise
+    logFC_thresh <- config$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$score_and_plot_markers$auc_thresh
+  }
 
   sce_obj <- as.SingleCellExperiment(seurat_obj)
 
@@ -745,7 +789,7 @@ score_and_plot_markers <- function(seurat_obj, output_path = output) {
 
     # Process top genes for each cluster
     clust <- as.data.frame(marker_info[[clusters[i]]])
-    annot_df <- process_top_genes(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df)
+    annot_df <- process_top_genes(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type)
   }
 
   return(annot_df)
@@ -770,13 +814,19 @@ get_clusters <- function(seurat_obj, cluster_type) {
   }
 }
 
-process_top_genes <- function(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df) {
+process_top_genes <- function(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type) {
   # Extract relevant configuration settings
+  if (type=="integration"){
+    top_n_markers <- config$seurat_integration$score_and_plot_markers$top_n_markers
+    logFC_thresh <- config$seurat_integration$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$seurat_integration$score_and_plot_markers$auc_thresh
+    known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
+  } else {
   top_n_markers <- config$score_and_plot_markers$top_n_markers
   logFC_thresh <- config$score_and_plot_markers$logFC_thresh
   auc_thresh <- config$score_and_plot_markers$auc_thresh
   known_markers <- config$score_and_plot_markers$known_markers
-
+  }
   # Order by median Cohen's d and subset
   ordered <- subset(clust[order(clust$median.logFC.cohen, decreasing = TRUE), ], abs(median.logFC.cohen) > logFC_thresh & median.AUC > auc_thresh)
   top100 <- head(ordered, n = top_n_markers)
@@ -794,7 +844,7 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
   )
 
   # Process known markers
-  return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df))
+  return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df, type))
 }
 
 
@@ -853,10 +903,14 @@ process_pairwise_comparisons <- function(clusters, i, marker.info, output_path, 
 }
 
 
-
-process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df) {
+process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df, type) {
+  if (type=="integration"){
+    annot_type <- config$seurat_integration$process_known_markers$annot_type
+    n_rank <- config$seurat_integration$process_known_markers$n_rank
+  } else {
   annot_type <- config$process_known_markers$annot_type
   n_rank <- config$process_known_markers$n_rank
+  }
   if (known_markers_flag) {
     marker_df <- merge(top100, known_markers_df, by = "row.names")
 
@@ -1047,9 +1101,13 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 }
 
 
-annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output) {
+annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type) {
   # Rename the clusters based on the new IDs
-  reduction <- config$score_and_plot_markers$reduction
+  if (type=="integration"){
+    reduction <- config$seurat_integration$score_and_plot_markers$reduction
+  } else {
+    reduction <- config$score_and_plot_markers$reduction
+  }
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
   # put in CellType metadata
