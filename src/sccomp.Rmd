@@ -30,12 +30,17 @@ library(speckle)
 library(ggplot2)
 library(limma)
 ### set variables ###
-WD <- "/w5home/bmoore/scRNAseq/GAMM/cell_composition/"
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)
-COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual 
-SEURAT.1 <- "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds"
-SEURAT.2 <- "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$sccomp$DATA_DIR
+CROSS_SPECIES <- config$sccomp$CROSS_SPECIES # are you comparing across species (human to pig- then yes) or within species (no)
+COMP_TYPE <- config$sccomp$COMP_TYPE # based on the annotation- did you use scpred, seuratmapping, or manual 
+ANNOT_LABEL1 <- config$sccomp$annot_label1
+ANNOT_LABEL2 <- config$sccomp$annot_label2
+IDENTS1 <- config$sccomp$idents1
+IDENTS2 <- config$sccomp$idents2
+SEURAT.1 <- config$sccomp$SEURAT.file1
+SEURAT.2 <- config$sccomp$SEURAT.file2
 
 ### set working directory and output ###
 setwd(WD)
@@ -49,8 +54,7 @@ packageVersion("sccomp") # should be >= 1.4.0
 ```{r read_in}
 seurat.obj.1 <- readRDS(file = SEURAT.1) # reference
 seurat.obj.2 <- readRDS(file = SEURAT.2) # query
-# reference cell type column
-annot_ref<- seurat.obj.1$CellType_manual
+
 ```
 # check orig.ident and rename if necessary
 ```{r idents}
@@ -60,17 +64,17 @@ table(seurat.obj.2$orig.ident)
 table(seurat.obj.1$orig.ident)
 ```
 ```{r rename}
-if (CROSS_SPECIES=="yes"){
-  Idents(object = seurat.obj.2) <- "orig.ident"
-  seurat.obj.2 <- RenameIdents(object = seurat.obj.2, `output_S2-2_mm_mt_GeneFull` = "pig", `gamm_S2` = "pig", `output_S2-1_mm_mt_GeneFull` = "pig")
-  seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
-  Idents(object = seurat.obj.1) <- "orig.ident"
-}
-table(seurat.obj.2$orig.ident)
+Idents(object = seurat.obj.2) <- IDENTS2
+Idents(object = seurat.obj.1) <- IDENTS1
+# set as orig.ident
+seurat.obj.1[["orig.ident"]] <- Idents(object = seurat.obj.1)
+seurat.obj.2[["orig.ident"]] <- Idents(object = seurat.obj.2)
+# check tables
 table(seurat.obj.1$orig.ident)
-
-#saveRDS(seurat.obj.2, file =  paste0(output,"gamms2.2_cca_pred.rds"))
+table(seurat.obj.2$orig.ident)
 # rename celltype column for reference
+# reference cell type column
+annot_ref<- seurat.obj.1[[ANNOT_LABEL1]]
 seurat.obj.1$ref_type <- annot_ref
 # check reference and query annotations
 table(seurat.obj.1$ref_type)
@@ -97,8 +101,8 @@ if (CROSS_SPECIES=="yes"){
        table(seurat.obj.1$predicted.id)
        table(seurat.obj.2$predicted.id)
     } else if (COMP_TYPE=="manual"){
-        table(seurat.obj.1@meta.data$CellType_manual)
-        table(seurat.obj.2@meta.data$CellType_manual)
+        table(seurat.obj.1[[ANNOT_LABEL1]])
+        table(seurat.obj.2[[ANNOT_LABEL2]])
     } else {
         print("COMP_TYPE should be scpred or seurat mapping or manual")
     }
@@ -107,9 +111,9 @@ if (CROSS_SPECIES=="yes"){
 # add identities to metadata
 ```{r add_meta}
 if (COMP_TYPE=="manual"){
-    seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1@meta.data$CellType_manual, col.name= "CellType")
+    seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1[[ANNOT_LABEL]], col.name= "CellType")
     table(seurat.obj.1$CellType)
-    seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2@meta.data$CellType_manual, col.name= "CellType")
+    seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2[[ANNOT_LABEL]], col.name= "CellType")
     table(seurat.obj.2$CellType)
 }
 ```
@@ -127,14 +131,14 @@ table(Idents(object = seurat.combined))
 # set identity
 Idents(object = seurat.combined) <- "orig.ident"
 table(Idents(object = seurat.combined))
-if (CROSS_SPECIES=="yes"){
-    continue
-    #seurat.combined <- RenameIdents(object = seurat.combined, `human_F49B7` = "human")
-} else {
-    seurat.combined <- RenameIdents(object = seurat.combined, `output_S1-1_mm_mt_GeneFull` = "s1",
-                                `output_S1-2_mm_mt_GeneFull` = "s1", `output_S2-1_mm_mt_GeneFull` = "s2",
-                                `output_S2-2_mm_mt_GeneFull` = "s2")
-}
+# if (CROSS_SPECIES=="yes"){
+#     continue
+#     #seurat.combined <- RenameIdents(object = seurat.combined, `human_F49B7` = "human")
+# } else {
+#     seurat.combined <- RenameIdents(object = seurat.combined, `output_S1-1_mm_mt_GeneFull` = "s1",
+#                                 `output_S1-2_mm_mt_GeneFull` = "s1", `output_S2-1_mm_mt_GeneFull` = "s2",
+#                                 `output_S2-2_mm_mt_GeneFull` = "s2")
+# }
 # stash idents
 seurat.combined[["idents"]] <- Idents(object = seurat.combined)
 unique(seurat.combined$idents)

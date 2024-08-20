@@ -254,10 +254,18 @@ ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = outp
 
 get_metadata <- function(seurat_obj, type, path = output) {
   # Get parameters from config
-  metadata_file1 <- config$get_metadata$metadata_file1
-  metadata_file2 <- config$get_metadata$metadata_file2
-  metadata_subset1 <- config$get_metadata$metadata_subset1
-  metadata_subset2 <- config$get_metadata$metadata_subset2
+  if (type2=="seurat_mapping"){
+    metadata_file1 <- config$seurat_mapping$get_metadata$metadata_file1
+    metadata_file2 <- config$seurat_mapping$get_metadata$metadata_file2
+    metadata_subset1 <- config$seurat_mapping$get_metadata$metadata_subset1
+    metadata_subset2 <- config$seurat_mapping$get_metadata$metadata_subset2
+  } else {
+    metadata_file1 <- config$get_metadata$metadata_file1
+    metadata_file2 <- config$get_metadata$metadata_file2
+    metadata_subset1 <- config$get_metadata$metadata_subset1
+    metadata_subset2 <- config$get_metadata$metadata_subset2
+  }
+  
   # check type
   if (type == "ref") {
     metadata_file <- metadata_file1
@@ -604,6 +612,12 @@ perform_clustering <- function(seurat_obj, path = output, type) {
     reduction <- config$seurat_integration$perform_clustering$reduction
     dims_snn <- 1:config$seurat_integration$perform_clustering$dims_snn
     cluster_name <- config$seurat_integration$perform_clustering$cluster_name
+  } else if (type=="recluster") {
+    resolution <- config$recluster$perform_clustering$resolution
+    algorithm <- config$recluster$perform_clustering$algorithm
+    reduction <- config$recluster$perform_clustering$reduction
+    dims_snn <- 1:config$recluster$perform_clustering$dims_snn
+    cluster_name <- config$recluster$perform_clustering$cluster_name
   } else {
     resolution <- config$perform_clustering$resolution
     algorithm <- config$perform_clustering$algorithm
@@ -751,6 +765,14 @@ score_and_plot_markers <- function(seurat_obj, output_path = output, type) {
     pairwise <- config$seurat_integration$score_and_plot_markers$pairwise
     logFC_thresh <- config$seurat_integration$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$seurat_integration$score_and_plot_markers$auc_thresh
+  } else if (type=="recluster") {
+    known_markers_path <- config$recluster$score_and_plot_markers$known_markers_path
+    known_markers <- config$recluster$score_and_plot_markers$known_markers
+    top_n_markers <- config$recluster$score_and_plot_markers$top_n_markers
+    cluster_type <- config$recluster$score_and_plot_markers$cluster_type
+    pairwise <- config$recluster$score_and_plot_markers$pairwise
+    logFC_thresh <- config$recluster$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$recluster$score_and_plot_markers$auc_thresh
   } else {
     known_markers_path <- config$score_and_plot_markers$known_markers_path
     known_markers <- config$score_and_plot_markers$known_markers
@@ -821,11 +843,16 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
     logFC_thresh <- config$seurat_integration$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$seurat_integration$score_and_plot_markers$auc_thresh
     known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
+  } else if (type=="recluster") {
+    top_n_markers <- config$recluster$score_and_plot_markers$top_n_markers
+    logFC_thresh <- config$recluster$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$recluster$score_and_plot_markers$auc_thresh
+    known_markers <- config$recluster$score_and_plot_markers$known_markers
   } else {
-  top_n_markers <- config$score_and_plot_markers$top_n_markers
-  logFC_thresh <- config$score_and_plot_markers$logFC_thresh
-  auc_thresh <- config$score_and_plot_markers$auc_thresh
-  known_markers <- config$score_and_plot_markers$known_markers
+    top_n_markers <- config$score_and_plot_markers$top_n_markers
+    logFC_thresh <- config$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$score_and_plot_markers$auc_thresh
+    known_markers <- config$score_and_plot_markers$known_markers
   }
   # Order by median Cohen's d and subset
   ordered <- subset(clust[order(clust$median.logFC.cohen, decreasing = TRUE), ], abs(median.logFC.cohen) > logFC_thresh & median.AUC > auc_thresh)
@@ -907,9 +934,12 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
   if (type=="integration"){
     annot_type <- config$seurat_integration$process_known_markers$annot_type
     n_rank <- config$seurat_integration$process_known_markers$n_rank
+  } else if (type=="recluster") {
+    annot_type <- config$recluster$process_known_markers$annot_type
+    n_rank <- config$recluster$process_known_markers$n_rank
   } else {
-  annot_type <- config$process_known_markers$annot_type
-  n_rank <- config$process_known_markers$n_rank
+    annot_type <- config$process_known_markers$annot_type
+    n_rank <- config$process_known_markers$n_rank
   }
   if (known_markers_flag) {
     marker_df <- merge(top100, known_markers_df, by = "row.names")
@@ -1102,27 +1132,38 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 
 
 annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type) {
-  # Rename the clusters based on the new IDs
+  # get configs
   if (type=="integration"){
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
+    cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
+  } else if (type=="recluster") {
+    reduction <- config$recluster$score_and_plot_markers$reduction
+    cluster_type <- config$recluster$score_and_plot_markers$cluster_type
   } else {
     reduction <- config$score_and_plot_markers$reduction
+    cluster_type <- config$score_and_plot_markers$cluster_type
   }
+  # make sure that idents are the clusters you want annotated
+  Idents(seurat_obj) <- unlist(seurat_obj[[cluster_type]][1])
+  # Rename the clusters based on the new IDs
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
   # put in CellType metadata
   seurat_obj$CellType1 <- Idents(seurat_obj)
 
   # Generate and plot the UMAP plot
-
   pdf(paste0(output_path, "labeled-clusters.pdf"), bg = "white")
   print(DimPlot(seurat_obj, reduction = reduction, label = TRUE, 
         pt.size = 0.5, group.by = "CellType1"))
   dev.off()
   # Save the Seurat object
-  saveRDS(seurat_obj, file = paste0(output_path, "seurat_obj_labeled.rds"))
-
-  return(seurat_obj)
+  # if integration, goes directly to clustifyr, and will save there
+  if (type=="integration"){
+    return(seurat_obj)
+  } else {
+    saveRDS(seurat_obj, file = paste0(output_path, "seurat_obj_labeled.rds"))
+    return(seurat_obj)
+  }
 }
 
 create_feature_scatter_plot <- function(obj, feature1, feature2, save = TRUE, file_name = NULL, path = output) {
@@ -1172,11 +1213,18 @@ combine_feature_plots <- function(seurat_objs_list, feature_set1, feature_set2 =
   return(combined_plot)
 }
 
-annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output) {
+annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
   # Access the markers path
-  markers_path <- config$score_and_plot_markers$known_markers_path
-  cluster_type <- config$score_and_plot_markers$cluster_type
-  reduction <- config$score_and_plot_markers$reduction
+  if (type=="integration"){
+    markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
+    cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
+    reduction <- config$seurat_integration$score_and_plot_markers$reduction
+  } else {
+    markers_path <- config$score_and_plot_markers$known_markers_path
+    cluster_type <- config$score_and_plot_markers$cluster_type
+    reduction <- config$score_and_plot_markers$reduction
+  }
+  
   markers <- read.csv2(markers_path, sep = "\t", header = TRUE)
   markers_df <- data.frame(markers)
   colnames(markers_df) <- c("gene", "cluster")
@@ -1326,8 +1374,8 @@ visualize_and_subset_ref <- function(ref_seurat_obj, path = output) {
 }
 
 transfer_anchors<- function(ref.seurat, query.seurat, path = output){
-  reduc.type <- config$transfer_anchors$reduc.type
-  query_manual_annot <- config$transfer_anchors$query_manual_annot
+  reduc.type <- config$seurat_mapping$transfer_anchors$reduc.type
+  query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   # integrate features
   ret.list<- list(query.seurat,ref.seurat)
   features <- SelectIntegrationFeatures(object.list = ret.list, nfeatures = 3000)
@@ -1368,9 +1416,9 @@ transfer_anchors<- function(ref.seurat, query.seurat, path = output){
 }
 
 project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = output){
-  reduc.type <- config$transfer_anchors$reduc.type
-  ref_annot <- config$visualize_and_subset_ref$groupby
-  query_manual_annot <- config$transfer_anchors$query_manual_annot
+  reduc.type <- config$seurat_mapping$transfer_anchors$reduc.type
+  ref_annot <- config$seurat_mapping$visualize_and_subset_ref$groupby
+  query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   # need to rerun umap to store model
   ref.seurat <- RunUMAP(ref.seurat, dims = 1:30, reduction = "pca", return.model = TRUE)
   # map query
@@ -1404,7 +1452,7 @@ project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = outpu
 }
 
 get_manual_comparison <- function(query.seurat, path = output){
-  query_manual_annot <- config$transfer_anchors$query_manual_annot
+  query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   rowvec <- config$get_manual_comparison$rowvec
   colvec <- config$get_manual_comparison$colvec
   # verify model performance in query data

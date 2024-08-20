@@ -35,7 +35,7 @@ library(circlize)
 library(colorspace)
 library(GetoptLong)
 # set variables
-WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/"
+WD <- 
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 REF.SEURAT <- "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds"
 QUERY.SEURAT <- "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds"
@@ -58,10 +58,13 @@ ref.seurat <- readRDS(file = REF.SEURAT)
 ```
 # get metadata- if needed
 ```{r metadata}
-# get metadata if cell type annotation is needed 
-# set type "ref" or "query" ref= metadata.file1, query= metadata.file2
-ref.seurat <- get_metadata(ref.seurat, "ref")
-query.seurat <- get_metadata(query.seurat, "query")
+# get metadata if cell type annotation is needed
+get_meta <- config$seurat_mapping$get_metadata$get_meta
+if (get_meta=="TRUE"){
+    # set type "ref" or "query" ref= metadata.file1, query= metadata.file2
+    ref.seurat <- get_metadata(ref.seurat, "ref", output, "seurat_mapping")
+    query.seurat <- get_metadata(query.seurat, "query", output, "seurat_mapping")
+}
 print(colnames(ref.seurat@meta.data))
 print(colnames(query.seurat@meta.data))
 ```

@@ -1,21 +1,14 @@
 {
-  "title": "Clustifyr",
-  "annotation_reference": "FALSE",
+  "title": "LFJ fluidigm and public data integration",
+  "method": "seurat_integration",
   "DE_method": "Scran",
   "species": "human",
-  "lanes": [ ],
-  "DATA_DIR": "/isiseqruns/jfreeman_tmp_home/scRNA_PUBLIC_FASTQS/",
   
   "ortholog_subset": {
     "ortholog_file": "/w5home/bmoore/Gamm_scRNAseq/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt",
     "ref_species": "human"
   },
-  "get_metadata": {
-    "metadata_file1": "/w5home/bmoore/scRNAseq_downstream/data/reh_metadata/Reh_cca_org_205_metadata.txt",
-    "metadata_file2": "/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
-    "metadata_subset1": "NA",
-    "metadata_subset2": "NA"
-  },
+  
   "normalize_data": {
     "min_size": 100,
     "min_mean": 0.1,
@@ -31,18 +24,29 @@
     "logfc_threshold": 0.25,
     "top_n": 11
   },
-  
-  "transfer_anchors": {
-    "reduc.type": "cca",
-    "query_manual_annot": "CellType_manual"
-  },
-  "visualize_and_subset_ref": {
-    "groupby": "cell_type2",
-    "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"]
-  },
-  "get_manual_comparison": {
-    "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
-    "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
+  "seurat_mapping": {
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/",
+    "REF.SEURAT": "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds",
+    "QUERY.SEURAT": "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds",
+    "get_metadata": {
+      "get_meta": "FALSE",
+      "metadata_file1": "/w5home/bmoore/scRNAseq_downstream/data/reh_metadata/Reh_cca_org_205_metadata.txt",
+      "metadata_file2": "/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
+      "metadata_subset1": "NA",
+      "metadata_subset2": "NA"
+    },
+    "transfer_anchors": {
+      "reduc.type": "cca",
+      "query_manual_annot": "CellType_manual"
+    },
+    "visualize_and_subset_ref": {
+      "groupby": "cell_type2",
+      "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"]
+    },
+    "get_manual_comparison": {
+      "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
+      "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
+    }
   },
   "seurat_integration":{
     "DATA_DIR":"/w5home/bmoore/scRNAseq/LiFangChu/",
@@ -88,12 +92,23 @@
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
       "auc_thresh": 0.5,
-      "reduction": "integrated.cca"
+      "reduction": "umap.cca"
     },
     "process_known_markers":{
       "annot_type": "manual",
       "n_rank": 10
     }
+  },
+  "sccomp":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/cell_composition/",
+    "CROSS_SPECIES": "no",
+    "COMP_TYPE": "manual",
+    "annot_label1": "CellType_manual",
+    "annot_label2": "CellType_manual",
+    "idents1": "human",
+    "idents2": "pig",
+    "SEURAT.file1": "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds",
+    "SEURAT.file2": "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
   },
   "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
@@ -113,5 +128,30 @@
     "openAI_key": "",
     "cluster_name": "seurat_clusters2",
     "tissue_name": "retina"
+  },
+  "recluster":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/",
+    "SEURAT.FILE": "output_20230830_155530/seurat_obj_labeled.rds",
+    "perform_clustering": {
+      "reduction": "pca",
+      "resolution": 0.75,
+      "algorithm": "leiden",
+      "dims_snn": 10,
+      "cluster_name": "seurat_clusters2"
+    },
+    "score_and_plot_markers": {
+      "top_n_markers": 100,
+      "known_markers": "True",
+      "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
+      "cluster_type": "seurat_clusters2",
+      "pairwise": "FALSE",
+      "logFC_thresh": 0.25,
+      "auc_thresh": 0.5,
+      "reduction": "umap"
+    },
+    "process_known_markers":{
+      "annot_type": "manual",
+      "n_rank": 10
   }
+}
 }

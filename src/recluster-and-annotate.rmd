@@ -25,16 +25,17 @@ library(ggplot2)
 library(scater)
 library(SingleCellExperiment)
 # set variables
-WD <- "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/"
-SEURAT.FILE <- "output_20230830_155530/seurat_obj_labeled.rds"
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$recluster$DATA_DIR
+SEURAT.FILE <- config$recluster$SEURAT.FILE
 # set up environment and output
 use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_recluster_", timestamp)
 dir.create(output, showWarnings = FALSE)
-file.copy("/w5home/bmoore/scRNAseq_downstream/config.json", file.path(output, "config.json"))
+file.copy(file.path(GIT_DIR, "config.json"), file.path(output, "config.json"))
 config <- fromJSON(file.path(output, "config.json"))
 output <- paste0(output, "/")
 source("/w5home/bmoore/scRNAseq_downstream/src/sc_pipeline_functions.R") 
@@ -45,18 +46,18 @@ seurat.obj <- readRDS(file = SEURAT.FILE)
 ```
 # recluster
 ```{r recluster}
-seurat.obj_recluster <- perform_clustering(seurat.obj, output)
+seurat.obj_recluster <- perform_clustering(seurat.obj, output, "recluster")
 ```
 # save object
 ```{r save}
-resolution <- as.character(config$perform_clustering$resolution)
+resolution <- as.character(config$recluster$perform_clustering$resolution)
 saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
 ```
 # Find markers with Differential expressed features (genes)
 # analyse known markers
 # note: results overwrite
 ```{r analyze_known_markers}
-annot_df <- score_and_plot_markers(seurat.obj_recluster,output)
+annot_df <- score_and_plot_markers(seurat.obj_recluster,output,"recluster")
 ```
 # manual annotation
 ```{r manual_annot}

@@ -33,6 +33,7 @@ setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seuratintegrate_", timestamp)
 dir.create(output, showWarnings = FALSE)
+#output <- "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240819_110458/"
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 output <- paste0(output, "/")
 config <- fromJSON(file.path(output, "config.json"))
@@ -209,7 +210,6 @@ saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
 merged_seurat <- readRDS(file = paste0(output,"merged_seurat.rds"))
 merged_seurat
 ```
-
 # join layers
 ```{r join}
 merged_seurat <- JoinLayers(merged_seurat)
@@ -229,11 +229,8 @@ if (config$seurat_integration$score_and_plot_markers$known_markers) {
     # Get new cluster names ordered by cluster number
     new_cluster_ids <- new_df_ordered$Cell.type
     merged_seurat <- annotate_clusters_and_save(merged_seurat, new_cluster_ids, output, "integration")
-    # return labeled object
-    return(merged_seurat) # labeled_seurat_obj
   } else {
-    # If no known markers scoring and plotting, return the clustered object only
-    return(merged_seurat)
+   print("no manual annotation because no known marker set")
   }
 ```
 # annotate with clustifyr
@@ -241,7 +238,7 @@ if (config$seurat_integration$score_and_plot_markers$known_markers) {
 # convert to single cell experiment
 SCE <- as.SingleCellExperiment(merged_seurat)
 # run clustifyr
-annotate_with_clustifyR(merged_seurat, SCE, output)
+annotate_with_clustifyR(merged_seurat, SCE, output, "integration")
 ```
 # save session info
 ```{r sessioninfo}
