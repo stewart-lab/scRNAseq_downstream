@@ -24,11 +24,16 @@ library(cowplot)
 library(Seurat)
 library(ComplexHeatmap)
 library(rmarkdown)
+library(purrr)
+library(jsonlite)
+library(dplyr)
 ### set variables ###
-WD <- "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/"
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-REF.SEURAT <- "output_seurat_mapping_20240125_112552/human_D205_subset_annot.rds" # if NA, only marker list is used
-QUERY.SEURAT <- "output_seurat_mapping_20240125_112552/gamms2_cca_pred.rds"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$clustifyr$DATA_DIR
+REF.SEURAT <-  config$clustifyr$REF.SEURAT # if NA, only marker list is used
+QUERY.SEURAT <- config$clustifyr$QUERY.SEURAT
+cluster_name <- config$clustifyr$cluster_name
 ### set working directory and output ###
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -56,10 +61,26 @@ ref.seurat<- readRDS(file = REF.SEURAT)
 ```{r rename_idents}
 # check metadata
 colnames(seurat.obj@meta.data)
-# remove NAs
-seurat.obj<- subset(seurat.obj, subset = seurat_clusters != "NA")
+# stash idents
+seurat.obj[["cell.cycle"]] <- Idents(object = seurat.obj)
+# make clusters idents
+Idents(object = seurat.obj) <- cluster_name
+table(Idents(object = seurat.obj))
 # convert to character
-seurat.obj$seurat_clusters <- as.character(seurat.obj$seurat_clusters)
+seurat.obj@meta.data[cluster_name] <- mutate_if(seurat.obj@meta.data[cluster_name], is.factor, as.character)
+unique(seurat.obj[[cluster_name]])
+# remove NAs
+if(cluster_name=="seurat_clusters"){
+  seurat.obj<- subset(seurat.obj, subset = seurat_clusters != "NA")
+} else if (cluster_name=="seurat_clusters2"){
+  seurat.obj<- subset(seurat.obj, subset = seurat_clusters2 != "NA")
+} else if (cluster_name=="cca_clusters"){
+  seurat.obj<- subset(seurat.obj, subset = cca_clusters != "NA")
+} else {
+  print(paste0("Not able to remove NAs from clusters: ",cluster_name,". 
+  Clustifyr may throw an error if NAs are present in clusters."))
+}
+
 ```
 
 # run clustifyr from marker list
@@ -67,7 +88,7 @@ seurat.obj$seurat_clusters <- as.character(seurat.obj$seurat_clusters)
 # convert to single cell experiment
 SCE <- as.SingleCellExperiment(seurat.obj)
 # run clustifyr
-seurat.obj<- annotate_with_clustifyR(seurat.obj, SCE, output)
+seurat.obj<- annotate_with_clustifyR(seurat.obj, SCE, output, "clustifyr")
 ```
 
 # run clustifyr with references
@@ -75,9 +96,9 @@ seurat.obj<- annotate_with_clustifyR(seurat.obj, SCE, output)
 if(REF.SEURAT!="NA"){
   
   #visualize and subset
-  ref.seurat.sub <- visualize_and_subset_ref(ref.seurat, output)
+  ref.seurat.sub <- visualize_and_subset_ref(ref.seurat, output, "clustifyr")
   # annotate with clustifyr
-  clustifyr.obj <- annotate_with_clustifyR_ref(ref.seurat.sub, seurat.obj, SCE, output)
+  clustifyr.obj <- annotate_with_clustifyR_ref(ref.seurat.sub, seurat.obj, SCE, output, "clustifyr")
 
 } else {
   print("no references, quitting")

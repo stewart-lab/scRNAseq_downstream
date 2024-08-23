@@ -1219,6 +1219,10 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
     markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
     cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
+  } else if (type=="clustifyr"){
+    markers_path <- config$clustifyr$score_and_plot_markers$known_markers_path
+    cluster_type <- config$clustifyr$score_and_plot_markers$cluster_type
+    reduction <- config$clustifyr$score_and_plot_markers$reduction
   } else {
     markers_path <- config$score_and_plot_markers$known_markers_path
     cluster_type <- config$score_and_plot_markers$cluster_type
@@ -1238,6 +1242,8 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
     marker_inmatrix = FALSE,
     obj_out = FALSE
   )
+  # get rid of NA
+  list_res <- list_res[!(row.names(list_res) %in% c("orig.NA")),]
 
   if (length(unique(list_res)) > 1) {
     p1 <- plot_cor_heatmap(
@@ -1284,11 +1290,17 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
   return(clustered_seurat_obj)
 }
 
-annotate_with_clustifyR_ref <- function(ref.seurat, query.seurat, SCE, output) {
+annotate_with_clustifyR_ref <- function(ref.seurat, query.seurat, SCE, output,type) {
   # get cluster type and reduction
-  groupby <- config$visualize_and_subset_ref$groupby # reference annotation
-  cluster_type <- config$score_and_plot_markers$cluster_type # clusters in query to annotate
-  reduction <- config$score_and_plot_markers$reduction
+  if (type=="clustifyr"){
+    groupby <- config$clustifyr$visualize_and_subset_ref$groupby # reference annotation
+    cluster_type <- config$clustifyr$score_and_plot_markers$cluster_type # clusters in query to annotate
+    reduction <- config$clustifyr$score_and_plot_markers$reduction
+  } else {
+    groupby <- config$visualize_and_subset_ref$groupby # reference annotation
+    cluster_type <- config$score_and_plot_markers$cluster_type # clusters in query to annotate
+    reduction <- config$score_and_plot_markers$reduction
+  }
   
   # get ref matrix
   new_ref_matrix <- seurat_ref(
@@ -1339,9 +1351,18 @@ count_and_feature_plots <- function(ref_seurat_obj, query_seurat_obj, path = out
   dev.off()
 }
 
-visualize_and_subset_ref <- function(ref_seurat_obj, path = output) {
-  groupby <- config$visualize_and_subset_ref$groupby
-  removal_list <- config$visualize_and_subset_ref$celltype_removal_list
+visualize_and_subset_ref <- function(ref_seurat_obj, path = output, type) {
+  if (type=="seurat_mapping"){
+    groupby <- config$seurat_mapping$visualize_and_subset_ref$groupby
+    removal_list <- config$seurat_mapping$visualize_and_subset_ref$celltype_removal_list
+  } else if (type=="clustifyr"){
+    groupby <- config$clustifyr$visualize_and_subset_ref$groupby
+    removal_list <- config$clustifyr$visualize_and_subset_ref$celltype_removal_list
+  } else {
+    groupby <- config$visualize_and_subset_ref$groupby
+    removal_list <- config$visualize_and_subset_ref$celltype_removal_list
+  }
+  
   # Visualize the reference object
   pdf(paste0(path, "ref_seurat_obj_umap.pdf"), width = 8, height = 6)
   print(DimPlot(ref_seurat_obj, reduction = "umap", group.by = groupby, 

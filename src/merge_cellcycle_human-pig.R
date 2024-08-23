@@ -1,3 +1,4 @@
+library(Seurat)
 # get orthologs and cell cycle genes
 orthologs<- read.table("human_ref/Human_Pig_Biomart_Filtered_mod.txt", header=TRUE, sep="\t")
 cell.cycle<- read.table("regev_lab_cell_cycle_genes.txt", header=TRUE, sep="\t")

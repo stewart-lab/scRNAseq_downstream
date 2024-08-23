@@ -1,29 +1,9 @@
 {
-  "title": "LFJ fluidigm and public data integration",
-  "method": "seurat_integration",
+  "title": "Pseudotime on reclustered GAMM S2",
+  "method": "pseudotime",
   "DE_method": "Scran",
   "species": "human",
   
-  "ortholog_subset": {
-    "ortholog_file": "/w5home/bmoore/Gamm_scRNAseq/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt",
-    "ref_species": "human"
-  },
-  
-  "normalize_data": {
-    "min_size": 100,
-    "min_mean": 0.1,
-    "feature": "ECHS1"
-  },
-  "perform_batch_correction": {
-    "dims.use": 20,
-    "max_iter": 50
-  },
-  
-  "find_differentially_expressed_features": {
-    "min_pct": 0.25,
-    "logfc_threshold": 0.25,
-    "top_n": 11
-  },
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/",
     "REF.SEURAT": "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds",
@@ -112,15 +92,21 @@
   },
   "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
-    "ADATA_FILE": "seurat_obj_labeled.h5ad", 
-    "ANNOT_TYPE": "manual",
-    "CROSS_SPECIES": "FALSE",
+    "ADATA_FILE": "seurat_obj_labeled.h5ad",
     "NC": 10,
+    "METADATA": "manual_annot_metadata.txt",
     "annot_label": "CellType1",
     "gene_list": ["CNGA3","RCVRN", "CA10", "TUBB3","SOX2"],
     "terminal_celltypes": ["Muller Glia-Retinal Prog", "Rod", "Cone", "Bipolar Cells", "Amacrine Cell"],
     "start_celltype": "Retinal Prog",
-    "magic_impute": "FALSE"
+    "magic_impute": "FALSE",
+    "trajectory":{
+      "cone": ["Retinal Prog", "unknown", "Pan PR", "Cone"],
+      "rod": ["Retinal Prog", "unknown", "Pan PR", "Muller Glia-Rod", "Rod"],
+      "MG": ["Retinal Prog", "unknown", "Muller Glia-Rod", "Muller Glia-Retinal Prog"],
+      "bipolar": ["Retinal Prog", "unknown", "Bipolar Cells"],
+      "amacrine": ["Retinal Prog", "unknown", "Amacrine Cell"]
+    }
   },
   "celltypeGPT":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
@@ -129,9 +115,25 @@
     "cluster_name": "seurat_clusters2",
     "tissue_name": "retina"
   },
+  "clustifyr":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/",
+    "REF.SEURAT": "output_seurat_mapping_20240125_112552/human_D205_subset_annot.rds",
+    "QUERY.SEURAT": "output_seurat_mapping_20240125_112552/gamms2_cca_pred.rds",
+    "cluster_name": "seurat_clusters",
+    "visualize_and_subset_ref": {
+      "groupby": "cell_type2",
+      "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"]
+    },
+    "score_and_plot_markers": {
+      "known_markers": "True",
+      "known_markers_path": "/w5home/bmoore/scRNAseq/GAMM/known_markers/Kims_retinal_markers.txt",
+      "cluster_type": "seurat_clusters",
+      "reduction": "umap"
+    }
+  },
   "recluster":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/",
-    "SEURAT.FILE": "output_20230830_155530/seurat_obj_labeled.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "SEURAT.FILE": "seurat_obj_labeled.rds",
     "perform_clustering": {
       "reduction": "pca",
       "resolution": 0.75,
