@@ -49,7 +49,6 @@ dependencies:
   - bioconductor-s4vectors=0.36.0=r42ha9d7317_1
   - bioconductor-scaledmatrix=1.6.0=r42hdfd78af_0
   - bioconductor-scater=1.26.0=r42hdfd78af_0
-  - bioconductor-sccomp=1.1.0=r42hf17093f_1
   - bioconductor-scdblfinder=1.12.0=r42hdfd78af_0
   - bioconductor-scran=1.26.0=r42hf17093f_1
   - bioconductor-scry=1.10.0=r42hdfd78af_0

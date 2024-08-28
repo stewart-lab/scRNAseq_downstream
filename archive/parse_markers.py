@@ -40,7 +40,7 @@ def main():
         print("Please enter GAMMS1 or GAMMS2")
         sys.exit()
     for file in os.listdir(DIR): 
-        if file.startswith("gamm.known"):
+        if file.startswith("KnownDE.markers"):
             clust = file.split(".")[2]
             clust = clust.split("_")[-1]
             clust_list.append(clust)
@@ -52,7 +52,7 @@ def main():
             df3 = df.loc[:, ["Row.names", "mean.logFC.cohen", "median.logFC.cohen", "rank.logFC.cohen","mean.AUC",
                              "median.AUC","mean.logFC.detected","median.logFC.detected","Cell.type"]]
             for file2 in os.listdir(DIR):
-                if file2.startswith("gamm.top100genes"):
+                if file2.startswith("Top100DEgenes_"):
                     clust2 = file2.split(".")[1]
                     clust2 = clust2.split("_")[-1]
                     if clust2 == clust:

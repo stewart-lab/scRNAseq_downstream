@@ -29,6 +29,9 @@ library(devtools)
 library(speckle)
 library(ggplot2)
 library(limma)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
 ### set variables ###
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 config <- fromJSON(file.path(GIT_DIR, "config.json"))
@@ -48,6 +51,7 @@ timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_cell_composition_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
+file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 packageVersion("sccomp") # should be >= 1.4.0
 ```
 # Read in processed and labeled data
@@ -111,9 +115,9 @@ if (CROSS_SPECIES=="yes"){
 # add identities to metadata
 ```{r add_meta}
 if (COMP_TYPE=="manual"){
-    seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1[[ANNOT_LABEL]], col.name= "CellType")
+    seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1[[ANNOT_LABEL1]], col.name= "CellType")
     table(seurat.obj.1$CellType)
-    seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2[[ANNOT_LABEL]], col.name= "CellType")
+    seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2[[ANNOT_LABEL2]], col.name= "CellType")
     table(seurat.obj.2$CellType)
 }
 ```
@@ -129,8 +133,8 @@ table(Idents(object = seurat.combined))
 # set and rename identities in combined dataset
 ```{r set_idents}
 # set identity
-Idents(object = seurat.combined) <- "orig.ident"
-table(Idents(object = seurat.combined))
+#Idents(object = seurat.combined) <- "orig.ident"
+#table(Idents(object = seurat.combined))
 # if (CROSS_SPECIES=="yes"){
 #     continue
 #     #seurat.combined <- RenameIdents(object = seurat.combined, `human_F49B7` = "human")
@@ -262,7 +266,8 @@ comparison <- loo_compare(
   model_without_association |> attr("fit") |> loo()
 )
 comp_df <- as.data.frame(comparison)
-write.table(comp_df, file= paste0(output, "model_comparison_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
+write.table(comp_df, file= paste0(output, "model_comparison_table.txt"), 
+            quote = F, col.names = TRUE, row.names= F, sep= "\t")
 # is elpd_diff/se_diff > abs(5)?
 c.res <- comp_df$elpd_diff[2]/comp_df$se_diff[2]
 print(paste0("if ",c.res," is greater than abs(5), significant"))
@@ -280,8 +285,9 @@ res =
     cores = 1 
   )
 res.table <- as.data.frame(res)
-res.table.1 <- res.table[,1:17]
-write.table(res.table.1, file= paste0(output, "celltype_x_develop_composition_result_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
+res.table <- select(res.table, -c("count_data"))
+write.table(res.table, file= paste0(output, "celltype_x_develop_composition_result_table.txt"), 
+            quote = F, col.names = TRUE, row.names= F, sep= "\t")
 ```
 # plot
 ```{r plot}

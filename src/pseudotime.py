@@ -7,6 +7,7 @@ import palantir
 import scanpy as sc
 import pandas as pd
 import os
+import shutil
 import numpy as np
 import cellrank as cr
 import scvelo as scv
@@ -50,6 +51,8 @@ now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = data_dir + "pseudotime_" + now +"/"
 os.mkdir(out_dir)
+# copy config file
+shutil.copy(GIT_DIR+'config.json', DATA_DIR) 
 
 # add in metadata
 if METADATA != "NA":
@@ -267,7 +270,8 @@ pk.compute_transition_matrix()
 print(pk)
 # visualize based on pseudotime and transition matrix
 with plt.rc_context():
-    pk.plot_projection(basis="umap", recompute=True, show=False)
+    pk.plot_projection(basis="umap", recompute=True, 
+                       show=False)
     plt.savefig(out_dir +'pseudotime_transition.png')
     
 # Save results

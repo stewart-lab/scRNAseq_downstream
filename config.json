@@ -85,8 +85,8 @@
     "COMP_TYPE": "manual",
     "annot_label1": "CellType_manual",
     "annot_label2": "CellType_manual",
-    "idents1": "human",
-    "idents2": "pig",
+    "idents1": "pig_day40",
+    "idents2": "pig_day120",
     "SEURAT.file1": "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds",
     "SEURAT.file2": "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
   },
@@ -154,6 +154,12 @@
     "process_known_markers":{
       "annot_type": "manual",
       "n_rank": 10
+    }
+  },
+  "realtime":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/",
+    "ADATA_FILE": "clustered_seurat_obj.h5ad",
+    "time_label": "orig.ident",
+    "annot_label": "seurat_clusters"
   }
-}
 }
