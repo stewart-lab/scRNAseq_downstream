@@ -252,7 +252,7 @@ ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = outp
   return(obj.list)
 }
 
-get_metadata <- function(seurat_obj, type, path = output) {
+get_metadata <- function(seurat_obj, type, path = output, type2) {
   # Get parameters from config
   if (type2=="seurat_mapping"){
     metadata_file1 <- config$seurat_mapping$get_metadata$metadata_file1
@@ -1377,7 +1377,8 @@ project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = outpu
   ref_annot <- config$seurat_mapping$visualize_and_subset_ref$groupby
   query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   # need to rerun umap to store model
-  ref.seurat <- RunUMAP(ref.seurat, dims = 1:30, reduction = "pca", return.model = TRUE)
+  ref.seurat <- RunPCA(ref.seurat, features = VariableFeatures(object = ref.seurat))
+  ref.seurat <- RunUMAP(ref.seurat, dims = 1:30, reduction = "pca", return.model = TRUE) 
   # map query
   if (reduc.type== "cca"){
     # for cca
@@ -1410,8 +1411,8 @@ project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = outpu
 
 get_manual_comparison <- function(query.seurat, path = output){
   query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
-  rowvec <- config$get_manual_comparison$rowvec
-  colvec <- config$get_manual_comparison$colvec
+  rowvec <- config$seurat_mapping$get_manual_comparison$rowvec
+  colvec <- config$seurat_mapping$get_manual_comparison$colvec
   # verify model performance in query data
   query.ref.data.table1<- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype"))
   # check out proportion of cells

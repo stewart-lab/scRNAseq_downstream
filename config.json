@@ -1,17 +1,17 @@
 {
-  "title": "Pseudotime on reclustered GAMM S2",
-  "method": "pseudotime",
+  "title": "Redo histogram for prog/glia on Human Reh data and GAMM S2",
+  "method": "seurat_mapping",
   "DE_method": "Scran",
-  "species": "human",
+  "species": "pig",
   
   "seurat_mapping": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/",
-    "REF.SEURAT": "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds",
-    "QUERY.SEURAT": "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/output_seurat_mapping_20240904_134019/",
+    "REF.SEURAT": "human_seurat_map.rds",
+    "QUERY.SEURAT": "query_seurat_pred.rds",
     "get_metadata": {
-      "get_meta": "FALSE",
+      "get_meta": "TRUE",
       "metadata_file1": "/w5home/bmoore/scRNAseq_downstream/data/reh_metadata/Reh_cca_org_205_metadata.txt",
-      "metadata_file2": "/w5home/bmoore/scRNAseq/GAMM/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
+      "metadata_file2": "/w5home/bmoore/scRNAseq_downstream/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
       "metadata_subset1": "NA",
       "metadata_subset2": "NA"
     },
@@ -20,11 +20,11 @@
       "query_manual_annot": "CellType_manual"
     },
     "visualize_and_subset_ref": {
-      "groupby": "cell_type2",
-      "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"]
+      "groupby": "type",
+      "celltype_removal_list": ["AC1","AC2","T1/T3","T2","Midbrain","miG"]
     },
     "get_manual_comparison": {
-      "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
+      "rowvec": ["BC","PR","iMG","Prog","Prog/Glia","AC","RGC","HC"],
       "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
     }
   },
@@ -80,15 +80,15 @@
     }
   },
   "sccomp":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/cell_composition/",
-    "CROSS_SPECIES": "no",
-    "COMP_TYPE": "manual",
-    "annot_label1": "CellType_manual",
-    "annot_label2": "CellType_manual",
-    "idents1": "pig_day40",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
+    "CROSS_SPECIES": "yes",
+    "COMP_TYPE": "seuratmapping",
+    "annot_label1": "type",
+    "annot_label2": "predicted.id",
+    "idents1": "human_d205",
     "idents2": "pig_day120",
-    "SEURAT.file1": "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds",
-    "SEURAT.file2": "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
+    "SEURAT.file1": "output_seurat_mapping_20240904_134019/human_seurat_map.rds",
+    "SEURAT.file2": "output_seurat_mapping_20240904_134019/query_seurat_pred.rds"
   },
   "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",

@@ -35,10 +35,11 @@ library(circlize)
 library(colorspace)
 library(GetoptLong)
 # set variables
-WD <- 
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-REF.SEURAT <- "output_preprocess_test_20240209_145813/human_F49i-N-B7_clustered.rds"
-QUERY.SEURAT <- "output_preprocess_test_20240209_145813/querygamm.data.S2_clustered.rds"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$seurat_mapping$DATA_DIR
+REF.SEURAT <- config$seurat_mapping$REF.SEURAT
+QUERY.SEURAT <- config$seurat_mapping$QUERY.SEURAT
 # set up environment and output
 use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
 setwd(WD)
@@ -55,6 +56,8 @@ source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```{r read_data}
 query.seurat <- readRDS(file = QUERY.SEURAT)
 ref.seurat <- readRDS(file = REF.SEURAT)
+print(query.seurat)
+print(ref.seurat)
 ```
 # get metadata- if needed
 ```{r metadata}
@@ -76,7 +79,7 @@ count_and_feature_plots(ref.seurat,query.seurat)
 ```
 # ref umap and subset metadata
 ```{r subset_metadata}
-ref.seurat.sub <- visualize_and_subset_ref(ref.seurat)
+ref.seurat.sub <- visualize_and_subset_ref(ref.seurat,output,"seurat_mapping")
 ```
 
 # mapping and annotating query datasets
@@ -119,6 +122,8 @@ for(l in seq_along(1:length(labels))){
         celltype <- "L/M cone"
     }else if(celltype=="S.cone"){
         celltype <- "S cone"
+    }else if(celltype=="Prog.Glia"){
+        celltype <- "Prog/Glia"
     }
     # check if selltype is in predicted.id
     if(celltype %in% query.seurat$predicted.id){
@@ -167,5 +172,5 @@ saveRDS(ref.seurat, file= paste0(output,"human_seurat_map.rds"))
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
 ```
 ```{r read_data}
-#gamms2 <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20230804_143108/gamms2_rpca_pred.rds")
+#query.seurat <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20230804_143108/gamms2_rpca_pred.rds")
 ```

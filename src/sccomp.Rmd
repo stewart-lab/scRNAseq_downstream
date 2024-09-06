@@ -52,6 +52,7 @@ output <- paste0("output_cell_composition_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+config <- fromJSON(file.path(output, "config.json"))
 packageVersion("sccomp") # should be >= 1.4.0
 ```
 # Read in processed and labeled data
@@ -289,6 +290,26 @@ res.table <- select(res.table, -c("count_data"))
 write.table(res.table, file= paste0(output, "celltype_x_develop_composition_result_table.txt"), 
             quote = F, col.names = TRUE, row.names= F, sep= "\t")
 ```
+# test
+```{r test}
+test <- res |> sccomp_test()
+test.table <- as.data.frame(test)
+test.table <- select(test.table, -c("count_data"))
+write.table(test.table, file= paste0(output, "composition_x_var_result_testtable.txt"), 
+            quote = F, col.names = TRUE, row.names= F, sep= "\t")
+```
+# cell group statements
+```{r}
+res |> 
+   sccomp_proportional_fold_change(
+     formula_composition = ~  idents,
+     from =  "pig_day120", 
+     to = "human_d205"
+    ) |> 
+  select(CellType, statement)
+```
+
+
 # plot
 ```{r plot}
 # plot results
@@ -307,6 +328,23 @@ dev.off()
 # credible interval plot 2
 pdf(paste0(output, "credible_intervals_2d.pdf"), width = 8, height = 6)
 print(plots$credible_intervals_2D)
+dev.off()
+```
+
+```{r}
+plot2 = model_with_factor_association |> sccomp_test() |> plot()
+# associated with significant associations for composition and/or variability
+pdf(paste0(output, "signif_associations_boxplot2.pdf"), width = 8, height = 6)
+print(plot2$boxplot)
+dev.off()
+# credible interval plot 1
+# error bars represent 95% credible interval
+pdf(paste0(output, "credible_intervals_1d2.pdf"), width = 8, height = 6)
+print(plot2$credible_intervals_1D)
+dev.off()
+# credible interval plot 2
+pdf(paste0(output, "credible_intervals_2d2.pdf"), width = 8, height = 6)
+print(plot2$credible_intervals_2D)
 dev.off()
 ```
 # save session info
