@@ -24,37 +24,41 @@ For more details on Seurat mapping check out their webpage: https://satijalab.or
 
 First: **Make sure query and reference data were preprocessed the same way using the scRNAseq_library repo.**
 
-Next activate the single cell environment we used previously is activated:
+Activate the single cell environment:
 ```
 conda activate scRNAseq_best
 ```
-Next, change the working directory, the GitHub directory with this repository, and directories where your pre-processed seurat objects are (for both human and pig) in the .Rmd file. Also update where the metadata files are for both human and pig (included in the data/ folder) in the config file.
+Next, change the GitHub directory with the location of this repository in the seurat_mapping.Rmd file. 
 
-Variables in .Rmd file:
-```
-WD <- working directory
-GIT_DIR <- Github directory for scRNAseq_downstream
-REF.SEURAT <- location and file name of reference seurat (from pre-processing)
-QUERY.SEURAT <- location and file name of query seurat (from pre-processing)
-```
+Then update variables in the config file under the seurat_mapping header.
+
 Variables in config file:
 ```
-in "get_metadata":
-  "metadata_file1": location of metadata for reference
-  "metadata_file2": location of metadata for query
-  "metadata_subset1": if needed, what to subset the reference metadata by (ie sample name), else "NA"
-  "metadata_subset2": if needed, what to subset the query metadata by, else "NA"
-in "transfer_anchors":
-    "reduc.type": type of reduction to use for anchors: "cca" or "pca"
-    "query_manual_annot": manual annotation label in query for comparisons, i.e. "CellType_manual"
-in "visualize_and_subset_ref":
-    "groupby": label column in reference used for annotating, i.e. "type"
-    "celltype_removal_list": list of cell types in reference to remove, i.e. ["AC2","miG","T2"]
-in "get_manual_comparison": order of prediction cell types ("rowvec") compared to manual cell types ("colvec")
+"seurat_mapping": {
+    "DATA_DIR": "working_directory" # working directory where output goes,
+    "REF.SEURAT": "ref.seurat.rds" # location (relative to DATA_DIR) and file name of reference seurat (from pre-processing),
+    "QUERY.SEURAT": "query.seurat.rds" # location (relative to DATA_DIR) and file name of query seurat (from pre-processing),
+    "get_metadata": {
+      "get_meta": "TRUE" or "FALSE", # do you want to get metadata for object?
+       "metadata_file1": "ref_metadata.txt" # location and filename of metadata for reference
+       "metadata_file2": "query_metadata.txt" # location and filename of metadata for query
+       "metadata_subset1": "d205" # if needed, what to subset the reference metadata by (ie sample name), else "NA"
+       "metadata_subset2": "NA" # if needed, what to subset the query metadata by, else "NA"
+    },
+    "transfer_anchors": {
+      "reduc.type": "cca", # type of reduction to use for anchors: "cca" or "pca"
+      "query_manual_annot": "CellType_manual" # manual annotation label in query for comparisons
+    },
+    "visualize_and_subset_ref": {
+      "groupby": "type", # label column in reference used for annotating
+      "celltype_removal_list": ["AC1","AC2","T1/T3","T2","Midbrain","miG"] # list of cell types in reference to remove
+    },
+    "get_manual_comparison": { # order of prediction cell types ("rowvec") compared to manual cell types ("colvec")
     for proportion and cell count tables.
-    "rowvec": ["CdBC","ChBC","RBC","rod","L/M cone","MC","AC","HC"],
-    "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog",
-"Retinal Prog","Amacrine cells","unknown"]
+      "rowvec": ["BC","PR","iMG","Prog","Prog/Glia","AC","RGC","HC"],
+      "colvec": ["Bipolar Cells","Rods","Cones","Rods - Muller Glia","Muller Glia","Muller Glia - Retinal Prog","Retinal Prog","Amacrine cells","unknown"]
+    }
+  }
 ```
 
 Now run:
@@ -75,24 +79,35 @@ ClustifyR uses either a marker list of genes or a reference (or both!) to annota
 
 For more information on ClustifyR see: https://www.bioconductor.org/packages/release/bioc/vignettes/clustifyr/inst/doc/clustifyr.html
 
-To run, first set variables:
+To run, first activate the single cell environment:
+```
+conda activate scRNAseq_best
+```
+
+Then set variables under the "clustifyr" header. 
 
 Variables in .Rmd file:
 ```
-WD <- working directory
 GIT_DIR <- Github directory for scRNAseq_downstream
-REF.SEURAT <- location and file name of reference seurat (from pre-processing)
-QUERY.SEURAT <- location and file name of query seurat (from pre-processing)
 ```
 Variables in config file:
 ```
- in "score_and_plot_markers":
-    "known_markers": "True" if using known marker list, otherwise "False"
-    "known_markers_path": path where known markers are relative to working dir
-    "cluster_type": which clusters to annotate
-    "reduction": dim reduction for visulaization, ie. "umap", "pca"
-in visualize_and_subset_ref:
-    "groupby" : label column in reference used for annotating, i.e. "cell_type2"
+"clustifyr":{
+    "DATA_DIR": "working_directory/", # working directory
+    "REF.SEURAT": "../human_D205_subset_annot.rds", # location (relative to working dir) and file name of reference seurat (from pre-processing)
+    "QUERY.SEURAT": "../gamms2_cca_pred.rds", # location (relative to working dir) and file name of query seurat (from pre-processing)
+    "cluster_name": "seurat_clusters",
+    "visualize_and_subset_ref": {
+      "groupby": "cell_type2", # label column in reference used for annotating
+      "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"] # cell types not to be used for annotation
+    },
+    "score_and_plot_markers": {
+      "known_markers": "True", # "True" if using known marker list, otherwise "False"
+      "known_markers_path": "../../known_markers/Kims_retinal_markers.txt", # path where known markers are relative to working dir
+      "cluster_type": "seurat_clusters", # which clusters to annotate
+      "reduction": "umap" # dim reduction for visulaization, ie. "umap", "pca"
+    }
+  }
 ```
 
 Now run:
@@ -102,6 +117,19 @@ Rscript -e "rmarkdown::render('clustifyr.Rmd')"
 Outputs:
 * labeled Seurat object
 * 2 query labeled annotation visualizations (one for marker list, one for reference)
+
+### GPT CellType
+Automatic annotation of cell types using GPT-4 and differentially expressed marker genes. 
+
+```
+"celltypeGPT":{
+    "DATA_DIR": "working_directory/", # working directory,
+    "seurat.obj": "seurat_obj_labeled.rds", # seurat object to annotate
+    "openAI_key": "", # open AI key
+    "cluster_name": "seurat_clusters2", # clusters to annotate
+    "tissue_name": "retina" # if the tissue is known, otherwise NA
+  },
+```
 
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
