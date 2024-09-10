@@ -29,7 +29,10 @@ Activate the single cell environment:
 conda activate scRNAseq_best
 ```
 Next, change the GitHub directory with the location of this repository in the seurat_mapping.Rmd file. 
-
+Variables in .Rmd file:
+```
+GIT_DIR <- Github directory for scRNAseq_downstream
+```
 Then update variables in the config file under the seurat_mapping header.
 
 Variables in config file:
@@ -121,6 +124,20 @@ Outputs:
 ### GPT CellType
 Automatic annotation of cell types using GPT-4 and differentially expressed marker genes. 
 
+For more information see: https://winnie09.github.io/Wenpin_Hou/pages/gptcelltype.html
+
+To run, first activate the single cell environment:
+```
+conda activate scRNAseq_best
+```
+
+Then set variables under the "celltypeGPT" header. 
+
+Variables in .Rmd file:
+```
+GIT_DIR <- Github directory for scRNAseq_downstream
+```
+Variables in config file:
 ```
 "celltypeGPT":{
     "DATA_DIR": "working_directory/", # working directory,
@@ -128,56 +145,85 @@ Automatic annotation of cell types using GPT-4 and differentially expressed mark
     "openAI_key": "", # open AI key
     "cluster_name": "seurat_clusters2", # clusters to annotate
     "tissue_name": "retina" # if the tissue is known, otherwise NA
-  },
+  }
 ```
+Now run:
+```
+Rscript -e "rmarkdown::render('CelltypeGPT.Rmd')"
+```
+Outputs:
+* seurat object with annotations from GPT Celltype: seurat_celltypeGPT_annot.rds
+* UMAP figure: celltypeGPT_umap.pdf
+
 
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
 
 Variables in .Rmd file:
 ```
-WD <- working directory
-GIT_DIR <- Github directory for Gamm_scRNAseq
-filename_list <- list of seurat objects to be integrated with path relative to working directory. i.e. c("output/object1.rds","output/object2.rds")
+GIT_DIR <- Github directory for Github directory for scRNAseq_downstream
 ```
 
-Variables in config file:
+Variables in config file under "seurat_integration":
 ```
-in "feature_selection":
-    "n_features": number of genes to use, i.e. 2000
-    "analysis_type": must be "Seurat" for integrated data
-in "scale_data": 
-    "vars.2.regress": "NA" or "cell.cycle"
-    "marker.path.s": path to s cell cycle genes, ie. "../cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt",
-    "marker.path.g2m": path to g2m cell cycle genes, ie. "../cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt"
-in "run_and_visualize_pca": 
-    "top_n_dims": number of pcs to visualize, i.e. 2
-    "heatmap_dims": number of pcs for heatmap, i.e. 15
-    "num_cells": number of cellls to visualize on pca map, i.e. 500
-    "dims": number of dimensions to use for jack straw, i.e. 20
-    "num.replicate": number of replicates to use for jack straw, i.e. 100. if "NA", jack straw not run
-in "run_umap": 
-    "dims_umap": number of pcs to use for umap, i.e. 20
-    "umap.method": umap reduction method, "umap-learn" or "uwot"
-    "umap.red": reduction to use for umap, "pca" or "harmony"
-in "perform_clustering": (performed after integration)
-    "reduction": "integrated.cca"
-    "resolution": 0.5,
-    "algorithm": "leiden"
-    "dims_snn": 10
-    "cluster_name": "cca_clusters"
-in "score_and_plot_markers": 
-    "top_n_markers": number of DE markers to consider, i.e. 100
-    "known_markers": if known markers, "True" or "False"
-    "known_markers_path": path to known markers
-    "cluster_type": cluster type to annotate, i.e. "cca_clusters"
-    "pairwise": perform pairwise DE between clusters, "TRUE" or "FALSE"
-    "logFC_thresh": 0.25
-    "auc_thresh": 0.5
-"process_known_markers":
-   "annot_type": "manual"
-   "n_rank": lowest median rank to consider for marker annotation, i.e. 10
+"seurat_integration":{
+    "DATA_DIR":"working_dir/", # working directory
+    "filename_list": ["seurat_obj_labeled_48h.rds","seurat_obj_labeled_72h.rds"], # list of seurat objects to be integrated with path relative to working directory
+    "project_name": "GSE199571_merged_timepoints_with_fluidigm",
+    "feature_selection": {
+      "n_features": 2000, # number of genes to use
+      "analysis_type": "Seurat" # must be "Seurat" for integrated data
+    },
+    "scale_data": {
+      "vars.2.regress": "NA", # "NA" or "cell.cycle"
+      "marker.path.s": "cell_cycle_vignette/cell_cycle_orthologs_s.genes.txt", # path to s cell cycle genes
+      "marker.path.g2m": "cell_cycle_vignette/cell_cycle_orthologs_g2m.genes.txt" # path to g2m cell cycle genes
+    },
+    "run_and_visualize_pca": {
+      "top_n_dims": 2, # number of pcs to visualize
+      "heatmap_dims": 15, # number of pcs for heatmap
+      "num_cells": 500, # number of cells to visualize on pca map
+      "dims": 20, # number of dimensions to use for jack straw
+      "num.replicate": "NA" # number of replicates to use for jack straw, or if "NA", jack straw not run
+    },
+    "run_umap": {
+      "dims_umap": 20, # number of pcs to use for umap
+      "umap.method": "umap-learn", # umap reduction method, "umap-learn" or "uwot"
+      "umap.red": "pca" # reduction to use for umap, "pca" or "harmony"
+    },
+    "integration_type": "cca", # type of integration "cca", "rpca", "harmony", "mnn", or "scvi"
+    "perform_clustering": { # clustering after integration
+      "reduction": "integrated.cca", # use reduction according to integration type, ie. for "rpca" it is "integrated.rpca"
+      "resolution": 0.5, # resolution for clusters
+      "algorithm": "leiden", # louvain or leiden
+      "dims_snn": 10, # dimensions of nearest neighbor graph to use
+      "cluster_name": "cca_clusters" # cluster name 
+    },
+    "score_and_plot_markers": {
+      "top_n_markers": 100, # Number of DE markers to consider
+      "known_markers": "True", # if there are known markers- True or False
+      "known_markers_path": "fluidigm_gup_expr_results/JackChu_markers.txt", # path with known markers file
+      "cluster_type": "cca_clusters", # clusters to perform DE on
+      "pairwise": "FALSE", # Compare each cluster combination pairwise? TRUE or FALSE
+      "logFC_thresh": 0.25, # Cohen's D logFC threshold for a DE gene
+      "auc_thresh": 0.5, # AUC cutoff (normally at least 0.5)
+      "reduction": "umap.cca" # reduction to display umap, ie. shared space is umap.cca if cca was used
+    },
+    "process_known_markers":{
+      "annot_type": "manual", # type of annotation
+      "n_rank": 10 # lowest median logFC rank to consider for marker annotation
+    }
+  }
 ```
+Now run.
+```
+Rscript -e "rmarkdown::render(seurat_integrate_v5.Rmd)
+```
+Outputs:
+* combined seurat object
+* pca and umap plots of integrated data
+* DE genes for integrated clusters
+* annotation if known marker list
 
 ## Cell type composition analysis
 
@@ -199,10 +245,29 @@ COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmappi
 SEURAT.1 <- "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds"
 SEURAT.2 <- "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
 ```
+Variables to set in config file under sccomp header:
+```
+"sccomp":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/", # working dir
+    "CROSS_SPECIES": "yes", # are you comparing across species (yes) or within species (no)
+    "COMP_TYPE": "seuratmapping", # based on the annotation- did you use scpred, seuratmapping, or manual
+    "annot_label1": "type", # annotation label for file 1
+    "annot_label2": "predicted.id", # annotation label for file 2
+    "idents1": "human_d205", # rename idents in file 1
+    "idents2": "pig_day120", # rename idents in file 2
+    "SEURAT.file1": "human_seurat_map.rds", # file 1 relative to working dir
+    "SEURAT.file2": "query_seurat_pred.rds" # file 2 relative to working dir
+  }
+```
 Now run.
 ```
-sccomp.Rmd
+Rscript -e "rmarkdown::render(sccomp.Rmd)
 ```
+Outputs:
+* combined seurat object
+* proportion figure
+* significance figures
+* results tables
 
 ## Pseudotime analysis
 Cells are often in transition from one cell type to another, and pseudotime captures relationships between clusters, beginning with the least differentiated state to the most mature/terminal state(s).
@@ -213,60 +278,76 @@ Palantir models trajectories of differentiated cells by treating cell fate as a 
 
 To run Palantir and CellRank you first have to have a Seurat object that is clustered and annotated (see above). 
 
-Next convert your Seurat object to an h5ad object that can be read into python. 
-**Note** install the R requirements before running:
-
-- R requirements
-```
-library(reticulate)
-library(purrr)
-library(jsonlite)
-library(rmarkdown)
-library(Seurat)
-library(SeuratDisk)
-```
-
-**Before running**, change the working directory and the input and output filenames in the script.
-
-Variables:
-```
-WD <- working directory
-SEURAT_OBJ <- seurat object name
-METADATA_GAMM <- gamm metadata
-OUTPUT_name <- output file name for the h5ad object that will be created
-```
-Now run.
+Next convert your Seurat object to an h5ad object that can be read into python. Modify working directory and object name in script
 ```
 Rscript src/convert_seurat2anndata.R
 ```
-
-Once you have your h5ad object, set up your python environment:
-
+Change to environments directory and install pseudotime environment
 ```
-# set up with pseudotime_requirements.txt
-
-source src/install_pseudotime_env.sh
-
-# activate
-
-source pst_venv/bin/activate
+source install_pseudotime_env.sh
+```
+Activate a pseudotime environment
+```
+source pst_env/bin/activate
 ```
 
-Now you are ready to run Palantir and CellRank
-
-- open src/pseudotime_GAMM.ipynb in vscode and update the following variables:
-
+Modify Github directory in script:
 ```
-# variables
-DATA_DIR = "your_directory" # directory where anndata object is
-ADATA_FILE = "gamms2_cca_pred.h5ad" # the name of your h5ad (anndata) file
-ANNOT_TYPE = "manual" # the type of annotation used, options are: "seurat_map", "clustifyr", "manual"
-CROSS_SPECIES = "TRUE" # is this a cross-species annotation? "TRUE" or "FALSE"
-NC = 8 # number of components that are used to find terminal cells. In general, lower for few terminal cell types, higher for many terminal cell types
+GIT_DIR
+```
+Modify config variables under pseudotime header:
+```
+"pseudotime":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/", # working dir
+    "ADATA_FILE": "seurat_obj_labeled.h5ad", # converted anndata file
+    "NC": 10, # number of components that are used to find terminal cells. In general, lower for few terminal cell types, higher for many terminal cell types
+    "METADATA": "manual_annot_metadata.txt", # if you need to add metadata
+    "annot_label": "CellType1", # what annotation you want to analyze in pseudotime
+    "gene_list": ["CNGA3","RCVRN", "CA10", "TUBB3","SOX2"], # genes that you want to visualize trajectories for
+    "terminal_celltypes": ["Rod", "Cone", "Bipolar Cells", "Amacrine Cell"], # final cell types
+    "start_celltype": "Retinal Prog", # progenitor or stem cell type
+    "magic_impute": "FALSE", # impute gene expression data with MAGIC? TRUE or FALSE
+    "trajectory":{ # pseudotime cell type trajectoires you want to visualize
+      "cone": ["Retinal Prog", "unknown", "Pan PR", "Cone"],
+      "rod": ["Retinal Prog", "unknown", "Pan PR", "Muller Glia-Rod", "Rod"],
+      "MG": ["Retinal Prog", "unknown", "Muller Glia-Rod", "Muller Glia-Retinal Prog"],
+      "bipolar": ["Retinal Prog", "unknown", "Bipolar Cells"],
+      "amacrine": ["Retinal Prog", "unknown", "Amacrine Cell"]
+    }
+```
+Now you are ready to run Palantir and CellRank. Change to src directory and run:
+```
+python pseudotime.py
+```
+Outputs:
+* pseudotime_processed.h5ad object
+* pseudotime figures including trajectories, palantir pseudotime, diffusion maps, transition maps, and terminal state probability figure
+* gene figures including gene expression and gene trajectories over pseudotime
+
+## Real time analysis
+If you have actual time points in your data, you can do a real time analysis with optimal transport to see how the cells evolve over that time period.
+
+### Realtime with Cell Rank and Moscot
+
+
+First activate conda environment
+```
+conda activate realtime
+```
+Modify Github directory in script:
+```
+GIT_DIR
+```
+Modify config variables under realtime header:
+```
+"realtime":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/",
+    "ADATA_FILE": "clustered_seurat_obj.h5ad",
+    "time_label": "orig.ident",
+    "annot_label": "seurat_clusters"
+  }
 ```
 
-- now run src/pseudotime_GAMM2.ipynb
-- figures will be saved to the data directory
 
 ## Other processes
 
