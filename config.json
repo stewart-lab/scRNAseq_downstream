@@ -1,8 +1,8 @@
 {
-  "title": "Redo histogram for prog/glia on Human Reh data and GAMM S2",
-  "method": "seurat_mapping",
+  "title": "Pseudotime on reclustered thymus",
+  "method": "recluster",
   "DE_method": "Scran",
-  "species": "pig",
+  "species": "human",
   
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/output_seurat_mapping_20240904_134019/",
@@ -91,7 +91,7 @@
     "SEURAT.file2": "output_seurat_mapping_20240904_134019/query_seurat_pred.rds"
   },
   "pseudotime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "ADATA_FILE": "seurat_obj_labeled.h5ad",
     "NC": 10,
     "METADATA": "manual_annot_metadata.txt",
@@ -108,12 +108,18 @@
       "amacrine": ["Retinal Prog", "unknown", "Amacrine Cell"]
     }
   },
+  "realtime":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/",
+    "ADATA_FILE": "clustered_seurat_obj.h5ad",
+    "time_label": "orig.ident",
+    "annot_label": "seurat_clusters"
+  },
   "celltypeGPT":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "seurat.obj": "seurat_obj_labeled.rds",
     "openAI_key": "",
-    "cluster_name": "seurat_clusters2",
-    "tissue_name": "retina"
+    "cluster_name": "seurat_clusters",
+    "tissue_name": "thymus"
   },
   "clustifyr":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/",
@@ -132,11 +138,11 @@
     }
   },
   "recluster":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "SEURAT.FILE": "seurat_obj_labeled.rds",
     "perform_clustering": {
       "reduction": "pca",
-      "resolution": 0.75,
+      "resolution": 0.25,
       "algorithm": "leiden",
       "dims_snn": 10,
       "cluster_name": "seurat_clusters2"
@@ -144,7 +150,7 @@
     "score_and_plot_markers": {
       "top_n_markers": 100,
       "known_markers": "True",
-      "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
+      "known_markers_path": "/w5home/bmoore/Brown_thymus/thymus_markers_3.txt",
       "cluster_type": "seurat_clusters2",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
@@ -153,13 +159,21 @@
     },
     "process_known_markers":{
       "annot_type": "manual",
-      "n_rank": 10
+      "n_rank": 5
     }
   },
-  "realtime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/",
-    "ADATA_FILE": "clustered_seurat_obj.h5ad",
-    "time_label": "orig.ident",
-    "annot_label": "seurat_clusters"
+  "featureplots":{
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/",
+    "SEURAT_OBJ": "output_recluster_20240911_121040/seurat_obj_labeled.rds",
+    "GENE_LIST": "KM_genelist_thymus.txt",
+    "ANNOT": "CellType1",
+    "INPUT_NAME": "Thymus_0.5res"
+  },
+  "seurat2ann":{
+    "WD":  "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "METADATA": "NA",
+    "OUTPUT_name": "seurat_obj_labeled.h5Seurat"
   }
+  
 }

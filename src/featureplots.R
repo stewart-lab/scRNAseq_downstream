@@ -9,18 +9,20 @@ library(rmarkdown)
 library(ggplot2)
 use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 # set variables
-WD <- "/w5home/bmoore/scRNAseq/GAMM/GAMM_S1/output_20230921_142919/"
-SEURAT_OBJ <- "GAMM_S1_clabeled-clusters_0.5.rds"
-GENE_LIST <- "../../known_markers/genes_for_featureplots.txt"
-ANNOT <- "CellType_manual" # annotation to use for plotting, "orig.ident", "CellType_manual", "CellType"
-INPUT_NAME <- "Gamm_S1"
+# set variables
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$featureplots$WD
+SEURAT_OBJ <- config$featureplots$SEURAT_OBJ
+GENE_LIST <- config$featureplots$GENE_LIST
+ANNOT <- config$featureplots$ANNOT
+INPUT_NAME <- config$featureplots$INPUT_NAME
 # set working directory
 setwd(WD)
 # load seurat object
 seurat.obj <- readRDS(file = SEURAT_OBJ)
 # load list of marker genes to plot
-features <- read.csv(GENE_LIST, 
-                          header = FALSE, sep = "\t")
+features <- read.csv(GENE_LIST, header = FALSE, sep = "\t")
 
 # make cluster plots
 plot1 <- UMAPPlot(seurat.obj, group.by = ANNOT, label = F)
@@ -38,15 +40,15 @@ plot_function <- function(features, input_name, plot1, plot2) {
     # count to distinguish each plot
     count=1
     # loop to subset and plot
-    for (i in seq(1, length(marker.genes), by=15)) {
+    for (i in seq(1, length(marker.genes), by=12)) {
       #print(i)
-      j= i+14
+      j= i+11
       #print(j)
       markers1 <- marker.genes[i:j]
       plot3 <- FeaturePlot(seurat.obj, features = markers1, ncol = 3, 
-                           pt.size = 0.1)
+                           pt.size = 0.1, cols= c("darkseagreen1","darkseagreen4"))
       combined_plot <- ((plot1 | plot2) / plot3) + plot_layout(width = c(2, 3),
-                                                               heights = c(1, 2))
+                                                               heights = c(1, 4))
       # make pdf
       pdf(file = paste0("feature_plot_",as.character(input_name),"_", as.character(cell_types[c]),
                         as.character(count),".pdf"), width = 8, height = 11)

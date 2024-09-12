@@ -21,6 +21,7 @@ library(rmarkdown)
 library(ggplot2)
 library(scater)
 library(SingleCellExperiment)
+library(tidyverse)
 # set variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 config <- fromJSON(file.path(GIT_DIR, "config.json"))
@@ -35,7 +36,8 @@ dir.create(output, showWarnings = FALSE)
 file.copy(file.path(GIT_DIR, "config.json"), file.path(output, "config.json"))
 config <- fromJSON(file.path(output, "config.json"))
 output <- paste0(output, "/")
-source("/w5home/bmoore/scRNAseq_downstream/src/sc_pipeline_functions.R") 
+source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
+packageVersion("Seurat")
 ```
 # Load Data
 ```{r load_data}
@@ -62,7 +64,7 @@ annot_df <- score_and_plot_markers(seurat.obj_recluster,output,"recluster")
 annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
 new.cluster.ids <- annot_df.ordered$Cell.type
 # annotate
-seurat.obj_recluster<-annotate_clusters_and_save(seurat.obj_recluster, new.cluster.ids, output)
+seurat.obj_recluster<-annotate_clusters_and_save(seurat.obj_recluster, new.cluster.ids, output, "recluster")
 # print table of celltypes
 print(table(seurat.obj_recluster@meta.data$CellType1))
 ```
@@ -71,12 +73,28 @@ print(table(seurat.obj_recluster@meta.data$CellType1))
 seurat.obj_recluster.metadata<- as.data.frame(seurat.obj_recluster@meta.data)
 write.table(seurat.obj_recluster.metadata, file = paste0(output,"manual_annot_metadata_",resolution,".txt"), sep="\t", 
             quote=F, row.names = T)
+table1 <- table(seurat.obj_recluster@meta.data$CellType1)
+table1 <- as.data.frame(table1)
+write.table(table1, file= paste0(output,"table_celltype_counts.txt"), 
+            sep="\t", quote=F, row.names = F)
+# write annot df
+annot_df.ordered <- as.data.frame(annot_df.ordered)
+write.table(annot_df.ordered, file= paste0(output,"table_celltype_cluster.txt"), 
+            sep="\t", quote=F, row.names = F)
 ```
 # save session info
 ```{r sessioninfo}
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
 ```
-# optional- 
+# optional- plots and metadata
+# plot umap without legend
+```{r plots}
+  pdf(paste0(output, "labeled-clusters2.pdf"), bg = "white")
+  print(DimPlot(seurat.obj_recluster, reduction = "umap", label = TRUE, 
+        pt.size = 0.5, group.by = "CellType1")+ NoLegend())
+  dev.off()
+```
+
 # read back in metadata
 ```{r get_meta}
 # # add in metadata from previous analysis

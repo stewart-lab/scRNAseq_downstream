@@ -1,0 +1,63 @@
+# phate
+```{r load_packages}
+# install.packages("phateR")
+# pip install --user phate
+if (!require(viridis)) install.packages("viridis")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(readr)) install.packages("readr")
+#if (!require(Rmagic)) install.packages("Rmagic")
+library(phateR)
+library(ggplot2)
+library(readr)
+library(viridis)
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
+```
+```{r load_seurat}
+# set variables
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$recluster$DATA_DIR
+setwd(WD)
+SEURAT.FILE <- config$recluster$SEURAT.FILE
+seurat.obj <- readRDS(file = SEURAT.FILE)
+seurat.obj
+```
+
+```{r get_matrix}
+Xmatrix <- LayerData(seurat.obj, assay="RNA", layer ="data")
+```
+```{r transpose}
+Xmatrix_t <- t(Xmatrix)
+```
+```{r compare}
+print(Xmatrix[1:5,1:10])
+print(Xmatrix_t[1:5,1:10])
+```
+```{r convert}
+Xmatrix_t <- as.matrix(Xmatrix_t)
+```
+
+```{r run_phate}
+# run PHATE
+# options: knn : Number of nearest neighbors (default: 5)
+# decay : Alpha decay (default: 40)
+# t : Number of times to power the operator (default: ‘auto’)
+Xmatrix_PHATE <- phate(Xmatrix_t)
+```
+
+```{r visualize}
+p1 <- ggplot(Xmatrix_PHATE) +
+        geom_point(aes(PHATE1, PHATE2, color=Xmatrix_t[,"FOXN1"])) +
+        labs(color="FOXN1") +
+        scale_color_viridis(option="B")
+pdf(paste0("phate_plot_FOXN1.pdf"),bg = "white")
+print(p1)
+dev.off()
+```

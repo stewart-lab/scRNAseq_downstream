@@ -1,4 +1,4 @@
-
+# load packages
 library(reticulate)
 library(purrr)
 library(jsonlite)
@@ -19,14 +19,14 @@ use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', require
 
 library(SeuratDisk)
 # variables
-WD <- "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/"
-SEURAT_OBJ <- "seurat_obj_labeled.rds"
-METADATA <- "NA" #"/w5home/bmoore/Gamm_scRNAseq/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt"
-OUTPUT_name <- "seurat_obj_labeled.h5Seurat"
-
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$seurat2ann$WD
+SEURAT_OBJ <- config$seurat2ann$SEURAT_OBJ
+METADATA <- config$seurat2ann$METADATA
+OUTPUT_name <- config$seurat2ann$OUTPUT_name
+# set working dir
 setwd(WD)
-
-
 # read in Seurat object
 seurat <- readRDS(file = SEURAT_OBJ)
 
@@ -49,15 +49,7 @@ if(METADATA=="NA"){
     print(colnames(seurat@meta.data))
 }
 
-# remove "_1" from metadata
-#rownames(metadata.gamm) <- sub("_1", "", rownames(metadata.gamm))
-#rownames(metadata.gamm)[1:10]
-
 # first save seurat as h5 seurat file
 SaveH5Seurat(seurat, filename = OUTPUT_name)
 # then convert to h5ad
 Convert(OUTPUT_name, dest = "h5ad")
-
-# can now be read in by scanpy:
-# import scanpy
-# adata = scanpy.read_h5ad("pbmc3k.h5ad")
