@@ -7,6 +7,7 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(ggplot2)
+library(viridis)
 use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 # set variables
 # set variables
@@ -17,6 +18,7 @@ SEURAT_OBJ <- config$featureplots$SEURAT_OBJ
 GENE_LIST <- config$featureplots$GENE_LIST
 ANNOT <- config$featureplots$ANNOT
 INPUT_NAME <- config$featureplots$INPUT_NAME
+reduction <- config$featureplots$reduction
 # set working directory
 setwd(WD)
 # load seurat object
@@ -25,8 +27,10 @@ seurat.obj <- readRDS(file = SEURAT_OBJ)
 features <- read.csv(GENE_LIST, header = FALSE, sep = "\t")
 
 # make cluster plots
-plot1 <- UMAPPlot(seurat.obj, group.by = ANNOT, label = F)
-plot2 <- UMAPPlot(seurat.obj, group.by = "seurat_clusters", label = T)
+plot1 <- DimPlot(seurat.obj, reduction = reduction, label = FALSE, 
+        pt.size = 0.5, group.by = ANNOT)
+plot2 <- DimPlot(seurat.obj, reduction = reduction, label = TRUE, 
+        pt.size = 0.5, group.by = "seurat_clusters")
 
 # make for loop a function
 plot_function <- function(features, input_name, plot1, plot2) {
@@ -45,8 +49,10 @@ plot_function <- function(features, input_name, plot1, plot2) {
       j= i+11
       #print(j)
       markers1 <- marker.genes[i:j]
-      plot3 <- FeaturePlot(seurat.obj, features = markers1, ncol = 3, 
-                           pt.size = 0.1, cols= c("darkseagreen1","darkseagreen4"))
+      plot3 <- FeaturePlot(seurat.obj, features = markers1, ncol = 3,
+                           pt.size = 0.1, reduction = reduction) &
+                           scale_color_viridis(option="B") &
+                           xlim(c(-0.03,0.04)) & ylim(c(-0.03,0.04))
       combined_plot <- ((plot1 | plot2) / plot3) + plot_layout(width = c(2, 3),
                                                                heights = c(1, 4))
       # make pdf

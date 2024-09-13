@@ -2,9 +2,9 @@
 ```{r load_packages}
 # install.packages("phateR")
 # pip install --user phate
-if (!require(viridis)) install.packages("viridis")
-if (!require(ggplot2)) install.packages("ggplot2")
-if (!require(readr)) install.packages("readr")
+#if (!require(viridis)) install.packages("viridis")
+#if (!require(ggplot2)) install.packages("ggplot2")
+#if (!require(readr)) install.packages("readr")
 #if (!require(Rmagic)) install.packages("Rmagic")
 library(phateR)
 library(ggplot2)
@@ -23,17 +23,27 @@ use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', require
 # set variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 config <- fromJSON(file.path(GIT_DIR, "config.json"))
-WD <- config$recluster$DATA_DIR
+WD <- config$phate$WD
 setwd(WD)
-SEURAT.FILE <- config$recluster$SEURAT.FILE
+SEURAT.FILE <- config$phate$SEURAT_OBJ
+gene <- config$phate$gene
+knn  <- config$phate$knn
+decay  <- config$phate$decay
+tset  <- config$phate$t
+gamma  <- config$phate$gamma
+embed_key  <- config$phate$embed_key
+ANNOT  <- config$phate$ANNOT
+# read in seurat object
 seurat.obj <- readRDS(file = SEURAT.FILE)
 seurat.obj
 ```
 
 ```{r get_matrix}
+# get matrix from seurat object
 Xmatrix <- LayerData(seurat.obj, assay="RNA", layer ="data")
 ```
 ```{r transpose}
+# transpose - phate requires cells as rownames and genes as colnames
 Xmatrix_t <- t(Xmatrix)
 ```
 ```{r compare}
@@ -41,6 +51,7 @@ print(Xmatrix[1:5,1:10])
 print(Xmatrix_t[1:5,1:10])
 ```
 ```{r convert}
+# convert to regular matrix
 Xmatrix_t <- as.matrix(Xmatrix_t)
 ```
 
@@ -49,15 +60,49 @@ Xmatrix_t <- as.matrix(Xmatrix_t)
 # options: knn : Number of nearest neighbors (default: 5)
 # decay : Alpha decay (default: 40)
 # t : Number of times to power the operator (default: ‘auto’)
-Xmatrix_PHATE <- phate(Xmatrix_t)
+# gamma : Informational distance constant between -1 and 1 (default: 1)
+Xmatrix_PHATE <- phate(Xmatrix_t, knn=knn, decay=decay, t=tset, gamma=gamma)
 ```
-
+```{r check}
+Xmatrix_PHATE
+```
+# visualize phate with a gene
 ```{r visualize}
 p1 <- ggplot(Xmatrix_PHATE) +
-        geom_point(aes(PHATE1, PHATE2, color=Xmatrix_t[,"FOXN1"])) +
-        labs(color="FOXN1") +
+        geom_point(aes(PHATE1, PHATE2, color=Xmatrix_t[,gene])) +
+        labs(color=gene) +
         scale_color_viridis(option="B")
-pdf(paste0("phate_plot_FOXN1.pdf"),bg = "white")
+pdf(paste0("phate_plot_",gene,".pdf"),bg = "white")
 print(p1)
 dev.off()
+```
+
+# add embedding to seurat object
+```{r add2seurat}
+new_reduction <- CreateDimReducObject(embeddings = Xmatrix_PHATE$embedding, 
+                                key = embed_key)
+seurat.obj[[embed_key]] <- new_reduction
+```
+
+# visualize clusters
+```{r vis_clusters}
+p1 <- DimPlot(seurat.obj, reduction = embed_key, label = TRUE, 
+        pt.size = 0.5, group.by = ANNOT)
+p2 <- DimPlot(seurat.obj, reduction = embed_key, label = TRUE, 
+        pt.size = 0.5, group.by = "seurat_clusters")
+pdf(paste0("labels-clusters_",embed_key,".pdf"), bg = "white", width = 8, height = 6)
+print(p1+p2)
+dev.off()
+```
+```{r vis_clusters2}
+p3 <- DimPlot(seurat.obj, reduction = embed_key, label = TRUE, 
+        pt.size = 0.5, group.by = ANNOT) + NoLegend()
+p4 <- DimPlot(seurat.obj, reduction = embed_key, label = TRUE, 
+        pt.size = 0.5, group.by = "seurat_clusters") + NoLegend()
+pdf(paste0("labels-clusters_",embed_key,"_2.pdf"), bg = "white", width = 8, height = 6)
+print(p3+p4)
+dev.off()
+```
+```{r save}
+saveRDS(seurat.obj, file=paste0("seurat_obj_labeled_",embed_key,".rds"))
 ```

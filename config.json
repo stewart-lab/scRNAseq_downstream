@@ -163,17 +163,29 @@
     }
   },
   "featureplots":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/",
-    "SEURAT_OBJ": "output_recluster_20240911_121040/seurat_obj_labeled.rds",
-    "GENE_LIST": "KM_genelist_thymus.txt",
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
+    "GENE_LIST": "../KM_genelist_thymus.txt",
     "ANNOT": "CellType1",
-    "INPUT_NAME": "Thymus_0.5res"
+    "INPUT_NAME": "Thymus_0.5res_phate",
+    "reduction": "phatek10d50"
   },
   "seurat2ann":{
     "WD":  "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "SEURAT_OBJ": "seurat_obj_labeled.rds",
     "METADATA": "NA",
     "OUTPUT_name": "seurat_obj_labeled.h5Seurat"
+  },
+  "phate":{
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
+    "gene": "FOXN1",
+    "knn":5, 
+    "decay":40,
+    "t":"auto",
+    "gamma":1,
+    "embed_key":"phate",
+    "ANNOT": "CellType1"
   }
   
 }
