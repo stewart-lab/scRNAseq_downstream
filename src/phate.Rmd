@@ -19,12 +19,13 @@ library(jsonlite)
 library(rmarkdown)
 use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 ```
-```{r load_seurat}
+```{r set_variables}
 # set variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 config <- fromJSON(file.path(GIT_DIR, "config.json"))
 WD <- config$phate$WD
 setwd(WD)
+file.copy(paste0(GIT_DIR,"config.json"), file.path(WD, "config_phate.json"))
 SEURAT.FILE <- config$phate$SEURAT_OBJ
 gene <- config$phate$gene
 knn  <- config$phate$knn
@@ -33,6 +34,8 @@ tset  <- config$phate$t
 gamma  <- config$phate$gamma
 embed_key  <- config$phate$embed_key
 ANNOT  <- config$phate$ANNOT
+```
+```{r load_seurat}
 # read in seurat object
 seurat.obj <- readRDS(file = SEURAT.FILE)
 seurat.obj
@@ -52,7 +55,7 @@ print(Xmatrix_t[1:5,1:10])
 ```
 ```{r convert}
 # convert to regular matrix
-Xmatrix_t <- as.matrix(Xmatrix_t)
+#Xmatrix_t <- as.matrix(Xmatrix_t)
 ```
 
 ```{r run_phate}
@@ -83,7 +86,14 @@ new_reduction <- CreateDimReducObject(embeddings = Xmatrix_PHATE$embedding,
                                 key = embed_key)
 seurat.obj[[embed_key]] <- new_reduction
 ```
-
+# visualize samples
+```{r vis_sample}
+plot1 <- DimPlot(seurat.obj, reduction = embed_key, label = TRUE, 
+        pt.size = 0.5, group.by = "orig.ident")
+pdf(paste0("orig_ident_",embed_key,".pdf"), bg = "white", width = 8, height = 6)
+print(plot1)
+dev.off()
+```
 # visualize clusters
 ```{r vis_clusters}
 p1 <- DimPlot(seurat.obj, reduction = embed_key, label = TRUE, 

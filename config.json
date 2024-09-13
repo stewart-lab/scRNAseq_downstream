@@ -1,6 +1,6 @@
 {
-  "title": "Pseudotime on reclustered thymus",
-  "method": "recluster",
+  "title": "integration of fluidigm data with 48-72h timepoints",
+  "method": "seurat_integration",
   "DE_method": "Scran",
   "species": "human",
   
@@ -31,10 +31,10 @@
   "seurat_integration":{
     "DATA_DIR":"/w5home/bmoore/scRNAseq/LiFangChu/",
     "filename_list": ["fluidigm_gup_expr_results/output_20240417_134352/clustered_seurat_obj.rds",
-    "public_data/GSE199571/output_20240709_144815/48h/seurat_obj_labeled_48h.rds","public_data/GSE199571/output_20240710_224842/72h/seurat_obj_labeled_72h.rds",
-    "public_data/GSE199571/output_20240708_202335/96h/seurat_obj_labeled_96h.rds","public_data/GSE199571/output_20240709_171809/96h_MG/seurat_obj_labeled_96_MG.rds",
-    "public_data/GSE199571/output_20240709_171809/120h/seurat_obj_labeled_120h.rds","public_data/GSE199571/output_20240709_171809/120h_MG/seurat_obj_labeled_120h_MG.rds"],
-    "project_name": "GSE199571_merged_timepoints_with_fluidigm",
+    "public_data/GSE199571/output_20240709_144815/48h/seurat_obj_labeled_48h.rds",
+    "public_data/GSE199571/output_20240710_224842/72h/seurat_obj_labeled_72h.rds"
+    ],
+    "project_name": "GSE199571_merged_timepoints_48-72_with_fluidigm",
     "feature_selection": {
       "n_features": 2000,
       "analysis_type": "Seurat"
@@ -177,15 +177,15 @@
     "OUTPUT_name": "seurat_obj_labeled.h5Seurat"
   },
   "phate":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
-    "gene": "FOXN1",
+    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240819_110458/",
+    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "gene": "HES7",
     "knn":5, 
-    "decay":40,
+    "decay":50,
     "t":"auto",
     "gamma":1,
     "embed_key":"phate",
-    "ANNOT": "CellType1"
+    "ANNOT": "CellType"
   }
   
 }

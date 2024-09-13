@@ -45,9 +45,7 @@ plot_function <- function(features, input_name, plot1, plot2) {
     count=1
     # loop to subset and plot
     for (i in seq(1, length(marker.genes), by=12)) {
-      #print(i)
       j= i+11
-      #print(j)
       markers1 <- marker.genes[i:j]
       plot3 <- FeaturePlot(seurat.obj, features = markers1, ncol = 3,
                            pt.size = 0.1, reduction = reduction) &
