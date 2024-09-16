@@ -77,13 +77,16 @@ if (is.null(object_names)) {
 merged_seurat <- merge(seurat_vector[[1]], y = vector, 
                         add.cell.ids = object_names, 
                         project = config$seurat_integration$project_name)
- 
-head(colnames(merged_seurat))
+# make sure all objects are class v5
+merged_seurat[["RNA5"]] <- as(object = merged_seurat[["RNA"]], Class = "Assay5")
+DefaultAssay(merged_seurat) <- "RNA5"
+merged_seurat
 ```
 # split layers
 ```{r split_layers}
-merged_seurat[["RNA"]] <- split(merged_seurat[["RNA"]], f = merged_seurat$orig.ident)
+merged_seurat[["RNA5"]] <- split(merged_seurat[["RNA5"]], f = merged_seurat$orig.ident)
 merged_seurat
+table(merged_seurat$orig.ident)
 ```
 # feature selection, scale, dimensionality reduction on combined data
 ```{r feat_select}
@@ -150,10 +153,10 @@ if(integration_type == "cca"){
                         dims = 1:30, reduction.name = "umap.cca")
   # visualize
   p1 <- DimPlot(merged_seurat,reduction = "umap.cca",
-    group.by = c("orig.ident", "CellType", cluster_name),
+    group.by = c("orig.ident", "CellType1", cluster_name),
     combine = FALSE, label.size = 2
   )
-  pdf(paste0(output,"umap_merged_cca.pdf"))
+  pdf(paste0(output,"umap_merged_cca1.pdf"))
   print(p1)
   dev.off()
 } else if(integration_type == "rpca"){
@@ -210,12 +213,14 @@ saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
 merged_seurat <- readRDS(file = paste0(output,"merged_seurat.rds"))
 merged_seurat
 ```
-# join layers
+# join layers to do DE
 ```{r join}
 merged_seurat <- JoinLayers(merged_seurat)
 merged_seurat
 # convert to v3 object
-merged_seurat[["RNA3"]] <- as(object = merged_seurat[["RNA"]], Class = "Assay")
+merged_seurat[["RNA3"]] <- as(object = merged_seurat[["RNA5"]], Class = "Assay")
+DefaultAssay(merged_seurat) <- "RNA3"
+merged_seurat
 ```
 # now perform DE analysis
 ```{r de_analysis}
@@ -243,4 +248,38 @@ annotate_with_clustifyR(merged_seurat, SCE, output, "integration")
 # save session info
 ```{r sessioninfo}
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+```
+# subset for positively expressed genelist
+```{r get_cells}
+new.obj <- GetAssayData(object = merged_seurat, layer = "data")[c("HES7","TBX6"),]>0
+```
+```{r subset}
+#create cell names as metadata colum
+#merged_seurat[["CellName"]] <- colnames(merged_seurat)
+#get the required cells
+df <- as.data.frame(new.obj)
+# get cells that are true
+cellstokeep <- which(apply(df, 2, any))
+#subset the required cells
+merged_seurat_subset <- subset(merged_seurat, 
+                            cells = cellstokeep)
+merged_seurat_subset
+```
+```{r plot}
+p1 <- DimPlot(merged_seurat_subset, reduction = "umap.cca", label = TRUE, 
+        pt.size = 0.5, group.by = "CellType1")
+p2 <- DimPlot(merged_seurat, reduction = "umap.cca", label = TRUE, 
+        pt.size = 0.5, group.by = "CellType1")
+p3 <- DimPlot(merged_seurat_subset, reduction = "umap.cca", 
+        pt.size = 0.5, group.by = "orig.ident")
+p4 <- DimPlot(merged_seurat_subset, reduction = "umap.cca", label = TRUE, 
+        pt.size = 0.5, group.by = "cca_clusters")
+p5 <- FeaturePlot(merged_seurat_subset, features = c("HES7","TBX6"), ncol = 2,
+                           pt.size = 0.5, reduction = "umap.cca") &
+                           scale_color_viridis(option="B")
+combined_plot <- ((p1 | p2) / (p3 | p4) / p5) + plot_layout(width = c(2, 2, 2),
+                                                      heights = c(1, 1, 1))
+pdf(file = paste0(output,"umap_cca_subset_HES7-TBX62.pdf"), width = 8, height = 8)
+    print(combined_plot)
+dev.off()
 ```

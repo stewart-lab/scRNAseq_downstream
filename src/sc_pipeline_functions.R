@@ -368,6 +368,7 @@ scale_data <- function(seurat_obj, path = output, type) {
     vars.2.regress <- config$seurat_integration$scale_data$vars.2.regress
     marker.path.s <- config$seurat_integration$scale_data$marker.path.s
     marker.path.g2m <- config$seurat_integration$scale_data$marker.path.g2m
+    species <- config$species
   } else {
     vars.2.regress <- config$scale_data$vars.2.regress
     marker.path.s <- config$scale_data$marker.path.s
@@ -379,27 +380,24 @@ scale_data <- function(seurat_obj, path = output, type) {
 
   # Scale the data
   if (vars.2.regress == "cell.cycle") {
-    # Read cell cycle markers
-    cell.cycle.markers.s <- read.csv2(marker.path.s,
-      sep = "\t", header = TRUE, row.names = 1
-    )
-    cell.cycle.markers.g2m <- read.csv2(marker.path.g2m,
-      sep = "\t", header = TRUE, row.names = 1
-    )
-    varslist <- c(cell.cycle.markers.s, cell.cycle.markers.g2m)
-
-    # Select species-specific cell cycle markers
+    # Select species-specific cell cycle markers and read in
     if (species == "human") {
-      s.genes <- varslist[1]$human.gene.name
-      g2m.genes <- varslist[1]$human.gene.name
+      s.genes <- cc.genes$s.genes
+      g2m.genes <- cc.genes$g2m.genes
     } else if (species == "pig") {
+      cell.cycle.markers.s <- read.csv2(marker.path.s,
+      sep = "\t", header = TRUE, row.names = 1)
+      cell.cycle.markers.g2m <- read.csv2(marker.path.g2m,
+      sep = "\t", header = TRUE, row.names = 1)
+      varslist <- c(cell.cycle.markers.s, cell.cycle.markers.g2m)
       s.genes <- varslist[4]$pig.gene.name
       g2m.genes <- varslist[8]$pig.gene.name
     } else {
       stop("Unsupported species")
     }
     # Check if the genes in the list are present in the dataset
-    missing_genes <- setdiff(g2m.genes, rownames(seurat_obj))
+    cell.cycle.genes <- c(s.genes,g2m.genes)
+    missing_genes <- setdiff(cell.cycle.genes, rownames(seurat_obj))
     if (length(missing_genes) > 0) {
       print(paste("Missing genes: ", paste(missing_genes, collapse = ", ")))
     }
@@ -1080,7 +1078,7 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
     cluster_type <- config$score_and_plot_markers$cluster_type
   }
   # make sure that idents are the clusters you want annotated
-  Idents(seurat_obj) <- unlist(seurat_obj[[cluster_type]][1])
+  seurat_obj <- SetIdent(seurat_obj, value = cluster_type)
   # Rename the clusters based on the new IDs
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
