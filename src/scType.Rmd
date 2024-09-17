@@ -6,7 +6,9 @@ output: html_document
 ---
 ```{r load_libraries}
 # load libraries
-lapply(c("dplyr","Seurat","HGNChelper"), library, character.only = T)
+library(reticulate)
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
+lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
 ```
 ```{r install_sctype}
 # load gene set preparation function
@@ -17,20 +19,26 @@ source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sct
 ```
 ```{r DB_file}
 # DB file
-db_ <- "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx";
-tissue <- "Immune system" # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,Muscle,Placenta,Spleen,Stomach,Thymus 
+#db_ <- "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx";
+db_ <- "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx"
+tissue <- "thymus" # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,Muscle,Placenta,Spleen,Stomach,Thymus 
 
 # prepare gene sets
 gs_list <- gene_sets_prepare(db_, tissue)
 ```
+# load seurat
+```{r load_seurat}
+setwd("/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/")
+seurat.obj <- readRDS(file="seurat_obj_labeled_phate_sctype.rds")
+```
 # assign cell types
 ```{r}
 # check Seurat object version (scRNA-seq matrix extracted differently in Seurat v4/v5)
-seurat_package_v5 <- isFALSE('counts' %in% names(attributes(pbmc[["RNA"]])));
+seurat_package_v5 <- isFALSE('counts' %in% names(attributes(seurat.obj[["RNA"]])));
 print(sprintf("Seurat object %s is used", ifelse(seurat_package_v5, "v5", "v4")))
 
 # extract scaled scRNA-seq matrix
-scRNAseqData_scaled <- if (seurat_package_v5) as.matrix(pbmc[["RNA"]]$scale.data) else as.matrix(pbmc[["RNA"]]@scale.data)
+scRNAseqData_scaled <- if (seurat_package_v5) as.matrix(seurat.obj[["RNA"]]$scale.data) else as.matrix(seurat.obj[["RNA"]]@scale.data)
 
 # run ScType
 es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, gs = gs_list$gs_positive, gs2 = gs_list$gs_negative)
@@ -40,9 +48,9 @@ es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, gs = g
 # or to "integrated" for joint dataset analysis. To apply sctype with unscaled data, use e.g. pbmc[["RNA"]]$counts or pbmc[["RNA"]]@counts, with scaled set to FALSE.
 
 # merge by cluster
-cL_resutls <- do.call("rbind", lapply(unique(pbmc@meta.data$seurat_clusters), function(cl){
-    es.max.cl = sort(rowSums(es.max[ ,rownames(pbmc@meta.data[pbmc@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
-    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(pbmc@meta.data$seurat_clusters==cl)), 10)
+cL_resutls <- do.call("rbind", lapply(unique(seurat.obj@meta.data$seurat_clusters), function(cl){
+    es.max.cl = sort(rowSums(es.max[ ,rownames(seurat.obj@meta.data[seurat.obj@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
+    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seurat.obj@meta.data$seurat_clusters==cl)), 10)
 }))
 sctype_scores <- cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
 
@@ -51,22 +59,25 @@ sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_score
 print(sctype_scores[,1:3])
 ```
 ```{r plot}
-pbmc@meta.data$sctype_classification = ""
+seurat.obj@meta.data$sctype_classification = ""
 for(j in unique(sctype_scores$cluster)){
   cl_type = sctype_scores[sctype_scores$cluster==j,]; 
-  pbmc@meta.data$sctype_classification[pbmc@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+  seurat.obj@meta.data$sctype_classification[seurat.obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
 }
-
-DimPlot(pbmc, reduction = "umap", label = TRUE, repel = TRUE, group.by = 'sctype_classification')        
+pdf(paste0("sctype_thymus_YBmarkers_umap.pdf"), bg = "white")
+print(DimPlot(seurat.obj, reduction = "umap", label = TRUE,
+      repel = TRUE, group.by = 'sctype_classification'))
+dev.off()
 
 ```
 ```{r wrapper}
-source("https://raw.githubusercontent.com/kris-nader/sc-type/master/R/sctype_wrapper.R"); 
-pbmc <- run_sctype(pbmc,known_tissue_type="Immune system",custom_marker_file=
-                "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx",
-                name="sctype_classification",plot=TRUE)
+# source("https://raw.githubusercontent.com/kris-nader/sc-type/master/R/sctype_wrapper.R"); 
+# pbmc <- run_sctype(seurat.obj,known_tissue_type="Immune system",custom_marker_file=
+#                 "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx",
+#                 name="sctype_classification",plot=TRUE)
 ```
 # bubble plot
+```{r bubble}
 # load libraries
 lapply(c("ggraph","igraph","tidyverse", "data.tree"), library, character.only = T)
 
@@ -84,16 +95,26 @@ files_db <- openxlsx::read.xlsx(db_)[,c("cellName","shortName")]; files_db = uni
 nodes$shortName[is.na(nodes$shortName)] = nodes$realname[is.na(nodes$shortName)]; nodes = nodes[,c("cluster", "ncells", "Colour", "ord", "shortName", "realname")]
 
 mygraph <- graph_from_data_frame(edges, vertices=nodes)
-
+```
 # Make the graph
-```{r bubble}
+```{r bubbleplot}
 gggr <- ggraph(mygraph, layout = 'circlepack', weight=I(ncells)) + 
   geom_node_circle(aes(filter=ord==1,fill=I("#F5F5F5"), colour=I("#D3D3D3")), alpha=0.9) +
   geom_node_circle(aes(filter=ord==2,fill=I(Colour), colour=I("#D3D3D3")), alpha=0.9) +
-  theme_void() + geom_node_text(aes(filter=ord==2, label=shortName, colour=I("#ffffff"), 
+  theme_void() + geom_node_text(aes(filter=ord==2, label=shortName, colour=I("#000000"), 
   fill="white", repel = !1, parse = T, size = I(log(ncells,25)*1.5)))+ 
-  geom_node_label(aes(filter=ord==1,  label=shortName, colour=I("#000000"), size = I(3), 
+  geom_node_label(aes(filter=ord==1,  label=shortName, colour=I("#000000"), size = I(2), 
   fill="white", parse = T), repel = !0, segment.linetype="dotted")
-  
-DimPlot(pbmc, reduction = "umap", label = TRUE, repel = TRUE, cols = ccolss)+ gggr
+
+pdf(paste0("sctype_thymus_YBmarkers_bubbleplot.pdf"), bg = "white", width=8, height=4)  
+print(DimPlot(seurat.obj, reduction = "umap", label = TRUE, repel = TRUE, 
+      group.by = 'sctype_classification', cols = ccolss)+ gggr)
+dev.off()
+```
+```{r rename_save}
+# rename
+seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
+# delete old
+seurat.obj$sctype_classification <- NULL
+saveRDS(seurat.obj, file="seurat_obj_labeled_phate_sctype.rds")
 ```

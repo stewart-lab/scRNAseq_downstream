@@ -177,7 +177,7 @@
     "OUTPUT_name": "seurat_obj_labeled.h5Seurat"
   },
   "phate":{
-    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240819_110458/",
+    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240916_094725/",
     "SEURAT_OBJ": "seurat_obj_labeled.rds",
     "gene": "HES7",
     "knn":5, 
@@ -185,7 +185,7 @@
     "t":"auto",
     "gamma":1,
     "embed_key":"phate",
-    "ANNOT": "CellType"
+    "ANNOT": "CellType1"
   }
   
 }
