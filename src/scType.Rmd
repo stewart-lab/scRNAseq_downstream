@@ -9,6 +9,7 @@ output: html_document
 library(reticulate)
 use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
 lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
+library(jsonlite)
 # set variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 config <- fromJSON(file.path(GIT_DIR, "config.json"))
@@ -17,6 +18,7 @@ SEURAT.FILE <- config$sctype$SEURAT_OBJ
 DB <- config$sctype$db
 TISSUE <- config$sctype$tissue
 setwd(WD)
+file.copy(paste0(GIT_DIR,"config.json"), file.path(WD, "config_sctype.json"))
 ```
 ```{r install_sctype}
 # load gene set preparation function
@@ -44,16 +46,11 @@ seurat.obj <- readRDS(file=SEURAT.FILE)
 ```
 # assign cell types
 ```{r}
-# check Seurat object version (scRNA-seq matrix extracted differently in Seurat v4/v5)
-seurat_package_v5 <- isFALSE('counts' %in% names(attributes(seurat.obj[["RNA"]])));
-print(sprintf("Seurat object %s is used", ifelse(seurat_package_v5, "v5", "v4")))
+# get assay data
+xl <- Assays(seurat.obj)
 
 # extract scaled scRNA-seq matrix
-scRNAseqData_scaled <- if (seurat_package_v5) {
-  as.matrix(seurat.obj[["RNA"]]$scale.data) 
-} else {
-  as.matrix(seurat.obj[["RNA3"]]@scale.data)
-}
+as.matrix(seurat.obj[[xl]]$scale.data) 
 
 # run ScType
 es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, 
@@ -65,10 +62,9 @@ es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE,
 
 # merge by cluster
 cL_resutls <- do.call("rbind", lapply(unique(seurat.obj@meta.data$seurat_clusters), 
-            function(cl){es.max.cl = sort(rowSums(es.max[ ,
-            rownames(seurat.obj@meta.data[seurat.obj@meta.data$seurat_clusters==cl, ])]), 
-            decreasing = !0) head(data.frame(cluster = cl, type = names(es.max.cl), 
-            scores = es.max.cl, ncells = sum(seurat.obj@meta.data$seurat_clusters==cl)), 10)
+            function(cl){
+              es.max.cl = sort(rowSums(es.max[ ,rownames(seurat.obj@meta.data[seurat.obj@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
+              head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seurat.obj@meta.data$seurat_clusters==cl)), 10)
 }))
 sctype_scores <- cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
 
@@ -82,7 +78,7 @@ for(j in unique(sctype_scores$cluster)){
   cl_type = sctype_scores[sctype_scores$cluster==j,]; 
   seurat.obj@meta.data$sctype_classification[seurat.obj@meta.data$seurat_clusters == j]= as.character(cl_type$type[1])
 }
-pdf(paste0("sctype_thymus_YBmarkers_umap.pdf"), bg = "white")
+pdf(paste0("sctype_umap.pdf"), bg = "white")
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE,
       repel = TRUE, group.by = 'sctype_classification'))
 dev.off()
@@ -134,11 +130,11 @@ gggr <- ggraph(mygraph, layout = 'circlepack', weight=I(ncells)) +
   geom_node_circle(aes(filter=ord==1,fill=I("#F5F5F5"), colour=I("#D3D3D3")), alpha=0.9) +
   geom_node_circle(aes(filter=ord==2,fill=I(Colour), colour=I("#D3D3D3")), alpha=0.9) +
   theme_void() + geom_node_text(aes(filter=ord==2, label=shortName, colour=I("#000000"), 
-  fill="white", repel = !1, parse = T, size = I(log(ncells,25)*1.5)))+ 
-  geom_node_label(aes(filter=ord==1,  label=shortName, colour=I("#000000"), size = I(2), 
-  fill="white", parse = T), repel = !0, segment.linetype="dotted")
+  fill="white", repel = !1, parse = T, size = I(log(ncells,25)*1.5)))+ NoLegend() 
+  #geom_node_label(aes(filter=ord==1,  label=shortName, colour=I("#000000"), size = I(2), 
+  #fill="white", parse = T), repel = !0, segment.linetype="dotted")
 
-pdf(paste0("sctype_thymus_YBmarkers_bubbleplot.pdf"), bg = "white", width=8, height=4)  
+pdf(paste0("sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)  
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE, repel = TRUE, 
       group.by = 'sctype_classification', cols = ccolss)+ gggr)
 dev.off()
@@ -148,5 +144,5 @@ dev.off()
 seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
 # delete old
 seurat.obj$sctype_classification <- NULL
-saveRDS(seurat.obj, file="seurat_obj_labeled_phate_sctype.rds")
+saveRDS(seurat.obj, file="seurat_obj_labeled_sctype.rds")
 ```

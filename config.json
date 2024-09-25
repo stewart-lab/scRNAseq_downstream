@@ -189,7 +189,7 @@
   },
   "sctype":{
     "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT_OBJ": "seurat_obj_labeled_phate_sctype.rds",
+    "SEURAT_OBJ": "seurat_obj_labeled.rds",
     "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx",
     "tissue": "thymus"
   }
