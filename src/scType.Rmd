@@ -7,29 +7,40 @@ output: html_document
 ```{r load_libraries}
 # load libraries
 library(reticulate)
-use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
 lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
+# set variables
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path(GIT_DIR, "config.json"))
+WD <- config$sctype$WD
+SEURAT.FILE <- config$sctype$SEURAT_OBJ
+DB <- config$sctype$db
+TISSUE <- config$sctype$tissue
+setwd(WD)
 ```
 ```{r install_sctype}
 # load gene set preparation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
 # load cell type annotation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
-
 ```
 ```{r DB_file}
 # DB file
-#db_ <- "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx";
-db_ <- "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx"
-tissue <- "thymus" # e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,Muscle,Placenta,Spleen,Stomach,Thymus 
+if (DB=="default"){
+  db_ <- "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx"
+} else {
+  db_ <- DB
+}
+tissue <- TISSUE 
+# e.g. Immune system,Pancreas,Liver,Eye,Kidney,Brain,Lung,Adrenal,Heart,Intestine,
+# Muscle,Placenta,Spleen,Stomach,Thymus
 
 # prepare gene sets
 gs_list <- gene_sets_prepare(db_, tissue)
 ```
 # load seurat
 ```{r load_seurat}
-setwd("/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/")
-seurat.obj <- readRDS(file="seurat_obj_labeled_phate_sctype.rds")
+seurat.obj <- readRDS(file=SEURAT.FILE)
 ```
 # assign cell types
 ```{r}
@@ -38,19 +49,26 @@ seurat_package_v5 <- isFALSE('counts' %in% names(attributes(seurat.obj[["RNA"]])
 print(sprintf("Seurat object %s is used", ifelse(seurat_package_v5, "v5", "v4")))
 
 # extract scaled scRNA-seq matrix
-scRNAseqData_scaled <- if (seurat_package_v5) as.matrix(seurat.obj[["RNA"]]$scale.data) else as.matrix(seurat.obj[["RNA"]]@scale.data)
+scRNAseqData_scaled <- if (seurat_package_v5) {
+  as.matrix(seurat.obj[["RNA"]]$scale.data) 
+} else {
+  as.matrix(seurat.obj[["RNA3"]]@scale.data)
+}
 
 # run ScType
-es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, gs = gs_list$gs_positive, gs2 = gs_list$gs_negative)
+es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, 
+                      gs = gs_list$gs_positive, gs2 = gs_list$gs_negative)
 
 # NOTE: scRNAseqData parameter should correspond to your input scRNA-seq matrix. For raw (unscaled) count matrix set scaled = FALSE
 # When using Seurat, we use "RNA" slot with 'scale.data' by default. Please change "RNA" to "SCT" for sctransform-normalized data,
 # or to "integrated" for joint dataset analysis. To apply sctype with unscaled data, use e.g. pbmc[["RNA"]]$counts or pbmc[["RNA"]]@counts, with scaled set to FALSE.
 
 # merge by cluster
-cL_resutls <- do.call("rbind", lapply(unique(seurat.obj@meta.data$seurat_clusters), function(cl){
-    es.max.cl = sort(rowSums(es.max[ ,rownames(seurat.obj@meta.data[seurat.obj@meta.data$seurat_clusters==cl, ])]), decreasing = !0)
-    head(data.frame(cluster = cl, type = names(es.max.cl), scores = es.max.cl, ncells = sum(seurat.obj@meta.data$seurat_clusters==cl)), 10)
+cL_resutls <- do.call("rbind", lapply(unique(seurat.obj@meta.data$seurat_clusters), 
+            function(cl){es.max.cl = sort(rowSums(es.max[ ,
+            rownames(seurat.obj@meta.data[seurat.obj@meta.data$seurat_clusters==cl, ])]), 
+            decreasing = !0) head(data.frame(cluster = cl, type = names(es.max.cl), 
+            scores = es.max.cl, ncells = sum(seurat.obj@meta.data$seurat_clusters==cl)), 10)
 }))
 sctype_scores <- cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)  
 
@@ -62,13 +80,12 @@ print(sctype_scores[,1:3])
 seurat.obj@meta.data$sctype_classification = ""
 for(j in unique(sctype_scores$cluster)){
   cl_type = sctype_scores[sctype_scores$cluster==j,]; 
-  seurat.obj@meta.data$sctype_classification[seurat.obj@meta.data$seurat_clusters == j] = as.character(cl_type$type[1])
+  seurat.obj@meta.data$sctype_classification[seurat.obj@meta.data$seurat_clusters == j]= as.character(cl_type$type[1])
 }
 pdf(paste0("sctype_thymus_YBmarkers_umap.pdf"), bg = "white")
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE,
       repel = TRUE, group.by = 'sctype_classification'))
 dev.off()
-
 ```
 ```{r wrapper}
 # source("https://raw.githubusercontent.com/kris-nader/sc-type/master/R/sctype_wrapper.R"); 
@@ -82,17 +99,32 @@ dev.off()
 lapply(c("ggraph","igraph","tidyverse", "data.tree"), library, character.only = T)
 
 # prepare edges
-cL_resutls <- cL_resutls[order(cL_resutls$cluster),]; edges = cL_resutls; edges$type = paste0(edges$type,"_",edges$cluster); edges$cluster = paste0("cluster ", edges$cluster); edges = edges[,c("cluster", "type")]; colnames(edges) = c("from", "to"); rownames(edges) <- NULL
+cL_resutls <- cL_resutls[order(cL_resutls$cluster),]; edges = cL_resutls; 
+              edges$type = paste0(edges$type,"_",edges$cluster); 
+              edges$cluster = paste0("cluster ", edges$cluster); 
+              edges = edges[,c("cluster", "type")]; colnames(edges) = c("from", "to"); rownames(edges) <- NULL
 
 # prepare nodes
-nodes_lvl1 <- sctype_scores[,c("cluster", "ncells")]; nodes_lvl1$cluster = paste0("cluster ", nodes_lvl1$cluster); nodes_lvl1$Colour = "#f1f1ef"; nodes_lvl1$ord = 1; nodes_lvl1$realname = nodes_lvl1$cluster; nodes_lvl1 = as.data.frame(nodes_lvl1); nodes_lvl2 = c(); 
-ccolss <- c("#5f75ae","#92bbb8","#64a841","#e5486e","#de8e06","#eccf5a","#b5aa0f","#e4b680","#7ba39d","#b15928","#ffff99", "#6a3d9a","#cab2d6","#ff7f00","#fdbf6f","#e31a1c","#fb9a99","#33a02c","#b2df8a","#1f78b4","#a6cee3")
+nodes_lvl1 <- sctype_scores[,c("cluster", "ncells")]; 
+              nodes_lvl1$cluster = paste0("cluster ", nodes_lvl1$cluster); 
+              nodes_lvl1$Colour = "#f1f1ef"; nodes_lvl1$ord = 1; 
+              nodes_lvl1$realname = nodes_lvl1$cluster; 
+              nodes_lvl1 = as.data.frame(nodes_lvl1); nodes_lvl2 = c(); 
+ccolss <- c("#5f75ae","#92bbb8","#64a841","#e5486e","#de8e06","#eccf5a",
+            "#b5aa0f","#e4b680","#7ba39d","#b15928","#ffff99", "#6a3d9a",
+            "#cab2d6","#ff7f00","#fdbf6f","#e31a1c","#fb9a99","#33a02c",
+            "#b2df8a","#1f78b4","#a6cee3")
 for (i in 1:length(unique(cL_resutls$cluster))){
-  dt_tmp = cL_resutls[cL_resutls$cluster == unique(cL_resutls$cluster)[i], ]; nodes_lvl2 = rbind(nodes_lvl2, data.frame(cluster = paste0(dt_tmp$type,"_",dt_tmp$cluster), ncells = dt_tmp$scores, Colour = ccolss[i], ord = 2, realname = dt_tmp$type))
+  dt_tmp = cL_resutls[cL_resutls$cluster == unique(cL_resutls$cluster)[i], ]; 
+  nodes_lvl2 = rbind(nodes_lvl2, data.frame(cluster = paste0(dt_tmp$type,"_",
+  dt_tmp$cluster), ncells = dt_tmp$scores, Colour = ccolss[i], ord = 2, realname = dt_tmp$type))
 }
 nodes <- rbind(nodes_lvl1, nodes_lvl2); nodes$ncells[nodes$ncells<1] = 1;
-files_db <- openxlsx::read.xlsx(db_)[,c("cellName","shortName")]; files_db = unique(files_db); nodes = merge(nodes, files_db, all.x = T, all.y = F, by.x = "realname", by.y = "cellName", sort = F)
-nodes$shortName[is.na(nodes$shortName)] = nodes$realname[is.na(nodes$shortName)]; nodes = nodes[,c("cluster", "ncells", "Colour", "ord", "shortName", "realname")]
+files_db <- openxlsx::read.xlsx(db_)[,c("cellName","shortName")]; 
+files_db = unique(files_db); 
+nodes = merge(nodes, files_db, all.x = T, all.y = F, by.x = "realname", by.y = "cellName", sort = F)
+nodes$shortName[is.na(nodes$shortName)] = nodes$realname[is.na(nodes$shortName)]; 
+nodes = nodes[,c("cluster", "ncells", "Colour", "ord", "shortName", "realname")]
 
 mygraph <- graph_from_data_frame(edges, vertices=nodes)
 ```
