@@ -80,7 +80,7 @@ with plt.rc_context():
     sc.pl.embedding(
         adata,
         basis="X_draw_graph_fa",
-        color=["time", "seurat_clusters"],
+        color=["time", annot_label],
         color_map="gnuplot",
         show=False)
     plt.tight_layout()

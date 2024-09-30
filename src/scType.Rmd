@@ -141,8 +141,8 @@ dev.off()
 ```
 ```{r rename_save}
 # rename
-seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
+#seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
 # delete old
-seurat.obj$sctype_classification <- NULL
+#seurat.obj$sctype_classification <- NULL
 saveRDS(seurat.obj, file="seurat_obj_labeled_sctype.rds")
 ```
