@@ -1,6 +1,6 @@
 # scRNAseq_downstream
 
-Code for the analysis of the pig retinal organoid data from the David Gamm group. Also contains other downstream applications to scRNAseq including different types of annotation using a reference (Seurat Mapping, scPred), integration of datasets using Seurat, compositional analysis with scComp, and pseudotime analysis.
+Code for the analysis of the pig retinal organoid data from the David Gamm group. Also contains other downstream applications to scRNAseq including different types of annotation using a reference (Seurat Mapping, scType), integration of datasets using Seurat, compositional analysis with scComp, pseudotime analysis, realtime analysis, and other processes.
 
 Clone this repository:
 
@@ -18,7 +18,7 @@ https://github.com/stewart-lab/scRNAseq_library
 ## Annotation via a reference
 
 ### Seurat mapping
-For mapping annotations across species, we used Seurat mapping. Seurat mapping also uses a reference object/ dataset to predict annotations of clusters based on similairty of cell expression to the reference. It does this by doing a canonical correlation analysis to find "anchor" cells between the reference and query, then annotated clusters based on these anchor cells. 
+For mapping annotations across species, we used Seurat mapping. Seurat mapping also uses a reference object/ dataset to predict annotations of clusters based on similarity of cell expression to the reference. It does this by doing a canonical correlation analysis to find "anchor" cells between the reference and query, then annotated clusters based on these anchor cells. 
 
 For more details on Seurat mapping check out their webpage: https://satijalab.org/seurat/articles/multimodal_reference_mapping.html
 
@@ -97,10 +97,10 @@ Variables in config file:
 ```
 "clustifyr":{
     "DATA_DIR": "working_directory/", # working directory
-    "REF.SEURAT": "../human_D205_subset_annot.rds", # location (relative to working dir) and file name of reference seurat (from pre-processing)
+    "REF.SEURAT": "../human_D205_subset_annot.rds", # location (relative to working dir) and file name of reference seurat (from pre-processing). If "NA", then only markers are used to annotate
     "QUERY.SEURAT": "../gamms2_cca_pred.rds", # location (relative to working dir) and file name of query seurat (from pre-processing)
-    "cluster_name": "seurat_clusters",
-    "visualize_and_subset_ref": {
+    "cluster_name": "seurat_clusters", # cluster name to annotate
+    "visualize_and_subset_ref": { # not used if no reference
       "groupby": "cell_type2", # label column in reference used for annotating
       "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"] # cell types not to be used for annotation
     },
@@ -108,7 +108,7 @@ Variables in config file:
       "known_markers": "True", # "True" if using known marker list, otherwise "False"
       "known_markers_path": "../../known_markers/Kims_retinal_markers.txt", # path where known markers are relative to working dir
       "cluster_type": "seurat_clusters", # which clusters to annotate
-      "reduction": "umap" # dim reduction for visulaization, ie. "umap", "pca"
+      "reduction": "umap" # dim reduction for visualization, ie. "umap", "pca"
     }
   }
 ```
@@ -173,10 +173,10 @@ GIT_DIR <- Github directory for scRNAseq_downstream
 Variables in config file (under sctype header):
 ```
 "sctype":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT_OBJ": "seurat_obj_labeled.rds",
-    "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx",
-    "tissue": "thymus"
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/", # working dir
+    "SEURAT_OBJ": "seurat_obj_labeled.rds", # clustered seurat object
+    "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx", # marker database (excel file with markers)
+    "tissue": "thymus" # tissue type (should be present in marker list)
   }
 ```
 Now run:
@@ -191,7 +191,11 @@ Outputs:
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
 
-Variables in .Rmd file:
+To run, first activate the single cell environment:
+```
+conda activate scRNAseq_best
+```
+Change variables in .Rmd file:
 ```
 GIT_DIR <- Github directory for Github directory for scRNAseq_downstream
 ```
@@ -267,15 +271,10 @@ First install and activate the sccomp environment:
 conda env create -f environment_sccomp.yml
 conda activate sccomp
 ```
-Next update the .Rmd script with your working directory and the relative location of your **clustered** and **annotated** seurat objects.
+Next update the .Rmd script and config with your working directory and the relative location of your **clustered** and **annotated** seurat objects.
 Variables to set in .Rmd:
 ```
-WD <- "/w5home/bmoore/scRNAseq/GAMM/cell_composition/"
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-CROSS_SPECIES <- "no" # are you comparing across species (human to pig- then yes) or within species (no)
-COMP_TYPE <- "manual" # based on the annotation- did you use scpred, seuratmapping, or manual 
-SEURAT.1 <- "../GAMM_S1/output_20230921_142919/GAMM_S1_clabeled-clusters_0.5.rds"
-SEURAT.2 <- "../GAMM_S2/output_20230830_155530/GAMM_S2_clabeled-clusters_0.5.rds"
 ```
 Variables to set in config file under sccomp header:
 ```
@@ -372,16 +371,26 @@ GIT_DIR
 Modify config variables under realtime header:
 ```
 "realtime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/",
-    "ADATA_FILE": "clustered_seurat_obj.h5ad",
-    "time_label": "orig.ident",
-    "annot_label": "seurat_clusters"
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/", # working dir
+    "ADATA_FILE": "clustered_seurat_obj.h5ad", # ann data object
+    "time_label": "orig.ident", # label in object that designates time points
+    "annot_label": "seurat_clusters" # annotation label to compare time points
   }
 ```
-
+Outputs:
+* force_directed_graph.pdf --> force directed graph of time points and annotations
+* prolif-apop_graph.pdf --> cell proliferation and apoptosis graph
+* prior-post_growthrates.pdf --> prior and posterior cell growth rates
+* cell_costs.pdf --> costs of source or target cell
+* transitions_*.png --> figures identfiying descendents of celltypes
 
 ## Other processes
 
+For other processes, use single cell environment:
+```
+conda activate scRNAseq_best
+```
+### Recluster
 To re-cluster and re-annotate with updated cell types, use recluster-and-annotate.rmd:
 
 Modify config variables under the recluster header:
@@ -415,7 +424,7 @@ Run:
 ```
 recluster-and-annotate.rmd
 ```
-
+### Phate dimensionality reduction
 To use the PHATE dimension reduction tool:
 Modify config variables under "phate" header:
 **options:**
@@ -440,15 +449,37 @@ Run:
 ```
 phate.Rmd
 ```
-
+### Metadata
 To output meta data to a text file, we used this script:
 ```
 get_gamm_metadata.R
 ```
-
+### Parse DE markers
 To get the list of all DE genes and their annotation from each cluster for a seurat object (based on the output of a single cell analysis). Need a directory with the KnownDE.markers* files and Top100DEgenes_* files.
 ```
 parse_markers.py <directory with DE gene output files>
+```
+### Make feature plots
+Make feature plots for any list of genes to visualize expression in low dimensional space
+
+Modify variables in config file under the header featureplots
+```
+"featureplots":{
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
+    "GENE_LIST": "../KM_genelist_thymus.txt",
+    "ANNOT": "CellType1",
+    "INPUT_NAME": "Thymus_0.5res_phate",
+    "reduction": "phatek10d50"
+  }
+```
+```
+Rscript featureplots.R
+```
+### Subset cell cycle genes
+Subset cell cycle genes by ortholog. Modify to input ortholog list and cell cycle gene list.
+```
+Rscript merge_orthologs_to_cellcycle_genes.R
 ```
 
 # References: 
@@ -463,3 +494,9 @@ sccomp paper: https://doi.org/10.1073/pnas.2203828120
 Palantir paper: https://doi.org/10.1038/s41587-019-0068-4
 
 CellRank2 paper: https://doi.org/10.1101/2023.07.19.549685
+
+scType paper: https://doi.org/10.1038/s41467-022-28803-w
+
+GPT CellType: https://doi.org/10.1038/s41592-024-02235-4
+
+Clustifyr: https://doi.org/10.12688/f1000research.22969.2
