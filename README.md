@@ -121,6 +121,8 @@ Outputs:
 * labeled Seurat object
 * 2 query labeled annotation visualizations (one for marker list, one for reference)
 
+## Annotation via marker lists
+
 ### GPT CellType
 Automatic annotation of cell types using GPT-4 and differentially expressed marker genes. 
 
@@ -155,6 +157,36 @@ Outputs:
 * seurat object with annotations from GPT Celltype: seurat_celltypeGPT_annot.rds
 * UMAP figure: celltypeGPT_umap.pdf
 
+### scType
+ScType a computational method for automated selection of marker genes based on scRNA-seq expression data. A cell type specificity score is assigned to each marker gene, and this is weighted by the gene expression matrix to ultimately get a scType score and cell type annotation for each cluster. See: https://github.com/IanevskiAleksandr/sc-type?tab=readme-ov-file
+
+To run, first activate the single cell environment:
+```
+conda activate scRNAseq_best
+```
+Then set variables: 
+
+Variables in .Rmd file:
+```
+GIT_DIR <- Github directory for scRNAseq_downstream
+```
+Variables in config file (under sctype header):
+```
+"sctype":{
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx",
+    "tissue": "thymus"
+  }
+```
+Now run:
+```
+Rscript -e "rmarkdown::render('scType.Rmd')"
+```
+Outputs:
+* seurat_obj_labeled_sctype.rds --> seurat object with scType annotations
+* sctype_umap.pdf --> umap of scType annotations
+* sctype_bubbleplot.pdf --> bubble plot of all potential annotations per cluster
 
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
@@ -329,7 +361,6 @@ If you have actual time points in your data, you can do a real time analysis wit
 
 ### Realtime with Cell Rank and Moscot
 
-
 First activate conda environment
 ```
 conda activate realtime
@@ -351,17 +382,73 @@ Modify config variables under realtime header:
 
 ## Other processes
 
-To modify the initial annotation with updated cell types, we used this R-markdown script:
+To re-cluster and re-annotate with updated cell types, use recluster-and-annotate.rmd:
+
+Modify config variables under the recluster header:
 ```
-reannotate_manual.rmd
+"recluster":{
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT.FILE": "seurat_obj_labeled.rds",
+    "perform_clustering": {
+      "reduction": "pca",
+      "resolution": 0.25,
+      "algorithm": "leiden",
+      "dims_snn": 10,
+      "cluster_name": "seurat_clusters2"
+    },
+    "score_and_plot_markers": {
+      "top_n_markers": 100,
+      "known_markers": "True",
+      "known_markers_path": "/w5home/bmoore/Brown_thymus/thymus_markers_3.txt",
+      "cluster_type": "seurat_clusters2",
+      "pairwise": "FALSE",
+      "logFC_thresh": 0.25,
+      "auc_thresh": 0.5,
+      "reduction": "umap"
+    },
+    "process_known_markers":{
+      "annot_type": "manual",
+      "n_rank": 5
+    }
 ```
+Run:
+```
+recluster-and-annotate.rmd
+```
+
+To use the PHATE dimension reduction tool:
+Modify config variables under "phate" header:
+**options:**
+* knn : Number of nearest neighbors (default: 5)
+* decay : Alpha decay (default: 40)
+* t : Number of times to power the operator (default: ‘auto’)
+* gamma : Informational distance constant between -1 and 1 (default: 1)
+```
+"phate":{
+    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240916_094725/",
+    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "gene": "HES7",
+    "knn":5, 
+    "decay":50,
+    "t":"auto",
+    "gamma":1,
+    "embed_key":"phate",
+    "ANNOT": "CellType1"
+  },
+```
+Run:
+```
+phate.Rmd
+```
+
 To output meta data to a text file, we used this script:
 ```
 get_gamm_metadata.R
 ```
-To get the list of all DE genes and their annotation from each cluster for a seurat object (based on the output of a single cell analysis):
+
+To get the list of all DE genes and their annotation from each cluster for a seurat object (based on the output of a single cell analysis). Need a directory with the KnownDE.markers* files and Top100DEgenes_* files.
 ```
-parse_markers.py
+parse_markers.py <directory with DE gene output files>
 ```
 
 # References: 
