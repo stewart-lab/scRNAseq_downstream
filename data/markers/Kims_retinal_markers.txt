@@ -1,0 +1,52 @@
+gene	Cell type
+GAD2	Amacrine Cell
+LHX9	Amacrine Cell
+ELAVL3	Amacrine-Ganglion
+ELAVL4	Amacrine-Ganglion
+CA10	Bipolar Cells
+NET01	Bipolar Cells
+GNG13	Bipolar Cells
+PCP2	Bipolar Cells
+PRKCA	Bipolar Cells
+VSX1	Bipolar Cells
+VSX2	Bipolar Cells
+PDE6C	Cone
+RXRG	Cone
+GNAT2	Cone
+GAP43	Ganglion Cell
+SNCG	Ganglion Cell
+POU4F2	Ganglion Cell
+INA	Ganglion Cell
+KLF7	Ganglion Cell
+NRN1	Ganglion Cell
+HES6	Ganglion Cell
+GFAP	Muller Glia
+FABP7	Muller Glia
+DKK3	Muller Glia
+S100A16	Muller Glia
+ENSSSCG00000006581	Muller Glia
+RLBP1	Muller Glia
+CA2	Muller Glia
+CRX	Pan PR
+OTX2	Pan PR
+IMPG1	Pan PR
+IMPG2	Pan PR
+RORB	Pan PR
+PRDM1	Pan PR
+SFRP2	Retinal Prog
+HES5	Retinal Prog
+SOX2	Retinal Prog
+FZD5	Retinal Prog
+HES1	Retinal Prog
+SLC1A3	Retinal Prog
+ZIC1	Retinal Prog
+NR2F2	Retinal Prog
+CRB1	Retinal Prog
+SAG	Rod
+GNGT1	Rod
+ROM1	Rod
+NR2E3	Rod
+NRL	Rod
+PDE6B	Rod
+PDE6A	Rod
+PDE6G	Rod

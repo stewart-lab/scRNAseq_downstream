@@ -38,7 +38,7 @@ ANNOT  <- config$phate$ANNOT
 ```{r load_seurat}
 # read in seurat object
 seurat.obj <- readRDS(file = SEURAT.FILE)
-seurat.obj
+seurat.obj <- UpdateSeuratObject(seurat.obj)
 ```
 
 ```{r get_matrix}
@@ -55,7 +55,8 @@ print(Xmatrix_t[1:5,1:10])
 ```
 ```{r convert}
 # convert to regular matrix
-#Xmatrix_t <- as.matrix(Xmatrix_t)
+Xmatrix_t <- as.matrix(Xmatrix_t)
+storage.mode(Xmatrix_t) <- "double"
 ```
 
 ```{r run_phate}

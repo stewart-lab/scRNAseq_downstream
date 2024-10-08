@@ -54,3 +54,7 @@ rsconnect/
 
 # environment
 pst_env/
+
+# data
+data/gamm_data/
+data/example_data/

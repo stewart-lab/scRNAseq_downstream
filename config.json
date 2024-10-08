@@ -29,12 +29,9 @@
     }
   },
   "seurat_integration":{
-    "DATA_DIR":"/w5home/bmoore/scRNAseq/LiFangChu/",
-    "filename_list": ["fluidigm_gup_expr_results/output_20240417_134352/clustered_seurat_obj.rds",
-    "public_data/GSE199571/output_20240709_144815/48h/seurat_obj_labeled_48h.rds",
-    "public_data/GSE199571/output_20240710_224842/72h/seurat_obj_labeled_72h.rds"
-    ],
-    "project_name": "GSE199571_merged_timepoints_48-72_with_fluidigm",
+    "DATA_DIR":"/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
+    "filename_list": ["seurat_obj_labeled_S1.rds","seurat_obj_labeled_S2.rds"],
+    "project_name": "Gamm_merged_40d-120d",
     "feature_selection": {
       "n_features": 2000,
       "analysis_type": "Seurat"
@@ -67,7 +64,7 @@
     "score_and_plot_markers": {
       "top_n_markers": 100,
       "known_markers": "True",
-      "known_markers_path": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/JackChu_markers.txt",
+      "known_markers_path": "/w5home/bmoore/scRNAseq_downstream/data/markers/Kims_retinal_markers.txt",
       "cluster_type": "cca_clusters",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
@@ -109,10 +106,11 @@
     }
   },
   "realtime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/",
-    "ADATA_FILE": "clustered_seurat_obj.h5ad",
-    "time_label": "orig.ident",
-    "annot_label": "seurat_clusters"
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
+    "ADATA_FILE": "seurat_obj_merged2.h5ad",
+    "time_label": "orig.ident2",
+    "annot_label": "CellType_combined",
+    "dim_red": "integrated.cca"
   },
   "celltypeGPT":{
     "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
@@ -138,8 +136,8 @@
     }
   },
   "recluster":{
-    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT.FILE": "seurat_obj_labeled.rds",
+    "DATA_DIR": "./data/example_data/",
+    "SEURAT.FILE": "pbmc_10k_v3.rds",
     "perform_clustering": {
       "reduction": "pca",
       "resolution": 0.25,
@@ -150,7 +148,7 @@
     "score_and_plot_markers": {
       "top_n_markers": 100,
       "known_markers": "True",
-      "known_markers_path": "/w5home/bmoore/Brown_thymus/thymus_markers_3.txt",
+      "known_markers_path": "./data/markers/pbmc_markers.txt",
       "cluster_type": "seurat_clusters2",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
@@ -171,14 +169,22 @@
     "reduction": "phatek10d50"
   },
   "seurat2ann":{
-    "WD":  "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "WD":  "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/output_seuratintegrate_20241004_125959/",
+    "SEURAT_OBJ": "merged_seurat.rds",
     "METADATA": "NA",
-    "OUTPUT_name": "seurat_obj_labeled.h5Seurat"
+    "OUTPUT_name": "seurat_obj_merged2.h5Seurat",
+    "DIM.RED": "integrated.cca"
+  },
+  "subset_seurat":{
+    "WD": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/output_seuratintegrate_20241004_125959/",
+    "SEURAT_OBJ": "merged_seurat.rds",
+    "GENE_LIST": ["HES7","TBX6"],
+    "DIM.RED": "umap.cca",
+    "ANNOT": "CellType1"
   },
   "phate":{
-    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240916_094725/",
-    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "WD":"./data/example_data/",
+    "SEURAT_OBJ": "pbmc_10k_v3.rds",
     "gene": "HES7",
     "knn":5, 
     "decay":50,
@@ -188,8 +194,8 @@
     "ANNOT": "CellType1"
   },
   "sctype":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "WD": "./data/example_data/",
+    "SEURAT_OBJ": "pbmc_10k_v3.rds",
     "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx",
     "tissue": "thymus"
   }

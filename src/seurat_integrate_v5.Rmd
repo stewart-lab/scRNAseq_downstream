@@ -21,11 +21,12 @@ library(Azimuth)
 library(ggplot2)
 library(scran)
 library(clustifyr)
+library(SeuratDisk)
 use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 
 # set variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path(GIT_DIR, "config.json"))
+config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
 WD <- config$seurat_integration$DATA_DIR
 filename_list <- config$seurat_integration$filename_list
 # set up environment and output
@@ -36,7 +37,7 @@ dir.create(output, showWarnings = FALSE)
 #output <- "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240819_110458/"
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 output <- paste0(output, "/")
-config <- fromJSON(file.path(output, "config.json"))
+config <- jsonlite::fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 ```
 
@@ -82,11 +83,26 @@ merged_seurat[["RNA5"]] <- as(object = merged_seurat[["RNA"]], Class = "Assay5")
 DefaultAssay(merged_seurat) <- "RNA5"
 merged_seurat
 ```
+# stash idents and reset identity
+```{r stash_reset}
+merged_seurat[["CellType_combined"]] <- Idents(object = merged_seurat)
+table(merged_seurat$CellType_combined)
+# Set identity classes to an existing column in meta data
+Idents(object = merged_seurat) <- "orig.ident"
+# rename
+new_names <- c("GAMM_40", "GAMM_40", "GAMM_120", "GAMM_120", "GAMM_120")
+names(new_names) <- levels(merged_seurat)
+merged_seurat <- RenameIdents(object = merged_seurat, 
+                                new_names)
+# redo orig,ident
+merged_seurat[["orig.ident2"]] <- Idents(object = merged_seurat)
+
+```
 # split layers
 ```{r split_layers}
-merged_seurat[["RNA5"]] <- split(merged_seurat[["RNA5"]], f = merged_seurat$orig.ident)
+merged_seurat[["RNA5"]] <- split(merged_seurat[["RNA5"]], f = merged_seurat$orig.ident2)
 merged_seurat
-table(merged_seurat$orig.ident)
+table(merged_seurat$orig.ident2)
 ```
 # feature selection, scale, dimensionality reduction on combined data
 ```{r feat_select}
@@ -153,7 +169,7 @@ if(integration_type == "cca"){
                         dims = 1:30, reduction.name = "umap.cca")
   # visualize
   p1 <- DimPlot(merged_seurat,reduction = "umap.cca",
-    group.by = c("orig.ident", "CellType1", cluster_name),
+    group.by = c("orig.ident2", "CellType_combined", cluster_name),
     combine = FALSE, label.size = 2
   )
   pdf(paste0(output,"umap_merged_cca1.pdf"))
@@ -205,22 +221,31 @@ if(integration_type == "cca"){
   dev.off()
 }
 ```
-# save
-```{r save_data}
-saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
+# change metadata to characters before writing
+```{r metadata}
+i <- sapply(merged_seurat@meta.data, is.factor)
+merged_seurat@meta.data[i] <- lapply(merged_seurat@meta.data[i], as.character)
 ```
-```{r load_data}
-merged_seurat <- readRDS(file = paste0(output,"merged_seurat.rds"))
-merged_seurat
-```
-# join layers to do DE
+# join data before saving
 ```{r join}
 merged_seurat <- JoinLayers(merged_seurat)
 merged_seurat
-# convert to v3 object
+```
+# save
+```{r save_data}
+saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
+# write as h5ad obj
+# convert assay to V3 first
 merged_seurat[["RNA3"]] <- as(object = merged_seurat[["RNA5"]], Class = "Assay")
 DefaultAssay(merged_seurat) <- "RNA3"
-merged_seurat
+
+# Convert to SingleCellExperiment if necessary
+sce <- as.SingleCellExperiment(merged_seurat)
+
+# first save seurat as h5 seurat file
+SaveH5Seurat(merged_seurat, filename = paste0(output,"merged_seurat2.h5Seurat"))
+# # then convert to h5ad
+Convert(paste0(output,"merged_seurat2.h5Seurat"), dest = "h5ad")
 ```
 # now perform DE analysis
 ```{r de_analysis}
@@ -248,38 +273,4 @@ annotate_with_clustifyR(merged_seurat, SCE, output, "integration")
 # save session info
 ```{r sessioninfo}
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-```
-# subset for positively expressed genelist
-```{r get_cells}
-new.obj <- GetAssayData(object = merged_seurat, layer = "data")[c("HES7","TBX6"),]>0
-```
-```{r subset}
-#create cell names as metadata colum
-#merged_seurat[["CellName"]] <- colnames(merged_seurat)
-#get the required cells
-df <- as.data.frame(new.obj)
-# get cells that are true
-cellstokeep <- which(apply(df, 2, any))
-#subset the required cells
-merged_seurat_subset <- subset(merged_seurat, 
-                            cells = cellstokeep)
-merged_seurat_subset
-```
-```{r plot}
-p1 <- DimPlot(merged_seurat_subset, reduction = "umap.cca", label = TRUE, 
-        pt.size = 0.5, group.by = "CellType1")
-p2 <- DimPlot(merged_seurat, reduction = "umap.cca", label = TRUE, 
-        pt.size = 0.5, group.by = "CellType1")
-p3 <- DimPlot(merged_seurat_subset, reduction = "umap.cca", 
-        pt.size = 0.5, group.by = "orig.ident")
-p4 <- DimPlot(merged_seurat_subset, reduction = "umap.cca", label = TRUE, 
-        pt.size = 0.5, group.by = "cca_clusters")
-p5 <- FeaturePlot(merged_seurat_subset, features = c("HES7","TBX6"), ncol = 2,
-                           pt.size = 0.5, reduction = "umap.cca") &
-                           scale_color_viridis(option="B")
-combined_plot <- ((p1 | p2) / (p3 | p4) / p5) + plot_layout(width = c(2, 2, 2),
-                                                      heights = c(1, 1, 1))
-pdf(file = paste0(output,"umap_cca_subset_HES7-TBX62.pdf"), width = 8, height = 8)
-    print(combined_plot)
-dev.off()
 ```

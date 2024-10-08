@@ -18,6 +18,7 @@ use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', require
 # note for me conda install -c conda-forge r-seuratdisk did not work, but the github install did
 
 library(SeuratDisk)
+library(hdf5r)
 # variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
 config <- fromJSON(file.path(GIT_DIR, "config.json"))
@@ -25,6 +26,7 @@ WD <- config$seurat2ann$WD
 SEURAT_OBJ <- config$seurat2ann$SEURAT_OBJ
 METADATA <- config$seurat2ann$METADATA
 OUTPUT_name <- config$seurat2ann$OUTPUT_name
+DIM.RED <- config$seurat2ann$DIM.RED
 # set working dir
 setwd(WD)
 # read in Seurat object
@@ -48,8 +50,21 @@ if(METADATA=="NA"){
     seurat <- AddMetaData(seurat, metadata)
     print(colnames(seurat@meta.data))
 }
-
+# convert to seurat v3
+seurat[["RNA3"]] <- as(object = seurat[["RNA5"]], Class = "Assay")
+DefaultAssay(seurat) <- "RNA3"
 # first save seurat as h5 seurat file
 SaveH5Seurat(seurat, filename = OUTPUT_name)
+# add user- specified dimension reduction (like in the case of integration)
+library(hdf5r)
+if(DIM.RED != "NA" && DIM.RED != ""){
+    print("Adding dimension reduction")
+    h5 <- H5File$new(OUTPUT_name, mode = "r+")
+    print(h5[["reductions/"]])
+    red.path <- paste0("reductions/", DIM.RED, "/cell.embeddings")
+    new_dimred <- h5[[red.path]]
+    h5[[paste0(DIM.RED,"1")]] <- new_dimred
+    h5$close()
+}
 # then convert to h5ad
 Convert(OUTPUT_name, dest = "h5ad")

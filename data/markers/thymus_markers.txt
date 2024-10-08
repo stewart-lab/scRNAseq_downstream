@@ -1,0 +1,442 @@
+gene	Cell type
+CCL25	cTEC
+COX7A1	cTEC
+CTSV	TEC
+PDLIM1	cTEC
+PLTP	TEC
+PRSS16	cTEC
+PSMB11	cTEC
+S100A14	TEC
+SCX	cTEC
+MDK	TEC
+PAX1	cTEC
+CALML3	TEC
+CLTA	TEC
+CSTB	TEC
+CRABP2	cTEC
+PSIP1	cTEC
+DSP	cTEC
+PSMB5	cTEC
+TSC22D1	TEC
+SERBP1	cTEC
+CDKN1C	cTEC
+DNAJB6	cTEC
+DNAJB1	TEC
+PIK3R1	cTEC
+DNAJB4	cTEC
+CXXC5	cTEC
+PITHD1	cTEC
+BEX3	cTEC
+HLA-DQB1	cTEC
+H3-3B	TEC
+PSMB6	cTEC
+C20orf204	cTEC
+CALR	cTEC
+GAMT	cTEC
+HMGN1	cTEC
+IGFBP2	cTEC
+FABP5	cTEC
+JUND	cTEC
+PHPT1	cTEC
+TBATA	cTEC
+EIF5	cTEC
+LDHA	cTEC
+ALDOA	TEC
+H3-3A	cTEC
+METTL26	cTEC
+BTG2	cTEC
+ATOX1	cTEC
+EDF1	cTEC
+SF3B6	cTEC
+GNAS	cTEC
+GAS6	cTEC
+TRMT112	cTEC
+SRSF9	cTEC
+SERPINH1	cTEC
+PSMA7	cTEC
+THY1	cTEC
+SEM1	cTEC
+PEG10	cTEC
+ZFAND2A	cTEC
+TP53I3	cTEC
+PSMB1	cTEC
+PPIA	cTEC
+OST4	cTEC
+ARL6IP4	cTEC
+CEBPD	cTEC
+NCL	cTEC
+CDC42EP5	cTEC
+HSPH1	cTEC
+KREMEN2	cTEC
+CCL19	TEC
+SNHG8	TEC
+UBE2S	cTEC
+ATF3	TEC
+GAA	cTEC
+DDT	cTEC
+SIX1	cTEC
+RAB42	cTEC
+CCND1	cTEC
+HSPB1	TEC
+MGMT	cTEC
+KRT19	TEC
+SUB1	cTEC
+KRT8	cTEC
+SKP1	cTEC
+SUMO2	cTEC
+GOLM1	cTEC
+FBXO2	cTEC
+POLR2L	cTEC
+IRF1	TEC
+MZT2B	cTEC
+PRAP1	cTEC
+TBCA	cTEC
+CLDN5	endothelial
+EMCN	endothelial
+FLT1	endothelial
+PECAM1	endothelial
+NOVA2	endothelial
+SOX17	endothelial
+EGFL7	endothelial
+VWF	endothelial
+TM4SF1	endothelial
+ENG	endothelial
+ADGRL4	endothelial
+CALCRL	endothelial
+RAMP2	endothelial
+PTPRB	endothelial
+EPAS1	endothelial
+CD93	endothelial
+ESAM	endothelial
+CAVIN2	endothelial
+SLC9A3R2	endothelial
+PCAT19	endothelial
+CDH5	endothelial
+ADGRF5	endothelial
+CLEC14A	endothelial
+SPARCL1	endothelial
+HYAL2	endothelial
+RAMP3	endothelial
+SEC14L1	endothelial
+LDB2	endothelial
+PLVAP	endothelial
+AQP1	endothelial
+BTNL9	endothelial
+A2M	endothelial
+ERG	endothelial
+CD59	endothelial
+CYYR1	endothelial
+SOX18	endothelial
+ARHGAP29	endothelial
+ECSCR	endothelial
+SHANK3	endothelial
+CD34	endothelial
+PODXL	endothelial
+BLVRB	erythrocyte
+AHSP	erythrocyte
+GYPC	erythrocyte
+HBG2	erythrocyte
+HBM	erythrocyte
+HBG1	erythrocyte
+UROD	erythrocyte
+HMBS	erythrocyte
+GYPA	erythrocyte
+MYL4	erythrocyte
+GYPB	erythrocyte
+KLF1	erythrocyte
+SLC4A1	erythrocyte
+HEMGN	erythrocyte
+HBB	erythrocyte
+SELENBP1	erythrocyte
+RAD23A	erythrocyte
+HBZ	erythrocyte
+SMIM1	erythrocyte
+RHAG	erythrocyte
+EPB42	erythrocyte
+HBQ1	erythrocyte
+UBAC1	erythrocyte
+FAM178B	erythrocyte
+MPP1	erythrocyte
+RFESD	erythrocyte
+PA2G4	erythrocyte
+BPGM	erythrocyte
+RBX1	erythrocyte
+GATA1	erythrocyte
+MGST3	erythrocyte
+NARF	erythrocyte
+NFE2	erythrocyte
+HBE1	erythrocyte
+EIF2AK1	erythrocyte
+DDR2	fibroblast
+ABCA8	fibroblast
+BMP5	fibroblast
+BMPR1B	fibroblast
+BNC2	fibroblast
+COL15A1	fibroblast
+COL1A2	fibroblast
+DCN	fibroblast
+EBF2	fibroblast
+FBLN2	fibroblast
+FMO2	fibroblast
+LINC02147	fibroblast
+LTBP2	fibroblast
+PTGDR	fibroblast
+RP11-354K4.2	fibroblast
+SLC2A1	fibroblast
+SLC5A5	fibroblast
+SLC6A20	fibroblast
+TBX18	fibroblast
+GSN	fibroblast
+HOXC8	fibroblast
+HOXC9	fibroblast
+PDGFRA	fibroblast
+LUM	fibroblast
+COL6A3	fibroblast
+COL3A1	fibroblast
+C1S	fibroblast
+FBLN1	fibroblast
+CCDC80	fibroblast
+C1R	fibroblast
+MFAP4	fibroblast
+CFD	fibroblast
+FSTL1	fibroblast
+TNFAIP6	fibroblast
+LAMA2	fibroblast
+SERPINF1	fibroblast
+ABCA6	fibroblast
+COL5A2	fibroblast
+PRRX1	fibroblast
+SFRP2	fibroblast
+CTSK	fibroblast
+DPT	fibroblast
+FBN1	fibroblast
+MGP	fibroblast
+GEM	fibroblast
+FBLN5	fibroblast
+IGFBP6	fibroblast
+OGN	fibroblast
+ADH1B	fibroblast
+C7_ENSG00000112936	fibroblast
+CD3D	imm T
+CD1E	imm T
+CD3E	imm T
+CD3G	imm T
+TCF7	imm T
+CD8B	imm T
+TRBC2	imm T
+CD1B	imm T
+LEF1	imm T
+MZB1	imm T
+TRBC1	imm T
+CD8A	imm T
+ADA	imm T
+GIHCG	imm T
+SH2D1A	imm T
+LCK	imm T
+SMPD3	imm T
+PTCRA	imm T
+SEPTIN6	imm T
+SH3TC1	imm T
+PTP4A2	imm T
+SATB1	imm T
+RNASEH2B	imm T
+MAL	imm T
+ARPP21	imm T
+CD1A	imm T
+ELOVL4	imm T
+STMN1	imm T
+NUCB2	imm T
+RAG1	imm T
+H2AZ2	imm T
+RP11-144L1.4	imm T
+CD99	imm T
+TRAC	imm T
+RGS10	imm T
+DNTT	imm T
+TUBB	imm T
+SMC4	imm T
+H4C3	imm T
+CD2	imm T
+LTB	imm T
+ILF2	imm T
+RRM2	imm T
+CBX3	imm T
+RAG2	imm T
+AQP3	imm T
+HMGN2	imm T
+CD1C	imm T
+SIT1	imm T
+CD38	imm T
+APBB1IP	imm T
+MKI67	imm T
+HMGA1	imm T
+NUSAP1	imm T
+CD247	imm T
+GRAP2	imm T
+HNRNPK	imm T
+PTPRC	T
+CD52	T
+LAPTM5	leukocyte
+CORO1A	leukocyte
+ARHGDIB	leukocyte
+CD37	leukocyte
+HCST	T
+ITGB2	leukocyte
+RAC2	leukocyte
+CD48	T
+FYB1	T
+LIMD2	leukocyte
+LCP1	leukocyte
+GPSM3	leukocyte
+TYROBP	leukocyte
+CXCR4	T
+LSP1	leukocyte
+CD69	T
+CD53	leukocyte
+FXYD5	leukocyte
+FCER1G	leukocyte
+B2M	leukocyte
+HLA-E	leukocyte
+CD7	imm T
+IL7R	T
+CYBA	leukocyte
+SRGN	leukocyte
+HLA-C	leukocyte
+NKG7	T
+GMFG	leukocyte
+SELL	leukocyte
+CYTIP	T
+CTSS	leukocyte
+IFITM1	T
+TSC22D3	leukocyte
+STK17B	leukocyte
+CST7	T
+C1orf162	leukocyte
+CCL5	T
+PTPRCAP	T
+IL2RG	T
+ALOX5AP	leukocyte
+LST1	leukocyte
+GZMA	T
+CTSW	T
+BST2	mTEC
+KRT15	mTEC
+MTRNR2L12	mTEC
+CH25H	mTEC
+SAA1	mTEC
+FN1	mTEC
+PNRC1	mTEC
+KLF10	mTEC
+ZFP36L1	mTEC
+CDKN1A	mTEC
+HSPB8	mTEC
+PTGDS	mTEC
+CSRP2	mTEC
+NFKBIA	mTEC
+CIRBP	mTEC
+ICAM1	mTEC
+TRIB1	mTEC
+ITM2B	mTEC
+TNFRSF12A	mTEC
+PAX9	mTEC
+HCAR2	mTEC
+CCL2	mTEC
+ASCL2	stem
+LGR5	stem
+OLFM4	stem
+RNF43	stem
+CD40LG	T
+CD96	T
+THEMIS	T
+CCL3	T
+CCL4	T
+CCR6	T
+CD4	T
+CRIP1	T
+CXCR6	T
+DUSP2	T
+FOXP3	T
+GNLY	T
+GZMB	T
+GZMH	T
+GZMK	T
+HOPX	T
+IFI6	T
+IFIT3	T
+IL2	T
+IL32	T
+IL4R	T
+ITGA1	T
+KLRD1	T
+KLRG1	T
+LGALS3	T
+NME1	T
+ODC1	T
+PDZD8	T
+PRF1	T
+PSAT1	T
+PYCR1	T
+SOCS1	T
+STAT1	T
+TIGIT	T
+TNF	T
+TNFRSF25	T
+TNFRSF4	T
+TRAT1	T
+TRGC2	T
+SARAF	T
+LEPROTL1	T
+EVL	T
+GIMAP7	T
+ACAP1	T
+GZMM	T
+PIK3IP1	T
+LAT	T
+NOSIP	T
+LINC00861	T
+HNRNPA1	imm T
+TRDC	imm T
+PTMA	imm T
+LDHB	imm T
+RTRAF	imm T
+HMGB1	imm T
+RAN	imm T
+H2AZ1	imm T
+IGLL1	imm T
+CDK6-AS1	imm T
+CNN1	VASM
+MYOCD	VASM
+DES	VASM
+CD36	VASM
+MCAM	VASM
+MYH11	VASM
+TAGLN	VASM
+TPM2	VASM
+CALD1	VASM
+MYL9	VASM
+BGN	VASM
+C11orf96	VASM
+SEPTIN7	VASM
+IGFBP7	VASM
+MT1A	VASM
+RGS5_ENSG00000143248	VASM
+NOTCH3	VASM
+ADAMTS1	VASM
+TPM1	VASM
+PPP1R14A	VASM
+PDGFRB	VASM
+ADIRF	VASM
+TINAGL1	VASM
+RGS16	VASM
+MFGE8	VASM
+SOD3	VASM
+GADD45B	VASM
+EDNRA	VASM
+FRZB	VASM
+SERTAD1	VASM
+TGFB1I1	VASM
+VIM	VASM
+SPARC	VASM
+ISYNA1	VASM
+ADAMTS4	VASM
+SOCS3	VASM
