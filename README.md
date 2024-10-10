@@ -26,17 +26,14 @@ First: **Make sure query and reference data were preprocessed the same way using
 
 Activate the single cell environment:
 ```
-conda activate scRNAseq_best
+conda activate scRNAseq_new
 ```
-Next, change the GitHub directory with the location of this repository in the seurat_mapping.Rmd file. 
-Variables in .Rmd file:
-```
-GIT_DIR <- Github directory for scRNAseq_downstream
-```
-Then update variables in the config file under the seurat_mapping header.
+
+Then update variables in the config file under the main header and seurat_mapping header.
 
 Variables in config file:
 ```
+"METHOD": "seurat_mapping
 "seurat_mapping": {
     "DATA_DIR": "working_directory" # working directory where output goes,
     "REF.SEURAT": "ref.seurat.rds" # location (relative to DATA_DIR) and file name of reference seurat (from pre-processing),
@@ -66,7 +63,7 @@ Variables in config file:
 
 Now run:
 ```
-Rscript -e "rmarkdown::render('seurat_mapping.Rmd')"
+source run_downstream_toolkit.sh
 ```
 
 Outputs:
@@ -84,17 +81,14 @@ For more information on ClustifyR see: https://www.bioconductor.org/packages/rel
 
 To run, first activate the single cell environment:
 ```
-conda activate scRNAseq_best
+conda activate scRNAseq_new
 ```
 
 Then set variables under the "clustifyr" header. 
 
-Variables in .Rmd file:
-```
-GIT_DIR <- Github directory for scRNAseq_downstream
-```
 Variables in config file:
 ```
+"METHOD":"clustifyr",
 "clustifyr":{
     "DATA_DIR": "working_directory/", # working directory
     "REF.SEURAT": "../human_D205_subset_annot.rds", # location (relative to working dir) and file name of reference seurat (from pre-processing). If "NA", then only markers are used to annotate
@@ -115,7 +109,7 @@ Variables in config file:
 
 Now run:
 ```
-Rscript -e "rmarkdown::render('clustifyr.Rmd')"
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * labeled Seurat object
@@ -130,17 +124,14 @@ For more information see: https://winnie09.github.io/Wenpin_Hou/pages/gptcelltyp
 
 To run, first activate the single cell environment:
 ```
-conda activate scRNAseq_best
+conda activate scRNAseq_new
 ```
 
 Then set variables under the "celltypeGPT" header. 
 
-Variables in .Rmd file:
-```
-GIT_DIR <- Github directory for scRNAseq_downstream
-```
 Variables in config file:
 ```
+"METHOD":"celltypeGPT"
 "celltypeGPT":{
     "DATA_DIR": "working_directory/", # working directory,
     "seurat.obj": "seurat_obj_labeled.rds", # seurat object to annotate
@@ -151,7 +142,7 @@ Variables in config file:
 ```
 Now run:
 ```
-Rscript -e "rmarkdown::render('CelltypeGPT.Rmd')"
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * seurat object with annotations from GPT Celltype: seurat_celltypeGPT_annot.rds
@@ -162,16 +153,13 @@ ScType a computational method for automated selection of marker genes based on s
 
 To run, first activate the single cell environment:
 ```
-conda activate scRNAseq_best
+conda activate scRNAseq_new
 ```
 Then set variables: 
 
-Variables in .Rmd file:
-```
-GIT_DIR <- Github directory for scRNAseq_downstream
-```
 Variables in config file (under sctype header):
 ```
+"METHOD":"sctype"
 "sctype":{
     "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/", # working dir
     "SEURAT_OBJ": "seurat_obj_labeled.rds", # clustered seurat object
@@ -181,7 +169,7 @@ Variables in config file (under sctype header):
 ```
 Now run:
 ```
-Rscript -e "rmarkdown::render('scType.Rmd')"
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * seurat_obj_labeled_sctype.rds --> seurat object with scType annotations
@@ -193,15 +181,12 @@ Integrate multiple Seurat objects. Objects are merged, then feature selection, s
 
 To run, first activate the single cell environment:
 ```
-conda activate scRNAseq_best
-```
-Change variables in .Rmd file:
-```
-GIT_DIR <- Github directory for Github directory for scRNAseq_downstream
+conda activate scRNAseq_new
 ```
 
 Variables in config file under "seurat_integration":
 ```
+METHOD:"seurat_integration"
 "seurat_integration":{
     "DATA_DIR":"working_dir/", # working directory
     "filename_list": ["seurat_obj_labeled_48h.rds","seurat_obj_labeled_72h.rds"], # list of seurat objects to be integrated with path relative to working directory
@@ -253,7 +238,7 @@ Variables in config file under "seurat_integration":
 ```
 Now run.
 ```
-Rscript -e "rmarkdown::render(seurat_integrate_v5.Rmd)
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * combined seurat object
@@ -272,12 +257,10 @@ conda env create -f environment_sccomp.yml
 conda activate sccomp
 ```
 Next update the .Rmd script and config with your working directory and the relative location of your **clustered** and **annotated** seurat objects.
-Variables to set in .Rmd:
-```
-GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-```
+
 Variables to set in config file under sccomp header:
 ```
+"METHOD":"sccomp"
 "sccomp":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/", # working dir
     "CROSS_SPECIES": "yes", # are you comparing across species (yes) or within species (no)
@@ -292,7 +275,7 @@ Variables to set in config file under sccomp header:
 ```
 Now run.
 ```
-Rscript -e "rmarkdown::render(sccomp.Rmd)
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * combined seurat object
@@ -322,12 +305,9 @@ Activate a pseudotime environment
 source pst_env/bin/activate
 ```
 
-Modify Github directory in script:
-```
-GIT_DIR
-```
 Modify config variables under pseudotime header:
 ```
+"METHOD":"pseudotime"
 "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/", # working dir
     "ADATA_FILE": "seurat_obj_labeled.h5ad", # converted anndata file
@@ -348,7 +328,7 @@ Modify config variables under pseudotime header:
 ```
 Now you are ready to run Palantir and CellRank. Change to src directory and run:
 ```
-python pseudotime.py
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * pseudotime_processed.h5ad object
@@ -364,18 +344,20 @@ First activate conda environment
 ```
 conda activate realtime
 ```
-Modify Github directory in script:
-```
-GIT_DIR
-```
+
 Modify config variables under realtime header:
 ```
+"METHOD":"realtime"
 "realtime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/", # working dir
     "ADATA_FILE": "clustered_seurat_obj.h5ad", # ann data object
     "time_label": "orig.ident", # label in object that designates time points
     "annot_label": "seurat_clusters" # annotation label to compare time points
   }
+```
+Run:
+```
+source run_downstream_toolkit.sh
 ```
 Outputs:
 * force_directed_graph.pdf --> force directed graph of time points and annotations
@@ -395,6 +377,7 @@ To re-cluster and re-annotate with updated cell types, use recluster-and-annotat
 
 Modify config variables under the recluster header:
 ```
+"METHOD":"recluster"
 "recluster":{
     "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "SEURAT.FILE": "seurat_obj_labeled.rds",
@@ -422,7 +405,7 @@ Modify config variables under the recluster header:
 ```
 Run:
 ```
-recluster-and-annotate.rmd
+source run_downstream_toolkit.sh
 ```
 ### Phate dimensionality reduction
 To use the PHATE dimension reduction tool:
@@ -433,6 +416,7 @@ Modify config variables under "phate" header:
 * t : Number of times to power the operator (default: ‘auto’)
 * gamma : Informational distance constant between -1 and 1 (default: 1)
 ```
+"METHOD":"phate"
 "phate":{
     "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240916_094725/",
     "SEURAT_OBJ": "seurat_obj_labeled.rds",
@@ -464,6 +448,7 @@ Make feature plots for any list of genes to visualize expression in low dimensio
 
 Modify variables in config file under the header featureplots
 ```
+"METHOD":"featureplots"
 "featureplots":{
     "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
@@ -474,7 +459,7 @@ Modify variables in config file under the header featureplots
   }
 ```
 ```
-Rscript featureplots.R
+source run_downstream_toolkit.sh
 ```
 ### Subset cell cycle genes
 Subset cell cycle genes by ortholog. Modify to input ortholog list and cell cycle gene list.
