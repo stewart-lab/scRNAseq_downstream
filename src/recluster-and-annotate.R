@@ -1,12 +1,4 @@
----
-title: "recluster and annotate clusters"
-output: html_document
----
-
 # ENVIRONMENT SETUP
-
-```{r env, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(Seurat)
 library(patchwork)
@@ -28,7 +20,7 @@ config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 WD <- config$recluster$DATA_DIR
 SEURAT.FILE <- config$recluster$SEURAT.FILE
 # set up environment and output
-#use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_new", required=TRUE)
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_recluster_", timestamp)
@@ -36,30 +28,28 @@ dir.create(output, showWarnings = FALSE)
 file.copy(file.path(GIT_DIR, "config.json"), file.path(output, "config.json"))
 config <- fromJSON(file.path(output, "config.json"))
 output <- paste0(output, "/")
-source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
+source(paste0(GIT_DIR,"/src/sc_pipeline_functions.R"))
 packageVersion("Seurat")
-```
+
 # Load Data
-```{r load_data}
 seurat.obj <- readRDS(file = SEURAT.FILE)
-```
+
 # recluster
-```{r recluster}
 seurat.obj_recluster <- perform_clustering(seurat.obj, output, "recluster")
-```
+
 # save object
-```{r save}
+
 resolution <- as.character(config$recluster$perform_clustering$resolution)
 saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
-```
+
 # Find markers with Differential expressed features (genes)
 # analyse known markers
 # note: results overwrite
-```{r analyze_known_markers}
+
 annot_df <- score_and_plot_markers(seurat.obj_recluster,output,"recluster")
-```
+
 # manual annotation
-```{r manual_annot}
+
 # order annot_df
 annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
 new.cluster.ids <- annot_df.ordered$Cell.type
@@ -67,9 +57,9 @@ new.cluster.ids <- annot_df.ordered$Cell.type
 seurat.obj_recluster<-annotate_clusters_and_save(seurat.obj_recluster, new.cluster.ids, output, "recluster")
 # print table of celltypes
 print(table(seurat.obj_recluster@meta.data$CellType1))
-```
+
 # save annotation as dataframe
-```{r save_annot}
+
 seurat.obj_recluster.metadata<- as.data.frame(seurat.obj_recluster@meta.data)
 write.table(seurat.obj_recluster.metadata, file = paste0(output,"manual_annot_metadata_",resolution,".txt"), sep="\t", 
             quote=F, row.names = T)
@@ -81,22 +71,22 @@ write.table(table1, file= paste0(output,"table_celltype_counts.txt"),
 annot_df.ordered <- as.data.frame(annot_df.ordered)
 write.table(annot_df.ordered, file= paste0(output,"table_celltype_cluster.txt"), 
             sep="\t", quote=F, row.names = F)
-```
+
 # save session info
-```{r sessioninfo}
+
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-```
+
 # optional- plots and metadata
 # plot umap without legend
-```{r plots}
+
   pdf(paste0(output, "labeled-clusters2.pdf"), bg = "white")
   print(DimPlot(seurat.obj_recluster, reduction = "umap", label = TRUE, 
         pt.size = 0.5, group.by = "CellType1")+ NoLegend())
   dev.off()
-```
+
 
 # read back in metadata
-```{r get_meta}
+
 # # add in metadata from previous analysis
 # metadata <- read.csv(paste0(output,"manual_annot_metadata_",resolution,".txt"), 
 #             row.names = 1, header = TRUE, sep = "\t")
@@ -106,5 +96,3 @@ writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
 
 # # check again
 # colnames(seurat.obj_recluster@meta.data)
-# table(seurat.obj_recluster@meta.data$CellType1)
-```

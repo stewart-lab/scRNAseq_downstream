@@ -17,15 +17,17 @@ library(reticulate)
 library(purrr)
 library(jsonlite)
 library(rmarkdown)
-use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
+library(tidyverse)
+#use_condaenv(condaenv = 'phate_env', required = TRUE)
 ```
 ```{r set_variables}
 # set variables
-GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path(GIT_DIR, "config.json"))
-WD <- config$phate$WD
-setwd(WD)
-file.copy(paste0(GIT_DIR,"config.json"), file.path(WD, "config_phate.json"))
+#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+GIT_DIR <- getwd()
+config <- jsonlite::fromJSON(file.path(getwd(), "/config.json"))
+DATA_DIR <- config$phate$DATA_DIR
+#file.copy(paste0("config.json"), file.path(DATA_DIR, "config_phate.json"))
+setwd(DATA_DIR)
 SEURAT.FILE <- config$phate$SEURAT_OBJ
 gene <- config$phate$gene
 knn  <- config$phate$knn

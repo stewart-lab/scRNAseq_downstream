@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### load libraries ###
 library(reticulate)
-use_condaenv("/w5home/bmoore/miniconda3/envs/sccomp", required=TRUE)
+use_condaenv("sccomp", required=TRUE)
 # devtools::install_github("Oshlack/speckle")
 library(sccomp)
 library(Seurat)
@@ -33,9 +33,9 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 ### set variables ###
-GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path(GIT_DIR, "config.json"))
-WD <- config$sccomp$DATA_DIR
+#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path("./config.json"))
+DATA_DIR <- config$sccomp$DATA_DIR
 CROSS_SPECIES <- config$sccomp$CROSS_SPECIES # are you comparing across species (human to pig- then yes) or within species (no)
 COMP_TYPE <- config$sccomp$COMP_TYPE # based on the annotation- did you use scpred, seuratmapping, or manual 
 ANNOT_LABEL1 <- config$sccomp$annot_label1
@@ -46,12 +46,12 @@ SEURAT.1 <- config$sccomp$SEURAT.file1
 SEURAT.2 <- config$sccomp$SEURAT.file2
 
 ### set working directory and output ###
-setwd(WD)
+setwd(DATA_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_cell_composition_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
-file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+file.copy(paste0("config.json"), file.path(output, "config.json"))
 config <- fromJSON(file.path(output, "config.json"))
 packageVersion("sccomp") # should be >= 1.4.0
 ```

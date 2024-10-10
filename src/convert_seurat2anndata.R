@@ -4,7 +4,7 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(Seurat)
-use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
+use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
 ## to install SeuratDisk
 # first install hdf5r:
 # conda install -c conda-forge r-hdf5r
@@ -20,15 +20,15 @@ use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', require
 library(SeuratDisk)
 library(hdf5r)
 # variables
-GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path(GIT_DIR, "config.json"))
-WD <- config$seurat2ann$WD
+#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path("./config.json"))
+DATA_DIR <- config$seurat2ann$DATA_DIR
 SEURAT_OBJ <- config$seurat2ann$SEURAT_OBJ
 METADATA <- config$seurat2ann$METADATA
 OUTPUT_name <- config$seurat2ann$OUTPUT_name
 DIM.RED <- config$seurat2ann$DIM.RED
 # set working dir
-setwd(WD)
+setwd(DATA_DIR)
 # read in Seurat object
 seurat <- readRDS(file = SEURAT_OBJ)
 

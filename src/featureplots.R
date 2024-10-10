@@ -11,16 +11,16 @@ library(viridis)
 use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 # set variables
 # set variables
-GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path(GIT_DIR, "config.json"))
-WD <- config$featureplots$WD
+#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- fromJSON(file.path("./config.json"))
+DATA_DIR <- config$featureplots$DATA_DIR
 SEURAT_OBJ <- config$featureplots$SEURAT_OBJ
 GENE_LIST <- config$featureplots$GENE_LIST
 ANNOT <- config$featureplots$ANNOT
 INPUT_NAME <- config$featureplots$INPUT_NAME
 reduction <- config$featureplots$reduction
 # set working directory
-setwd(WD)
+setwd(DATA_DIR)
 # load seurat object
 seurat.obj <- readRDS(file = SEURAT_OBJ)
 # load list of marker genes to plot

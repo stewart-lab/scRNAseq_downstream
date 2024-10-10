@@ -18,7 +18,7 @@ from cellrank.kernels import RealTimeKernel
 import os
 import shutil
 import moscot as mt
-import anndata
+import anndata as ad
 import h5py
 import numpy as np
 import subprocess
@@ -30,7 +30,7 @@ cr.settings.verbosity = 2
 # read config file
 import json
 #GIT_DIR = '/w5home/bmoore/scRNAseq_downstream/'
-with open('./config.json') as f:
+with open('config.json') as f:
     config_dict = json.load(f)
     print("loaded config file: ", config_dict["realtime"])
     
@@ -49,7 +49,7 @@ now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = data_dir + "realtime_" + now +"/"
 os.mkdir(out_dir)
 # copy config file
-shutil.copy('./config.json', out_dir) 
+shutil.copy(GIT_DIR + '/config.json', out_dir) 
 
 # load data
 ## note- data was previously converted from seurat object to anndata object
@@ -59,7 +59,7 @@ if dim_red == "pca" or dim_red == "umap":
 # if adding a new dim_red component
 elif dim_red != "NA" and dim_red != "":
     # load h5ad file
-    adata = anndata.read_h5ad(data_dir + ADATA_FILE)
+    adata = ad.read_h5ad(data_dir + ADATA_FILE)
     # replace .h5ad with .h5Seurat
     ADATA_FILE = ADATA_FILE.replace(".h5ad", ".h5Seurat")
     # Open the original h5Seurat file
@@ -68,7 +68,7 @@ elif dim_red != "NA" and dim_red != "":
         dim_red_component = f[dim_red+"1"][:].T
         # Add the integrated.cca component
     adata.obsm["X_new_dim_red"] = dim_red_component
-    adata.write_h5ad(data_dir +"anndata_obj_with_"+ dim_red + ".h5ad")
+    adata.write_h5ad(out_dir +"anndata_obj_with_"+ dim_red + ".h5ad")
 else:
     adata = sc.read_h5ad(data_dir + ADATA_FILE)
 print(adata)
@@ -103,16 +103,26 @@ print("Draw force-directed layout")
 sc.pp.neighbors(adata, n_pcs=30, n_neighbors=30, random_state=0)
 sc.tl.draw_graph(adata, layout='fa')
 print(adata.obsm.keys())
-with plt.rc_context():
-    sc.pl.embedding(
-        adata,
-        basis="X_draw_graph_fa",
-        color=["time", annot_label],
-        color_map="gnuplot",
-        show=False)
-    plt.tight_layout()
-    plt.savefig(out_dir + "force_directed_graph.pdf", bbox_inches='tight')
-    
+try:
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata,
+            basis="X_draw_graph_fa",
+            color=["time", annot_label],
+            color_map="gnuplot",
+            show=False)
+        plt.tight_layout()
+        plt.savefig(out_dir + "force_directed_graph.pdf", bbox_inches='tight')
+except KeyError:
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata,
+            basis="X_draw_graph_fr",
+            color=["time", annot_label],
+            color_map="gnuplot",
+            show=False)
+        plt.tight_layout()
+        plt.savefig(out_dir + "force_directed_graph.pdf", bbox_inches='tight')
 # if data was merged, should redo variable genes and pca
 
 # get proliferation and apopstosis genes
@@ -192,98 +202,125 @@ with plt.rc_context():
     plt.tight_layout()
     plt.savefig(out_dir + "cell_costs.pdf", bbox_inches='tight')
     
-# identfy ancestry of cells
-print("identfy ancestry of cells")
+# identify ancestry of cells
+
 # investigate which ancestry population a certain cell type has. 
 # We do this by aggregating the transport matrix by cell type, using cell_transition()
 # forward=True means we are plotting descendents, 
 # forward=False means we are plotting ancestors
 # loop through timepoints
-for i in adata.obs["time"].unique():
-    print(i)
-    for j in adata.obs["time"].unique():
-        if i==j:
-            pass
-        elif j>i:
-            pass
-        else:
-            key="transitions_"+i+"_"+j
-            tp.cell_transition( # source target are time points
+print("identify ancestry and descendants of cells")
+timepoints = adata.obs["time"].unique()
+print(timepoints)
+
+for i in timepoints:
+    for j in timepoints:
+        if i < j:  # Only process if i is earlier than j
+            print(i, j)
+            key = f"transitions_{i}_{j}"
+            tp.cell_transition(
                 source=i, 
                 target=j, 
                 source_groups=annot_label, 
                 target_groups=annot_label, 
                 forward=True, 
                 key_added=key
-                )
+            )
+            
             # Create plots
             mtp.cell_transition(adata, key=key, dpi=100, 
-                    fontsize=8, save=out_dir + key + ".png")
-            # ancestors
-            # loop through celltypes
-            for ct in adata.obs[annot_label].unique():
-                tp.pull(source=i, target=j, data=annot_label, subset=ct) # source target are time points
-                with plt.rc_context():
+                fontsize=8, save=f"{out_dir}{key}.png")
+            
+            # Get all unique cell types across both timepoints
+            all_celltypes = set(adata[adata.obs['time'].isin([i, j])].obs[annot_label].unique())
+            
+            for ct in all_celltypes:
+                try:
+                    # Ancestors
+                    tp.pull(source=i, target=j, data=annot_label, subset=ct)
                     fig, axes = plt.subplots(ncols=2, figsize=(20, 6))
-                    axes[0] = mtp.pull(
-                        tp,
-                        time_points=[j],
-                        basis="X_draw_graph_fa",
-                        ax=axes[0],
-                        return_fig=True,
-                        title=[ct + " at timepoint " + str(j)],
-                    )
-                    axes[1] = mtp.pull(
+                    
+                    # Check if the cell type exists in the target timepoint
+                    target_cells = adata[(adata.obs['time'] == j) & (adata.obs[annot_label] == ct)]
+                    if len(target_cells) > 0:
+                        mtp.pull(
+                            tp,
+                            time_points=[j],
+                            basis="X_draw_graph_fa",
+                            ax=axes[0],
+                            title=[f"{ct} at timepoint {j}"],
+                        )
+                    else:
+                        axes[0].text(0.5, 0.5, f"No {ct} cells at timepoint {j}", 
+                                     ha='center', va='center')
+                        axes[0].set_title(f"{ct} at timepoint {j}")
+                    
+                    mtp.pull(
                         tp,
                         time_points=[i],
                         basis="X_draw_graph_fa",
                         ax=axes[1],
-                        return_fig=True,
-                        title=[ct + " ancestors"],
+                        title=[f"{ct} ancestors"],
                     )
-                    fig.subplots_adjust(wspace=0.2)
+                    
+                    fig.suptitle(f"Ancestors of {ct}")
                     plt.tight_layout()
-                    plt.savefig(out_dir + ct + "_ancestors_" + str(j) + "-" + str(i) + ".pdf", bbox_inches='tight')
-            # descendents
-                tp.push(source=i, target=j, data=annot_label, subset=ct)
-                with plt.rc_context():
-                    fig, axes = plt.subplots(ncols=2, figsize=(16, 6))
-                    axes[0] = mtp.push(
-                        tp,
-                        time_points=[i],
-                        basis="X_draw_graph_fa",
-                        ax=axes[0],
-                        return_fig=True,
-                        title=[ct + " at time " + str(i)],
-                    )
-                    axes[1] = mtp.push(
+                    plt.savefig(f"{out_dir}{ct}_ancestors_{j}-{i}.pdf", bbox_inches='tight')
+                    plt.close(fig)
+                    
+                    # Descendants
+                    tp.push(source=i, target=j, data=annot_label, subset=ct)
+                    fig, axes = plt.subplots(ncols=2, figsize=(20, 6))
+                    
+                    # Check if the cell type exists in the source timepoint
+                    source_cells = adata[(adata.obs['time'] == i) & (adata.obs[annot_label] == ct)]
+                    if len(source_cells) > 0:
+                        mtp.push(
+                            tp,
+                            time_points=[i],
+                            basis="X_draw_graph_fa",
+                            ax=axes[0],
+                            title=[f"{ct} at time {i}"],
+                        )
+                    else:
+                        axes[0].text(0.5, 0.5, f"No {ct} cells at timepoint {i}", 
+                                     ha='center', va='center')
+                        axes[0].set_title(f"{ct} at time {i}")
+                    
+                    mtp.push(
                         tp,
                         time_points=[j],
                         basis="X_draw_graph_fa",
                         ax=axes[1],
-                        return_fig=True,
-                        title=[ct + " descendants"],
+                        title=[f"{ct} descendants"],
                     )
-                    fig.subplots_adjust(wspace=0.3)
+                    
+                    fig.suptitle(f"Descendants of {ct}")
                     plt.tight_layout()
-                    plt.savefig(out_dir + ct + "_descendents_" + str(i) + "-" + str(j) +".pdf", bbox_inches='tight')
-            # get dynamics across all time points, we can visualize the cell type evolution
-            # Sankey diagram allows visualization of flows between cell types
+                    plt.savefig(f"{out_dir}{ct}_descendants_{i}-{j}.pdf", bbox_inches='tight')
+                    plt.close(fig)
+                    
+                except Exception as e:
+                    print(f"Error processing {ct} between timepoints {i} and {j}: {str(e)}")
+                    continue
+            
+            # Sankey diagram
             tp.sankey(
                 source=i,
                 target=j,
                 source_groups=annot_label,
                 target_groups=annot_label,
                 threshold=0.05,
-                forward = True,
+                forward=True,
             )
-            mtp.sankey(tp, dpi=100, figsize=(8, 4), title="Cell type evolution over time", 
-                       save=out_dir + "cell_type_evolution"+str(i) + "-" + str(j) + ".pdf")
+            mtp.sankey(tp, dpi=100, figsize=(8, 4), title=f"Cell type evolution {i} to {j}", 
+                       save=f"{out_dir}cell_type_evolution{i}-{j}.pdf")
 
 # get cell transition matrix
 print(adata.uns['moscot_results']['cell_transition'])
 
 # Set up the RealTimeKernel
+print("compute transition matrix")
 tmk = RealTimeKernel.from_moscot(tp)
 
 # to get from OT transport maps to a markov chain:
@@ -311,9 +348,10 @@ with plt.rc_context():
 
 # plot the probability mass flow in time
 # Visualize outgoing flow from a cluster of cells
-for ct in adata.obs[annot_label].unique():
-    celltype_list=adata.obs[annot_label].unique()
-    celltype_list.remove(ct)
+# first get cells only in first timepoint
+firsttime_celltypes = set(adata[adata.obs['time'].isin([1.0])].obs[annot_label].unique())
+# loop through to show prob mass flow
+for ct in firsttime_celltypes:
     with plt.rc_context():
         plt.figure(figsize=(10,4))
         ax = tmk.plot_single_flow(
@@ -323,7 +361,7 @@ for ct in adata.obs[annot_label].unique():
             min_flow=0.1,
             xticks_step_size=4,
             show=False,
-            clusters=celltype_list,
+            #clusters=celltype_list,
             )
 
     _ = ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
@@ -331,7 +369,21 @@ for ct in adata.obs[annot_label].unique():
     plt.savefig(out_dir + "prob_mass_flow_" + ct + ".pdf", bbox_inches='tight')
     
 # save object
-sc.write_h5ad(out_dir + "realtime_object.h5ad", adata)
+print("saving object and package versions")
+import anndata as ad
+import pandas as pd
+import numpy as np
+
+# convert annotation to numpy array in order to save
+adata.obs[annot_label] = np.array(adata.obs[annot_label])
+# Verify the written file
+try:
+    adata_read = ad.read_h5ad(out_dir + "realtime_object.h5ad")
+    print("Successfully read the written AnnData object.")
+except Exception as e:
+    print(f"Error reading the written AnnData object: {str(e)}")
+# now save
+adata.write(out_dir + "realtime_object.h5ad")
 # save package versions
 # Check if we're in a conda environment
 in_conda = os.environ.get('CONDA_DEFAULT_ENV') is not None
@@ -340,7 +392,7 @@ if in_conda:
     result = subprocess.run(['conda', 'list', '--explicit'], capture_output=True, text=True)
     packages = result.stdout
     # Write the packages to a file
-    with open('conda-requirements.txt', 'w') as f:
+    with open(out_dir + 'conda-requirements.txt', 'w') as f:
         f.write(packages)
     print("Package versions have been written to conda-requirements.txt")
 else:

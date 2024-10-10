@@ -1,6 +1,6 @@
 {
-  "title": "integration of fluidigm data with 48-72h timepoints",
-  "method": "seurat_integration",
+  "title": "Recluster on Gamm 120",
+  "METHOD": "recluster",
   "DE_method": "Scran",
   "species": "human",
   
@@ -136,11 +136,11 @@
     }
   },
   "recluster":{
-    "DATA_DIR": "./data/example_data/",
-    "SEURAT.FILE": "pbmc_10k_v3.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
+    "SEURAT.FILE": "GAMM_S2_clabeled-clusters_0.5.rds",
     "perform_clustering": {
       "reduction": "pca",
-      "resolution": 0.25,
+      "resolution": 0.75,
       "algorithm": "leiden",
       "dims_snn": 10,
       "cluster_name": "seurat_clusters2"
@@ -148,7 +148,7 @@
     "score_and_plot_markers": {
       "top_n_markers": 100,
       "known_markers": "True",
-      "known_markers_path": "./data/markers/pbmc_markers.txt",
+      "known_markers_path": "/w5home/bmoore/scRNAseq/GAMM/known_markers/Kims_retinal_markers.txt",
       "cluster_type": "seurat_clusters2",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
@@ -157,11 +157,11 @@
     },
     "process_known_markers":{
       "annot_type": "manual",
-      "n_rank": 5
+      "n_rank": 10
     }
   },
   "featureplots":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
     "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
     "GENE_LIST": "../KM_genelist_thymus.txt",
     "ANNOT": "CellType1",
@@ -169,32 +169,32 @@
     "reduction": "phatek10d50"
   },
   "seurat2ann":{
-    "WD":  "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/output_seuratintegrate_20241004_125959/",
+    "DATA_DIR":  "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/output_seuratintegrate_20241004_125959/",
     "SEURAT_OBJ": "merged_seurat.rds",
     "METADATA": "NA",
     "OUTPUT_name": "seurat_obj_merged2.h5Seurat",
     "DIM.RED": "integrated.cca"
   },
   "subset_seurat":{
-    "WD": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/output_seuratintegrate_20241004_125959/",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
     "SEURAT_OBJ": "merged_seurat.rds",
-    "GENE_LIST": ["HES7","TBX6"],
+    "GENE_LIST": ["SAG","HES5"],
     "DIM.RED": "umap.cca",
-    "ANNOT": "CellType1"
+    "ANNOT": "CellType_combined"
   },
   "phate":{
-    "WD":"./data/example_data/",
-    "SEURAT_OBJ": "pbmc_10k_v3.rds",
-    "gene": "HES7",
+    "DATA_DIR":"/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
+    "SEURAT_OBJ": "merged_seurat.rds",
+    "gene": "SAG",
     "knn":5, 
     "decay":50,
     "t":"auto",
     "gamma":1,
     "embed_key":"phate",
-    "ANNOT": "CellType1"
+    "ANNOT": "CellType_combined"
   },
   "sctype":{
-    "WD": "./data/example_data/",
+    "DATA_DIR": "./data/example_data/",
     "SEURAT_OBJ": "pbmc_10k_v3.rds",
     "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx",
     "tissue": "thymus"

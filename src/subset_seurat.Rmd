@@ -21,25 +21,25 @@ library(ggplot2)
 library(scran)
 library(clustifyr)
 library(SeuratDisk)
-use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
+use_condaenv("scRNAseq_best")
 
 # set variables
-GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
-WD <- config$subset_seurat$WD
+#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- jsonlite::fromJSON(file.path("./config.json"))
+DATA_DIR <- config$subset_seurat$DATA_DIR
 SEURAT_OBJ <- config$subset_seurat$SEURAT_OBJ
 GENE_LIST <- config$subset_seurat$GENE_LIST
 DIM.RED <- config$subset_seurat$DIM.RED
 ANNOT <- config$subset_seurat$ANNOT
 # set up environment and output
-setwd(WD)
+setwd(DATA_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_subset_", timestamp)
 dir.create(output, showWarnings = FALSE)
-file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+file.copy(paste0("config.json"), file.path(output, "config.json"))
 output <- paste0(output, "/")
 config <- jsonlite::fromJSON(file.path(output, "config.json"))
-source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
+source(paste0("src/sc_pipeline_functions.R"))
 ```
 ```{r load_data}
 seurat.obj <- readRDS(file = SEURAT_OBJ)

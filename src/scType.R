@@ -1,32 +1,23 @@
----
-title: "scType annotation"
-author: "Beth Moore"
-date: "2024-09-16"
-output: html_document
----
-```{r load_libraries}
+
 # load libraries
 library(reticulate)
-use_condaenv("scRNAseq_best", required=TRUE)
+use_condaenv("scRNAseq_new", required=TRUE)
 lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
 library(jsonlite)
 # set variables
 #GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path("./config.json"))
+config <- fromJSON(file.path(getwd(), "config.json"))
 DATA_DIR <- config$sctype$DATA_DIR
 SEURAT.FILE <- config$sctype$SEURAT_OBJ
 DB <- config$sctype$db
 TISSUE <- config$sctype$tissue
+file.copy(file.path(getwd(), "config.json"), file.path(DATA_DIR, "config_sctype.json"))
 setwd(DATA_DIR)
-file.copy(paste0("./config.json"), file.path(DATA_DIR, "config_sctype.json"))
-```
-```{r install_sctype}
 # load gene set preparation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
 # load cell type annotation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
-```
-```{r DB_file}
+
 # DB file
 if (DB=="default"){
   db_ <- "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx"
@@ -39,13 +30,13 @@ tissue <- TISSUE
 
 # prepare gene sets
 gs_list <- gene_sets_prepare(db_, tissue)
-```
+
 # load seurat
-```{r load_seurat}
+
 seurat.obj <- readRDS(file=SEURAT.FILE)
-```
+
 # assign cell types
-```{r}
+
 # get assay data
 xl <- Assays(seurat.obj)
 
@@ -71,8 +62,7 @@ sctype_scores <- cL_resutls %>% group_by(cluster) %>% top_n(n = 1, wt = scores)
 # set low-confident (low ScType score) clusters to "unknown"
 sctype_scores$type[as.numeric(as.character(sctype_scores$scores)) < sctype_scores$ncells/4] <- "Unknown"
 print(sctype_scores[,1:3])
-```
-```{r plot}
+
 seurat.obj@meta.data$sctype_classification = ""
 for(j in unique(sctype_scores$cluster)){
   cl_type = sctype_scores[sctype_scores$cluster==j,]; 
@@ -82,15 +72,14 @@ pdf(paste0("sctype_umap.pdf"), bg = "white")
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE,
       repel = TRUE, group.by = 'sctype_classification'))
 dev.off()
-```
-```{r wrapper}
+
 # source("https://raw.githubusercontent.com/kris-nader/sc-type/master/R/sctype_wrapper.R"); 
 # pbmc <- run_sctype(seurat.obj,known_tissue_type="Immune system",custom_marker_file=
 #                 "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx",
 #                 name="sctype_classification",plot=TRUE)
-```
+
 # bubble plot
-```{r bubble}
+
 # load libraries
 lapply(c("ggraph","igraph","tidyverse", "data.tree"), library, character.only = T)
 
@@ -123,9 +112,9 @@ nodes$shortName[is.na(nodes$shortName)] = nodes$realname[is.na(nodes$shortName)]
 nodes = nodes[,c("cluster", "ncells", "Colour", "ord", "shortName", "realname")]
 
 mygraph <- graph_from_data_frame(edges, vertices=nodes)
-```
+
 # Make the graph
-```{r bubbleplot}
+
 gggr <- ggraph(mygraph, layout = 'circlepack', weight=I(ncells)) + 
   geom_node_circle(aes(filter=ord==1,fill=I("#F5F5F5"), colour=I("#D3D3D3")), alpha=0.9) +
   geom_node_circle(aes(filter=ord==2,fill=I(Colour), colour=I("#D3D3D3")), alpha=0.9) +
@@ -138,11 +127,9 @@ pdf(paste0("sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE, repel = TRUE, 
       group.by = 'sctype_classification', cols = ccolss)+ gggr)
 dev.off()
-```
-```{r rename_save}
+
 # rename
 #seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
 # delete old
 #seurat.obj$sctype_classification <- NULL
 saveRDS(seurat.obj, file="seurat_obj_labeled_sctype.rds")
-```
