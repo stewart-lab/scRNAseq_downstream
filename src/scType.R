@@ -1,7 +1,7 @@
 
 # load libraries
 library(reticulate)
-use_condaenv("scRNAseq_new", required=TRUE)
+#use_condaenv("scRNAseq_new", required=TRUE)
 lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
 library(jsonlite)
 # set variables
@@ -41,8 +41,8 @@ seurat.obj <- readRDS(file=SEURAT.FILE)
 xl <- Assays(seurat.obj)
 
 # extract scaled scRNA-seq matrix
-as.matrix(seurat.obj[[xl]]$scale.data) 
-
+scRNAseqData_scaled <- as.matrix(seurat.obj[[xl]]$scale.data)
+#print(scRNAseqData_scaled)
 # run ScType
 es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, 
                       gs = gs_list$gs_positive, gs2 = gs_list$gs_negative)
@@ -110,7 +110,10 @@ files_db = unique(files_db);
 nodes = merge(nodes, files_db, all.x = T, all.y = F, by.x = "realname", by.y = "cellName", sort = F)
 nodes$shortName[is.na(nodes$shortName)] = nodes$realname[is.na(nodes$shortName)]; 
 nodes = nodes[,c("cluster", "ncells", "Colour", "ord", "shortName", "realname")]
-
+print(dim(nodes))
+nodes <- as_tibble(nodes)
+nodes <- nodes %>% distinct(cluster, .keep_all = TRUE)
+print(dim(nodes))
 mygraph <- graph_from_data_frame(edges, vertices=nodes)
 
 # Make the graph
@@ -124,8 +127,12 @@ gggr <- ggraph(mygraph, layout = 'circlepack', weight=I(ncells)) +
   #fill="white", parse = T), repel = !0, segment.linetype="dotted")
 
 pdf(paste0("sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)  
+print(gggr)
+dev.off()
+
+pdf(paste0("sctype_umap2.pdf"), bg = "white", width=8, height=4)  
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE, repel = TRUE, 
-      group.by = 'sctype_classification', cols = ccolss)+ gggr)
+      group.by = 'sctype_classification', cols = ccolss))
 dev.off()
 
 # rename

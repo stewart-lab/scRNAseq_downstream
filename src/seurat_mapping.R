@@ -40,7 +40,8 @@ setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seurat_mapping_", timestamp)
 dir.create(output, showWarnings = FALSE)
-file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"))
+file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
+        overwrite = TRUE)
 config <- fromJSON(file.path(output, "config.json"))
 output <- paste0(output, "/")
 

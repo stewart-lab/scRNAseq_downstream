@@ -17,7 +17,7 @@ if [ "$METHOD" == "seurat_mapping" ]; then
     Rscript src/seurat_mapping.R
 elif [ "$METHOD" == "seurat_integration" ]; then
     source activate scRNAseq_new
-    Rscript -e "rmarkdown::render('src/seurat_integrate_v5.Rmd')"
+    Rscript src/seurat_integrate_v5.R
 elif [ "$METHOD" == "sccomp" ]; then
     source activate sccomp
     Rscript -e "rmarkdown::render('src/ssccomp.Rmd')"

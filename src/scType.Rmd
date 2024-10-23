@@ -12,7 +12,7 @@ lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
 library(jsonlite)
 # set variables
 #GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path("./config.json"))
+config <- fromJSON(file.path("config.json"))
 DATA_DIR <- config$sctype$DATA_DIR
 SEURAT.FILE <- config$sctype$SEURAT_OBJ
 DB <- config$sctype$db
@@ -121,7 +121,7 @@ files_db = unique(files_db);
 nodes = merge(nodes, files_db, all.x = T, all.y = F, by.x = "realname", by.y = "cellName", sort = F)
 nodes$shortName[is.na(nodes$shortName)] = nodes$realname[is.na(nodes$shortName)]; 
 nodes = nodes[,c("cluster", "ncells", "Colour", "ord", "shortName", "realname")]
-
+print(nodes)
 mygraph <- graph_from_data_frame(edges, vertices=nodes)
 ```
 # Make the graph

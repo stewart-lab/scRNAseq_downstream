@@ -1,8 +1,8 @@
 {
-  "title": "Recluster on Gamm 120",
-  "METHOD": "recluster",
+  "title": "seurat_integration on Gamm 40-120",
+  "METHOD": "seurat_integration",
   "DE_method": "Scran",
-  "species": "human",
+  "species": "pig",
   
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/output_seurat_mapping_20240904_134019/",
@@ -32,6 +32,7 @@
     "DATA_DIR":"/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
     "filename_list": ["seurat_obj_labeled_S1.rds","seurat_obj_labeled_S2.rds"],
     "project_name": "Gamm_merged_40d-120d",
+    "orig_ident_rename": ["GAMM_40","GAMM_40", "GAMM_120", "GAMM_120", "GAMM_120"],
     "feature_selection": {
       "n_features": 2000,
       "analysis_type": "Seurat"
@@ -194,10 +195,10 @@
     "ANNOT": "CellType_combined"
   },
   "sctype":{
-    "DATA_DIR": "./data/example_data/",
-    "SEURAT_OBJ": "pbmc_10k_v3.rds",
-    "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx",
-    "tissue": "thymus"
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_recluster_20240814_155917/",
+    "SEURAT_OBJ": "seurat_obj_labeled.rds",
+    "db": "default",
+    "tissue": "Eye"
   }
   
 }
