@@ -1,24 +1,17 @@
----
-title: "sc-comp"
-author: "Beth Moore"
-date: "2023-09-22"
-output: html_document
----
 
 # sccomp analysis for cell type composition comparisons
 # To run sccomp you need processed and labeled data sets that are annotated the same way
 
 # Load libraries, set wd, and source functions
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 #### installations ####
 # see scRNAseq_library/src/sccomp_env_setup.sh or
 # use scRNAseq_library/environment_sccomp.yml to create an sccomp environment
 ## remember to set your Rterm in settings for remote to the conda path for sccomp!!!
 
 ### load libraries ###
+print("load libraries and config")
 library(reticulate)
-use_condaenv("sccomp", required=TRUE)
+#use_condaenv("sccomp", required=TRUE)
 # devtools::install_github("Oshlack/speckle")
 library(sccomp)
 library(Seurat)
@@ -53,23 +46,21 @@ dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
-#config <- fromJSON(file.path(output, "config.json"))
+print("sccomp version: ")
 packageVersion("sccomp") # should be >= 1.4.0
-```
+
 # Read in processed and labeled data
-```{r read_in}
+print("read in data")
 seurat.obj.1 <- readRDS(file = SEURAT.1) # reference
 seurat.obj.2 <- readRDS(file = SEURAT.2) # query
 
-```
 # check orig.ident and rename if necessary
-```{r idents}
+print("check metadata")
 colnames(seurat.obj.2@meta.data)
 colnames(seurat.obj.1@meta.data)
 table(seurat.obj.2$orig.ident)
 table(seurat.obj.1$orig.ident)
-```
-```{r rename}
+# rename idents
 Idents(object = seurat.obj.2) <- IDENTS2
 Idents(object = seurat.obj.1) <- IDENTS1
 # set as orig.ident
@@ -84,10 +75,9 @@ annot_ref<- seurat.obj.1[[ANNOT_LABEL1]]
 seurat.obj.1$ref_type <- annot_ref
 # check reference and query annotations
 table(seurat.obj.1$ref_type)
-```
 
 # check location of annotation
-```{r check}
+
 if (CROSS_SPECIES=="yes"){
     #human
     table(annot_ref)
@@ -113,44 +103,35 @@ if (CROSS_SPECIES=="yes"){
         print("COMP_TYPE should be scpred or seurat mapping or manual")
     }
 }
-```
+
 # add identities to metadata
-```{r add_meta}
+
 if (COMP_TYPE=="manual"){
     seurat.obj.1 <- AddMetaData(seurat.obj.1, metadata = seurat.obj.1[[ANNOT_LABEL1]], col.name= "CellType")
     table(seurat.obj.1$CellType)
     seurat.obj.2 <- AddMetaData(seurat.obj.2, metadata = seurat.obj.2[[ANNOT_LABEL2]], col.name= "CellType")
     table(seurat.obj.2$CellType)
 }
-```
+
 # merge datasets
-```{r merge}
+print("merge datasets by orig.ident")
 seurat.combined <- merge(seurat.obj.1, y = seurat.obj.2, add.cell.ids = c("sample1", "sample2"), project = "combined")
 head(colnames(seurat.combined))
 table(seurat.combined$orig.ident)
 unique(seurat.combined$orig.ident)
 unique(sapply(X = strsplit(colnames(seurat.combined), split = "_"), FUN = "[", 1))
 table(Idents(object = seurat.combined))
-```
+
 # set and rename identities in combined dataset
-```{r set_idents}
+print("set identities in combined dataset")
 # set identity
-#Idents(object = seurat.combined) <- "orig.ident"
-#table(Idents(object = seurat.combined))
-# if (CROSS_SPECIES=="yes"){
-#     continue
-#     #seurat.combined <- RenameIdents(object = seurat.combined, `human_F49B7` = "human")
-# } else {
-#     seurat.combined <- RenameIdents(object = seurat.combined, `output_S1-1_mm_mt_GeneFull` = "s1",
-#                                 `output_S1-2_mm_mt_GeneFull` = "s1", `output_S2-1_mm_mt_GeneFull` = "s2",
-#                                 `output_S2-2_mm_mt_GeneFull` = "s2")
-# }
+
 # stash idents
 seurat.combined[["idents"]] <- Idents(object = seurat.combined)
 unique(seurat.combined$idents)
-```
+
 # remove NAs
-```{r remove_NA}
+print("remove NAs")
 # subset to remove NAs
 seurat.combined <- subset(x= seurat.combined, idents != "NA")
 
@@ -170,9 +151,9 @@ if (CROSS_SPECIES=="yes") {
     seurat.human <- subset(x= seurat.combined, ref_type != "NA")
     unique(seurat.human$ref_type)
 }
-```
+
 # plot cell type proportions
-```{r plot_proportions}
+print("plot proportions")
 if (CROSS_SPECIES == "yes") {
     if (COMP_TYPE=="scpred") {
     # scpred
@@ -195,9 +176,9 @@ if (CROSS_SPECIES == "yes") {
     print(prop.plot)
     dev.off()
 }
-```
+
 # combine cell types
-```{r combine_meta}
+print("combine cell types")
 if (CROSS_SPECIES == "yes") {
     if (COMP_TYPE=="scpred") {
         New_idents <- c(seurat.human$ref_type,seurat.pig$scpred_prediction)
@@ -209,13 +190,13 @@ if (CROSS_SPECIES == "yes") {
     seurat.combined@meta.data$"CellType" <- as.factor(New_idents)
 }
 table(seurat.combined$CellType)
-```
+
 # save combined object
-```{r save}
-saveRDS(seurat.combined, file = paste0(output,"seurat.combined.rds"))
-```
+print("save combined object")
+#saveRDS(seurat.combined, file = paste0(output,"seurat.combined.rds"))
+
 # sccomp model composition
-```{r model_comp}
+print("model composition")
 # model composition
 comp.tibble <- seurat.combined |>
   sccomp_estimate( 
@@ -235,31 +216,31 @@ pr.table <- as.data.frame(comp.table["12","count_data"])
 celltype <- sub("/","_", celltype)
 
 write.table(pr.table, file= paste0(output, celltype,"_composition_result_table.txt"), quote = F, col.names = TRUE, row.names= F, sep= "\t")
-```
+
 
 # compare models (Bayesian Anova)
-```{r bayes_anova}
+print("compare models")
 # need sccomp version 1.4 for this!
 # Fit first model
-model_with_factor_association = 
+model_with_factor_association <- 
   seurat.combined |>
   sccomp_estimate( 
     formula_composition = ~ idents, 
-    .sample =  orig.ident, 
+    .sample = orig.ident, 
     .cell_group = CellType, 
     bimodal_mean_variability_association = TRUE,
     cores = 1, 
     enable_loo = TRUE
   )
 # Fit second model
-model_without_association = 
+model_without_association <- 
   seurat.combined |>
   sccomp_estimate( 
     formula_composition = ~ 1, 
-    .sample =  orig.ident, 
+    .sample = orig.ident, 
     .cell_group = CellType, 
     bimodal_mean_variability_association = TRUE,
-    cores = 1 , 
+    cores = 1, 
     enable_loo = TRUE
   )
 # Compare models
@@ -273,13 +254,13 @@ write.table(comp_df, file= paste0(output, "model_comparison_table.txt"),
 # is elpd_diff/se_diff > abs(5)?
 c.res <- comp_df$elpd_diff[2]/comp_df$se_diff[2]
 print(paste0("if ",c.res," is greater than abs(5), significant"))
-```
+
 # diffrential variability model
-```{r diff_var_model}
+print("differential variability model")
 res = 
   seurat.combined |>
   sccomp_estimate( 
-    formula_composition = ~ idents, 
+    formula_composition = ~ idents,
     formula_variability = ~ idents,
     .sample = orig.ident,
     .cell_group = CellType,
@@ -288,67 +269,66 @@ res =
   )
 res.table <- as.data.frame(res)
 res.table <- select(res.table, -c("count_data"))
-write.table(res.table, file= paste0(output, "celltype_x_develop_composition_result_table.txt"), 
+write.table(res.table, file= paste0(output, "composition_x_var_result_table.txt"), 
             quote = F, col.names = TRUE, row.names= F, sep= "\t")
-```
+
 # test
-```{r test}
 test <- res |> sccomp_test()
 test.table <- as.data.frame(test)
 test.table <- select(test.table, -c("count_data"))
 write.table(test.table, file= paste0(output, "composition_x_var_result_testtable.txt"), 
             quote = F, col.names = TRUE, row.names= F, sep= "\t")
-```
+
 # cell group statements
-```{r}
-res |> 
-   sccomp_proportional_fold_change(
-     formula_composition = ~  idents,
-     from =  "pig_day120", 
-     to = "human_d205"
-    ) |> 
-  select(CellType, statement)
-```
+
+# res |> 
+#    sccomp_proportional_fold_change(
+#      formula_composition = ~  idents,
+#      from =  IDENTS1,
+#      to = IDENTS2
+#     ) |> 
+#   select(CellType, statement)
+
 
 
 # plot
-```{r plot}
+print("plot results")
 # plot results
-plots = res |> sccomp_test() |> plot()
+## for some reason boxplot not working
+#plots <- res |> sccomp_test() |> plot()
 # group proportion boxplot 
 # blue box is posterior predictive check and colors are 
 # associated with significant associations for composition and/or variability
-pdf(paste0(output, "signif_associations_boxplot.pdf"), width = 8, height = 6)
-print(plots$boxplot)
-dev.off()
+# pdf(paste0(output, "signif_associations_boxplot.pdf"), width = 8, height = 6)
+# #print(plots$boxplot)
+# print(test |> sccomp_boxplot(factor="idents"))
+# dev.off()
+
 # credible interval plot 1
 # error bars represent 95% credible interval
 pdf(paste0(output, "credible_intervals_1d.pdf"), width = 8, height = 6)
-print(plots$credible_intervals_1D)
+print(test |> plot_1D_intervals())
 dev.off()
 # credible interval plot 2
 pdf(paste0(output, "credible_intervals_2d.pdf"), width = 8, height = 6)
-print(plots$credible_intervals_2D)
+print(test |> plot_2D_intervals())
 dev.off()
-```
 
-```{r}
-plot2 = model_with_factor_association |> sccomp_test() |> plot()
-# associated with significant associations for composition and/or variability
-pdf(paste0(output, "signif_associations_boxplot2.pdf"), width = 8, height = 6)
-print(plot2$boxplot)
-dev.off()
-# credible interval plot 1
-# error bars represent 95% credible interval
-pdf(paste0(output, "credible_intervals_1d2.pdf"), width = 8, height = 6)
-print(plot2$credible_intervals_1D)
-dev.off()
-# credible interval plot 2
-pdf(paste0(output, "credible_intervals_2d2.pdf"), width = 8, height = 6)
-print(plot2$credible_intervals_2D)
-dev.off()
-```
+# plot2 = model_with_factor_association |> sccomp_test() |> plot()
+# # associated with significant associations for composition and/or variability
+# pdf(paste0(output, "signif_associations_boxplot2.pdf"), width = 8, height = 6)
+# print(plot2$boxplot)
+# dev.off()
+# # credible interval plot 1
+# # error bars represent 95% credible interval
+# pdf(paste0(output, "credible_intervals_1d2.pdf"), width = 8, height = 6)
+# print(plot2$credible_intervals_1D)
+# dev.off()
+# # credible interval plot 2
+# pdf(paste0(output, "credible_intervals_2d2.pdf"), width = 8, height = 6)
+# print(plot2$credible_intervals_2D)
+# dev.off()
+
 # save session info
-```{r sessioninfo}
+print("save session info")
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-```

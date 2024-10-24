@@ -40,10 +40,10 @@ setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seurat_mapping_", timestamp)
 dir.create(output, showWarnings = FALSE)
+output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
 config <- fromJSON(file.path(output, "config.json"))
-output <- paste0(output, "/")
 
 # read in seurat objects that were preprocessed
 
@@ -153,10 +153,8 @@ print(query.ref.data.table)
 hm <- heatmap_func(query.ref.data.table, output)
 
 saveRDS(query.seurat, file= paste0(output,"query_seurat_pred.rds"))
-saveRDS(ref.seurat, file= paste0(output,"human_seurat_map.rds"))
+saveRDS(ref.seurat, file= paste0(output,"ref_seurat_map.rds"))
 
 # save session info
 
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-
-#query.seurat <- readRDS(file = "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_seurat_mapping_20230804_143108/gamms2_rpca_pred.rds")

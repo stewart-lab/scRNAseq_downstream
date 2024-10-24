@@ -78,15 +78,15 @@
     }
   },
   "sccomp":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/cowan_cell_2020/",
     "CROSS_SPECIES": "yes",
     "COMP_TYPE": "seuratmapping",
-    "annot_label1": "type",
+    "annot_label1": "cell_type2",
     "annot_label2": "predicted.id",
-    "idents1": "human_d205",
+    "idents1": "human_30wk",
     "idents2": "pig_day120",
-    "SEURAT.file1": "output_seurat_mapping_20240904_134019/human_seurat_map.rds",
-    "SEURAT.file2": "output_seurat_mapping_20240904_134019/query_seurat_pred.rds"
+    "SEURAT.file1": "output_seurat_mapping_20240219_151441/human_seurat_map.rds",
+    "SEURAT.file2": "output_seurat_mapping_20240219_151441/query_seurat_pred.rds"
   },
   "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
