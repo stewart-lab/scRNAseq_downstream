@@ -13,14 +13,14 @@ pwd
 
 echo "Step 2: Running the script"
 if [ "$METHOD" == "seurat_mapping" ]; then
-    source activate scRNAseq_new
+    source activate scRNAseq_new2
     Rscript src/seurat_mapping.R
 elif [ "$METHOD" == "seurat_integration" ]; then
-    source activate scRNAseq_new
-    Rscript src/seurat_integrate_v5.R
+    source activate scRNAseq_new2
+   Rscript src/seurat_integrate_v5.R
 elif [ "$METHOD" == "sccomp" ]; then
     source activate sccomp
-    Rscript -e "rmarkdown::render('src/ssccomp.Rmd')"
+    Rscript src/sccomp.R
 elif [ "$METHOD" == "pseudotime" ]; then
     source .venv/bin/activate
     python src/pseudotime.py

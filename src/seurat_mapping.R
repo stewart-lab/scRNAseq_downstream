@@ -29,13 +29,13 @@ library(colorspace)
 library(GetoptLong)
 # set variables
 GIT_DIR <- getwd()
-jsonlite::fromJSON(file.path(getwd(), "config.json"))
+config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 source(paste0("src/sc_pipeline_functions.R"))
 WD <- config$seurat_mapping$DATA_DIR
 REF.SEURAT <- config$seurat_mapping$REF.SEURAT
 QUERY.SEURAT <- config$seurat_mapping$QUERY.SEURAT
 # set up environment and output
-use_condaenv("scRNAseq_new", required=TRUE)
+#use_condaenv("scRNAseq_new", required=TRUE)
 setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seurat_mapping_", timestamp)
@@ -43,7 +43,7 @@ dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
-config <- fromJSON(file.path(output, "config.json"))
+#config <- fromJSON(file.path(output, "config.json"))
 
 # read in seurat objects that were preprocessed
 

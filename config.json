@@ -5,9 +5,9 @@
   "species": "pig",
   
   "seurat_mapping": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/output_seurat_mapping_20240904_134019/",
-    "REF.SEURAT": "human_seurat_map.rds",
-    "QUERY.SEURAT": "query_seurat_pred.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
+    "REF.SEURAT": "Reh_205/seurat_obj_labeled.rds",
+    "QUERY.SEURAT": "GAMM_120/seurat_obj_labeled.rds",
     "get_metadata": {
       "get_meta": "TRUE",
       "metadata_file1": "/w5home/bmoore/scRNAseq_downstream/data/reh_metadata/Reh_cca_org_205_metadata.txt",

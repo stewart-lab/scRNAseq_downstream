@@ -690,7 +690,7 @@ analyze_known_markers <- function(seurat_obj, de_results, output_path = output) 
   }
 }
 
-score_and_plot_markers <- function(seurat_obj, output_path = output, type) {
+score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) {
   if (type=="integration"){
     known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
     known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
@@ -717,7 +717,7 @@ score_and_plot_markers <- function(seurat_obj, output_path = output, type) {
     auc_thresh <- config$score_and_plot_markers$auc_thresh
   }
 
-  sce_obj <- as.SingleCellExperiment(seurat_obj)
+  sce_obj <- sce
 
   # Score markers
   marker_info <- score_markers(sce_obj, cluster_type)
@@ -754,7 +754,7 @@ score_and_plot_markers <- function(seurat_obj, output_path = output, type) {
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
   if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2")) {
-    marker_field <- cluster_type
+    marker_field <- paste0("label.",cluster_type)
     marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
   } else {
     stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")

@@ -15,6 +15,7 @@ library(ggplot2)
 library(scran)
 library(clustifyr)
 library(SeuratDisk)
+use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
 #use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 
 # set variables
@@ -215,25 +216,36 @@ print("join data and save")
 merged_seurat <- JoinLayers(merged_seurat)
 merged_seurat
 # save
-saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
+#saveRDS(merged_seurat, file= paste0(output,"merged_seurat.rds"))
 # write as h5ad obj
 # convert assay to V3 first
 print("convert to v3 to save as h5 file")
 merged_seurat[["RNA3"]] <- as(object = merged_seurat[["RNA5"]], Class = "Assay")
 DefaultAssay(merged_seurat) <- "RNA3"
 
-# Convert to SingleCellExperiment if necessary
-sce <- as.SingleCellExperiment(merged_seurat)
+# Convert to SingleCellExperiment
+# first get counts matrix
+counts_matrix <- merged_seurat[["RNA3"]]$counts
+data_matrix <- merged_seurat[["RNA3"]]$data
+# get clusters
+clusters <-  merged_seurat[[cluster_name]]
+# get embeddings
+dim_data_cca <- Embeddings(merged_seurat, reduction = "integrated.cca")
+dim_data_umap <- Embeddings(merged_seurat, reduction = "umap.cca")
+# make sce object
+sce <- SingleCellExperiment(list(counts=counts_matrix, logcounts=data_matrix),
+    colData=DataFrame(label=clusters))
+reducedDims(sce) <- list(PCA=dim_data_cca, UMAP=dim_data_umap)
 
 # first save seurat as h5 seurat file
-SaveH5Seurat(merged_seurat, filename = paste0(output,"merged_seurat2.h5Seurat"))
+#SaveH5Seurat(merged_seurat, filename = paste0(output,"merged_seurat2.h5Seurat"))
 # # then convert to h5ad
-Convert(paste0(output,"merged_seurat2.h5Seurat"), dest = "h5ad")
+#Convert(paste0(output,"merged_seurat2.h5Seurat"), dest = "h5ad")
 
 # now perform DE analysis
 # run score and plot markers
 print("run DE analysis")
-annot_df <- score_and_plot_markers(merged_seurat, output, "integration")
+annot_df <- score_and_plot_markers(merged_seurat, sce, output, "integration")
 
 # annotate
 print("annotate")
@@ -248,9 +260,9 @@ if (config$seurat_integration$score_and_plot_markers$known_markers) {
 
 # annotate with clustifyr
 # convert to single cell experiment
-SCE <- as.SingleCellExperiment(merged_seurat)
-# run clustifyr
-print("annotate with clustifyr")
-annotate_with_clustifyR(merged_seurat, SCE, output, "integration")
-# save session info
+# SCE <- as.SingleCellExperiment(merged_seurat)
+# # run clustifyr
+# print("annotate with clustifyr")
+# annotate_with_clustifyR(merged_seurat, SCE, output, "integration")
+# # save session info
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
