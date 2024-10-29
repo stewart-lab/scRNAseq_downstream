@@ -58,3 +58,6 @@ pst_env/
 # data
 data/gamm_data/
 data/example_data/
+
+# output
+output*
