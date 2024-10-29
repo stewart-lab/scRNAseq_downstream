@@ -5,13 +5,20 @@ library(reticulate)
 lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
 library(jsonlite)
 # set variables
-#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
-config <- fromJSON(file.path(getwd(), "config.json"))
+GIT_DIR <- getwd()
+config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 DATA_DIR <- config$sctype$DATA_DIR
 SEURAT.FILE <- config$sctype$SEURAT_OBJ
 DB <- config$sctype$db
 TISSUE <- config$sctype$tissue
-file.copy(file.path(getwd(), "config.json"), file.path(DATA_DIR, "config_sctype.json"))
+# set dir and get output dir
+setwd(GIT_DIR)
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("output_sctype_", timestamp)
+dir.create(output, showWarnings = FALSE)
+output <- paste0(output, "/")
+file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
+          output,"config.json")), overwrite = TRUE)
 setwd(DATA_DIR)
 # load gene set preparation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
@@ -39,10 +46,11 @@ seurat.obj <- readRDS(file=SEURAT.FILE)
 
 # get assay data
 xl <- Assays(seurat.obj)
-
+# get first one
+xl1 <- xl[1]
 # extract scaled scRNA-seq matrix
-scRNAseqData_scaled <- as.matrix(seurat.obj[[xl]]$scale.data)
-#print(scRNAseqData_scaled)
+scRNAseqData_scaled <- as.matrix(seurat.obj[[xl1]]$scale.data)
+
 # run ScType
 es.max <- sctype_score(scRNAseqData = scRNAseqData_scaled, scaled = TRUE, 
                       gs = gs_list$gs_positive, gs2 = gs_list$gs_negative)
@@ -68,15 +76,10 @@ for(j in unique(sctype_scores$cluster)){
   cl_type = sctype_scores[sctype_scores$cluster==j,]; 
   seurat.obj@meta.data$sctype_classification[seurat.obj@meta.data$seurat_clusters == j]= as.character(cl_type$type[1])
 }
-pdf(paste0("sctype_umap.pdf"), bg = "white")
+pdf(paste0(GIT_DIR,"./",output,"sctype_umap.pdf"), bg = "white")
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE,
       repel = TRUE, group.by = 'sctype_classification'))
 dev.off()
-
-# source("https://raw.githubusercontent.com/kris-nader/sc-type/master/R/sctype_wrapper.R"); 
-# pbmc <- run_sctype(seurat.obj,known_tissue_type="Immune system",custom_marker_file=
-#                 "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx",
-#                 name="sctype_classification",plot=TRUE)
 
 # bubble plot
 
@@ -126,11 +129,11 @@ gggr <- ggraph(mygraph, layout = 'circlepack', weight=I(ncells)) +
   #geom_node_label(aes(filter=ord==1,  label=shortName, colour=I("#000000"), size = I(2), 
   #fill="white", parse = T), repel = !0, segment.linetype="dotted")
 
-pdf(paste0("sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)  
+pdf(paste0(GIT_DIR,"./",output,"sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)  
 print(gggr)
 dev.off()
 
-pdf(paste0("sctype_umap2.pdf"), bg = "white", width=8, height=4)  
+pdf(paste0(GIT_DIR,"./",output,"sctype_umap2.pdf"), bg = "white", width=8, height=4)  
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE, repel = TRUE, 
       group.by = 'sctype_classification', cols = ccolss))
 dev.off()
@@ -139,4 +142,4 @@ dev.off()
 #seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
 # delete old
 #seurat.obj$sctype_classification <- NULL
-saveRDS(seurat.obj, file="seurat_obj_labeled_sctype.rds")
+saveRDS(seurat.obj, file=paste0(GIT_DIR,"./",output,"seurat_obj_labeled_sctype.rds"))

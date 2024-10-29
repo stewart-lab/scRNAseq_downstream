@@ -1,6 +1,6 @@
 {
-  "title": "seurat_integration on Gamm 40-120",
-  "METHOD": "seurat_integration",
+  "title": "seurat recluster on Gamm 120",
+  "METHOD": "recluster",
   "DE_method": "Scran",
   "species": "pig",
   
@@ -114,24 +114,24 @@
     "dim_red": "integrated.cca"
   },
   "celltypeGPT":{
-    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "seurat.obj": "seurat_obj_labeled.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
+    "seurat.obj": "seurat_obj_labeled_S1.rds",
     "openAI_key": "",
     "cluster_name": "seurat_clusters",
-    "tissue_name": "thymus"
+    "tissue_name": "retina"
   },
   "clustifyr":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/",
-    "REF.SEURAT": "output_seurat_mapping_20240125_112552/human_D205_subset_annot.rds",
-    "QUERY.SEURAT": "output_seurat_mapping_20240125_112552/gamms2_cca_pred.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
+    "REF.SEURAT": "ref_seurat_map.rds",
+    "QUERY.SEURAT": "seurat_obj_labeled_S2.rds",
     "cluster_name": "seurat_clusters",
     "visualize_and_subset_ref": {
-      "groupby": "cell_type2",
-      "celltype_removal_list": ["AC-MC","CdBC-MC","L/M cone-rod","RPE"]
+      "groupby": "type",
+      "celltype_removal_list": []
     },
     "score_and_plot_markers": {
       "known_markers": "True",
-      "known_markers_path": "/w5home/bmoore/scRNAseq/GAMM/known_markers/Kims_retinal_markers.txt",
+      "known_markers_path": "/w5home/bmoore/scRNAseq_downstream/data/markers/Kims_retinal_markers.txt",
       "cluster_type": "seurat_clusters",
       "reduction": "umap"
     }
@@ -157,7 +157,7 @@
       "reduction": "umap"
     },
     "process_known_markers":{
-      "annot_type": "manual",
+      "annot_type": "d120",
       "n_rank": 10
     }
   },

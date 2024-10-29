@@ -1,21 +1,8 @@
----
-title: "clustifyr"
-author: "Beth Moore"
-date: "2023-09-22"
-output: html_document
----
-
 # clustifyr analysis for automatic cell type annotation with marker list or reference
 # To run clustifyr, you need clustered seurat object
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-#### installations ####
-# see scRNAseq_library/src/clustifyr_setup.sh or
-# use create conda environment with environment_scRNAseq-clustifyr.yml
-# 
-
 ### load libraries ###
+print("load libraries")
 library(reticulate)
 #use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 library(clustifyr)
@@ -28,6 +15,7 @@ library(purrr)
 library(jsonlite)
 library(dplyr)
 ### set variables ###
+print("set variables")
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 DATA_DIR <- config$clustifyr$DATA_DIR
@@ -45,10 +33,9 @@ GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 ## source config and functions
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
-```
-# load data set and marker list
-```{r load_data}
+
 # load data set
+print("load data")
 seurat.obj <- readRDS(file = paste0(DATA_DIR, QUERY.SEURAT))
 # load reference
 if(REF.SEURAT!="NA"){
@@ -56,13 +43,13 @@ ref.seurat<- readRDS(file = paste0(DATA_DIR, REF.SEURAT))
 } else {
   print("No reference, using marker list only")
 }
-```
-# rename identities if necessary
-```{r rename_idents}
+
+# rename idents
+print("rename idents and remove NAs")
 # check metadata
 colnames(seurat.obj@meta.data)
 # stash idents
-seurat.obj[["cell.cycle"]] <- Idents(object = seurat.obj)
+seurat.obj[["idents"]] <- Idents(object = seurat.obj)
 # make clusters idents
 Idents(object = seurat.obj) <- cluster_name
 table(Idents(object = seurat.obj))
@@ -70,6 +57,7 @@ table(Idents(object = seurat.obj))
 seurat.obj@meta.data[cluster_name] <- mutate_if(seurat.obj@meta.data[cluster_name], is.factor, as.character)
 unique(seurat.obj[[cluster_name]])
 # remove NAs
+#seurat.obj<- subset(seurat.obj[[cluster_name]] != "NA")
 if(cluster_name=="seurat_clusters"){
   seurat.obj<- subset(seurat.obj, subset = seurat_clusters != "NA")
 } else if (cluster_name=="seurat_clusters2"){
@@ -78,23 +66,16 @@ if(cluster_name=="seurat_clusters"){
   seurat.obj<- subset(seurat.obj, subset = cca_clusters != "NA")
 } else {
   print(paste0("Not able to remove NAs from clusters: ",cluster_name,". 
-  Clustifyr may throw an error if NAs are present in clusters."))
+        Clustifyr may throw an error if NAs are present in clusters."))
 }
 
-```
-
-# run clustifyr from marker list
-```{r clustifyr}
+# annotate with marker list
 # convert to single cell experiment
 SCE <- as.SingleCellExperiment(seurat.obj)
 # run clustifyr
 seurat.obj<- annotate_with_clustifyR(seurat.obj, SCE, output, "clustifyr")
-```
-
-# run clustifyr with references
-```{r clustifyr_ref}
+# with reference
 if(REF.SEURAT!="NA"){
-  
   #visualize and subset
   ref.seurat.sub <- visualize_and_subset_ref(ref.seurat, output, "clustifyr")
   # annotate with clustifyr
@@ -104,4 +85,5 @@ if(REF.SEURAT!="NA"){
   print("no references, quitting")
   q()
 }
-```
+
+writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))

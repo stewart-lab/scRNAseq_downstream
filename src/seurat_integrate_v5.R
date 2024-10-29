@@ -15,27 +15,28 @@ library(ggplot2)
 library(scran)
 library(clustifyr)
 library(SeuratDisk)
-use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
+#use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
 #use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 
 # set variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-WD <- config$seurat_integration$DATA_DIR
+DATA_DIR <- config$seurat_integration$DATA_DIR
 filename_list <- config$seurat_integration$filename_list
 new_names <- config$seurat_integration$orig_ident_rename
 # set up environment and output
-setwd(WD)
+setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seuratintegrate_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
-file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
+GIT_DIR <- paste0(GIT_DIR, "/")
+file.copy(file.path(paste0(GIT_DIR,"config.json")), file.path(paste0("./", 
           output,"config.json")), overwrite = TRUE)
-config <- jsonlite::fromJSON(file.path(output, "config.json"))
-source(paste0(GIT_DIR,"/src/sc_pipeline_functions.R"))
+source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 
 # load data
+setwd(DATA_DIR)
 # Create an empty list to store the imported objects
 imported_objects <- list()
 print("loading data")
@@ -50,6 +51,8 @@ for (i in seq_along(filename_list)) {
   # Assign the imported object to the list with the base filename as the name
   imported_objects[[base_name]] <- imported_object
 }
+# reset dir
+setwd(GIT_DIR)
 # merge into one object
 # merge
 # Convert the list to a vector

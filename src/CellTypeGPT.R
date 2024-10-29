@@ -1,12 +1,5 @@
----
-title: "scGPT"
-author: "Beth Moore"
-date: "`r Sys.Date()`"
-output: html_document
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# celltype gpt
+## load libraries
 library(Seurat)
 library(reticulate)
 library(purrr)
@@ -15,6 +8,8 @@ library(rmarkdown)
 library(patchwork)
 library(scran)
 library(dplyr)
+
+## load config and get output file
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 DATA_DIR <- config$celltypeGPT$DATA_DIR
@@ -27,28 +22,23 @@ output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
-```
-# install packages
-```{r install}
+
+#install packages if needed
 #install.packages("openai")
 #remotes::install_github("Winnie09/GPTCelltype")
-```
-# set api key
-```{r}
+
+## set api key
 Sys.setenv(OPENAI_API_KEY = config$celltypeGPT$openAI_key)
-```
-# load GPT packages
-```{r}
+
+## load gpt packages
 library(GPTCelltype)
 library(openai)
-```
+
 # load seurat object
-```{r}
 seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT_OBJ))
 seurat.obj
-```
-# get markers
-```{r markers}
+
+## get markers
 # to get markers
 cluster_name <- config$celltypeGPT$cluster_name
 #sce_obj <- as.SingleCellExperiment(seurat.obj)
@@ -64,9 +54,8 @@ sce_obj <- SingleCellExperiment(list(counts=counts_matrix, logcounts=data_matrix
 cluster_name2 <- paste0("label.",cluster_name)
 # score markers
 marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[cluster_name2]], full.stats = TRUE)
-```
-# get marker dataframe
-```{r marker_df}
+
+## get marker dataframe
 clusters <- unique(seurat.obj[[cluster_name]])
 combined_df <- data.frame(cluster = character(), gene = character(), 
                        rank.logFC.cohen = integer(), median.logFC.cohen = numeric(), 
@@ -87,9 +76,8 @@ for (i in 1:length(clusters[[1]])){
   combined_df <- rbind(combined_df, new_df)
 }
 names(combined_df)[2]<- paste("avg_log2FC")
-```
-# annotate with GPT4
-```{r gpt4}
+
+## annotate with GPT4
 # get tissue
 tissue_name <- config$celltypeGPT$tissue_name
 # Cell type annotation by GPT-4
@@ -98,25 +86,21 @@ if(tissue_name=="NA"){
 } else {
   res <- gptcelltype(combined_df, model = 'gpt-4', tissuename = tissue_name)
 }
-```
-# add to object
-```{r add_to_obj}
+
+## add to object
 # make sure clusters are idents
 Idents(seurat.obj) <- cluster_name
 print(table(Idents(seurat.obj)))
 # Assign cell type annotation back to Seurat object
 seurat.obj@meta.data$celltype_gpt4 <- as.factor(res[as.character(Idents(seurat.obj))])
-```
-# visualize
-```{r visualize}
+
+## visualize
 # Visualize cell type annotation on UMAP
 pdf(paste0(output, "celltypeGPT_umap.pdf"), 
   width = 10, height = 8)
 print(DimPlot(seurat.obj,group.by='celltype_gpt4'))
 dev.off()
-```
-# save
-```{r save_data}
+
+## save
 saveRDS(seurat.obj, file= paste0(output,"seurat_celltypeGPT_annot.rds"))
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-```

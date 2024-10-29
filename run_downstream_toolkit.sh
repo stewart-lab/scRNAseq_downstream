@@ -28,19 +28,19 @@ elif [ "$METHOD" == "realtime" ]; then
     source activate realtime
     python src/realtime.py
 elif [ "$METHOD" == "celltypeGPT" ]; then
-    source activate scRNAseq_best
-    Rscript -e "rmarkdown::render('src/CelltypeGPT.Rmd')"
+    source activate scRNAseq_new
+    Rscript src/CellTypeGPT.R
 elif [ "$METHOD" == "clustifyr" ]; then
-    source activate scRNAseq_best
-    Rscript -e "rmarkdown::render('src/clustifyr.Rmd')"
+    source activate scRNAseq_new
+    Rscript src/clustifyr.R
 elif [ "$METHOD" == "recluster" ]; then
     source activate scRNAseq_new
     Rscript src/recluster-and-annotate.R
 elif [ "$METHOD" == "featureplots" ]; then
-    source activate scRNAseq_best
+    source activate scRNAseq_new
     Rscript src/featureplots.R
 elif [ "$METHOD" == "seurat2ann" ]; then
-    source activate scRNAseq_best
+    source activate scRNAseq_new
     Rscript src/convert_seurat2anndata.R
 elif [ "$METHOD" == "subset_seurat" ]; then
     source activate scRNAseq_best

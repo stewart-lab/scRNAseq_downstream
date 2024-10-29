@@ -31,24 +31,21 @@ library(GetoptLong)
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 source(paste0("src/sc_pipeline_functions.R"))
-WD <- config$seurat_mapping$DATA_DIR
+DATA_DIR <- config$seurat_mapping$DATA_DIR
 REF.SEURAT <- config$seurat_mapping$REF.SEURAT
 QUERY.SEURAT <- config$seurat_mapping$QUERY.SEURAT
+
 # set up environment and output
-#use_condaenv("scRNAseq_new", required=TRUE)
-setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("output_seurat_mapping_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
-#config <- fromJSON(file.path(output, "config.json"))
 
 # read in seurat objects that were preprocessed
-
-query.seurat <- readRDS(file = QUERY.SEURAT)
-ref.seurat <- readRDS(file = REF.SEURAT)
+query.seurat <- readRDS(file = paste0(DATA_DIR, QUERY.SEURAT))
+ref.seurat <- readRDS(file = paste0(DATA_DIR, REF.SEURAT))
 print(query.seurat)
 print(ref.seurat)
 
@@ -69,21 +66,15 @@ print(colnames(query.seurat@meta.data))
 count_and_feature_plots(ref.seurat,query.seurat)
 
 # ref umap and subset metadata
-
 ref.seurat.sub <- visualize_and_subset_ref(ref.seurat,output,"seurat_mapping")
 
-
 # mapping and annotating query datasets
-
 obj.list <- transfer_anchors(ref.seurat.sub, query.seurat)
 print(obj.list)
 query.seurat <- obj.list[[1]]
 anchors <- obj.list[[2]]
 
-
-
 # projection of a query onto the reference UMAP structure.
-
 obj.list <- project_query_on_ref(ref.seurat.sub, query.seurat, anchors)
 ref.seurat <- obj.list[[1]]
 query.seurat <- obj.list[[2]]
@@ -102,7 +93,6 @@ print(FeaturePlot(query.seurat, labels, keep.scale = "all"))
 dev.off()
 
 # get prediction score histograms
-
 for(l in seq_along(1:length(labels))){
     # get celltype from prediction score label
     l.list <-  strsplit(labels[l], split = "score.", fixed = TRUE)
@@ -144,17 +134,15 @@ for(l in seq_along(1:length(labels))){
 
 
 # get comparison between predicted and manual annotations
-
 query.ref.data.table <- get_manual_comparison(query.seurat)
 print(query.ref.data.table)
 
 # make heatmap
-
 hm <- heatmap_func(query.ref.data.table, output)
 
+# save
 saveRDS(query.seurat, file= paste0(output,"query_seurat_pred.rds"))
 saveRDS(ref.seurat, file= paste0(output,"ref_seurat_map.rds"))
 
 # save session info
-
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
