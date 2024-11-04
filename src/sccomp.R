@@ -46,7 +46,7 @@ dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
-print("sccomp version: ")
+print("sccomp version should be >= 1.4.0. package version: ")
 packageVersion("sccomp") # should be >= 1.4.0
 
 # Read in processed and labeled data
@@ -134,6 +134,7 @@ unique(seurat.combined$idents)
 print("remove NAs")
 # subset to remove NAs
 seurat.combined <- subset(x= seurat.combined, idents != "NA")
+seurat.combined <- subset(x= seurat.combined, orig.ident != "NA")
 
 if (CROSS_SPECIES=="yes") {
     if (COMP_TYPE=="scpred") {
@@ -190,6 +191,8 @@ if (CROSS_SPECIES == "yes") {
     seurat.combined@meta.data$"CellType" <- as.factor(New_idents)
 }
 table(seurat.combined$CellType)
+# subset to remove NAs
+seurat.combined <- subset(x= seurat.combined, CellType != "NA")
 
 # save combined object
 print("save combined object")
@@ -295,23 +298,25 @@ write.table(test.table, file= paste0(output, "composition_x_var_result_testtable
 print("plot results")
 # plot results
 ## for some reason boxplot not working
-#plots <- res |> sccomp_test() |> plot()
+plots <- res |> sccomp_test() |> plot()
 # group proportion boxplot 
 # blue box is posterior predictive check and colors are 
 # associated with significant associations for composition and/or variability
-# pdf(paste0(output, "signif_associations_boxplot.pdf"), width = 8, height = 6)
-# #print(plots$boxplot)
+pdf(paste0(output, "signif_associations_boxplot.pdf"), width = 8, height = 6)
+print(plots$boxplot)
 # print(test |> sccomp_boxplot(factor="idents"))
-# dev.off()
+dev.off()
 
 # credible interval plot 1
 # error bars represent 95% credible interval
 pdf(paste0(output, "credible_intervals_1d.pdf"), width = 8, height = 6)
-print(test |> plot_1D_intervals())
+print(plots$credible_intervals_1D)
+#print(test |> plot_1D_intervals())
 dev.off()
 # credible interval plot 2
 pdf(paste0(output, "credible_intervals_2d.pdf"), width = 8, height = 6)
-print(test |> plot_2D_intervals())
+print(plots$credible_intervals_2D)
+#print(test |> plot_2D_intervals())
 dev.off()
 
 # plot2 = model_with_factor_association |> sccomp_test() |> plot()

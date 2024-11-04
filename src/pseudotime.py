@@ -22,14 +22,14 @@ import warnings
 from numba.core.errors import NumbaDeprecationWarning
 
 warnings.filterwarnings(action="ignore", category=NumbaDeprecationWarning)
-warnings.filterwarnings(
-    action="ignore", module="scanpy", message="No data for colormapping"
-)
+#warnings.filterwarnings(
+#    action="ignore", module="scanpy", message="No data for colormapping"
+#)
 
 # read config file
 import json
-GIT_DIR = '/w5home/bmoore/scRNAseq_downstream/'
-with open(GIT_DIR+'config.json') as f:
+GIT_DIR = os.getcwd()
+with open(GIT_DIR+'/config.json') as f:
     config_dict = json.load(f)
     print("loaded config file: ", config_dict["pseudotime"])
 
@@ -52,11 +52,11 @@ now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = data_dir + "pseudotime_" + now +"/"
 os.mkdir(out_dir)
 # copy config file
-shutil.copy(GIT_DIR+'config.json', DATA_DIR) 
+shutil.copy(GIT_DIR+'/config.json', DATA_DIR) 
 
 # add in metadata
 if METADATA != "NA":
-    metadata = pd.read_csv(DATA_DIR + METADATA, sep="\t")
+    metadata = pd.read_csv(DATA_DIR + METADATA, sep="\t", index_col=0)
     meta = metadata[annot_label]
     adata.obs[annot_label] = meta
 else:
@@ -114,6 +114,8 @@ with plt.rc_context():
     plt.savefig(out_dir + "gene_expression.pdf")
 
 # Run diffusion maps
+# do pca first just in case
+sc.pp.pca(adata)
 print("Running diffusion maps")
 dm_res = palantir.utils.run_diffusion_maps(adata, n_components=NC)
 ms_data = palantir.utils.determine_multiscale_space(adata)
@@ -206,9 +208,12 @@ print("Clustering gene trends for each terminal state")
 more_genes = adata.var_names
 # cluster for each terminal cell type
 for state in terminal_celltypes:
-    communities = palantir.presults.cluster_gene_trends(adata, state, more_genes)
-    palantir.plot.plot_gene_trend_clusters(adata, state)
-    plt.savefig(out_dir + 'gene_trend_clusters_'+ state + '.pdf')
+    try:
+        communities = palantir.presults.cluster_gene_trends(adata, state, more_genes)
+        palantir.plot.plot_gene_trend_clusters(adata, state)
+        plt.savefig(out_dir + 'gene_trend_clusters_'+ state + '.pdf')
+    except(KeyError):
+        print(state, " not in terminal cell types")
 
 # weird seurat to anndata thing- anndata doesn not like a column named _index
 adata.__dict__['_raw'].__dict__['_var'] = adata.__dict__['_raw'].__dict__['_var'].rename(columns={'_index': 'features'})
@@ -249,19 +254,22 @@ print("Plotting trajectories for each terminal cell type")
 # get trajectory dict
 trajectory_dict = config_dict["pseudotime"]["trajectory"]
 for key in trajectory_dict:
-    trajectory = trajectory_dict[key]
-    mask = np.in1d(adata.obs[annot_label], trajectory)
-    with plt.rc_context():
-        sc.pl.violin(
-        adata[mask],
-        keys=["dpt_pseudotime", "palantir_pseudotime"],
-        groupby=annot_label,
-        rotation=-90,
-        order=trajectory,
-        show=False
-        )
-        plt.tight_layout()
-        plt.savefig(out_dir + key + '_trajectory.pdf', bbox_inches='tight')
+    try:
+        trajectory = trajectory_dict[key]
+        mask = np.in1d(adata.obs[annot_label], trajectory)
+        with plt.rc_context():
+            sc.pl.violin(
+            adata[mask],
+            keys=["dpt_pseudotime", "palantir_pseudotime"],
+            groupby=annot_label,
+            rotation=-90,
+            order=trajectory,
+            show=False
+            )
+            plt.tight_layout()
+            plt.savefig(out_dir + key + '_trajectory.pdf', bbox_inches='tight')
+    except(KeyError):
+        print(key, "not found, continuing")
 
 # Compute a transition matrix based on Palantir pseudotime
 print("Computing transition matrix based on Palantir pseudotime")

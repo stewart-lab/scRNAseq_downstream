@@ -9,9 +9,23 @@ echo "METHOD imported as $METHOD"
 DATA_DIR=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['$METHOD']['DATA_DIR'])")
 echo "DATA_DIR imported as $DATA_DIR"
 
-pwd
+echo "Step 2: Docker or conda environment?"
+read -p "Do you want to use the docker container or have you installed the conda environment on your computer? Reply y for docker, N for conda [y/N]: " confirm
 
-echo "Step 2: Running the script"
+if [[ "$confirm" =~ ^[Yy]$ ]]; then
+  echo "Step 2.1: Removing and recreating the SHARED_VOLUME"
+  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+  SHARED_VOLUME="./shared_volume_$TIMESTAMP"
+
+  rm -rf "$SHARED_VOLUME"
+  mkdir -p "$SHARED_VOLUME"
+  chmod 777 "$SHARED_VOLUME"
+
+  echo "Step 2.2: Building Docker container for downstream processing"
+  # Build the Docker image from the pre_pipeline directory
+  docker build -t scaligner_v2_with_genomes_and_jq ./pre_pipeline
+
+echo "Step 3: Running the script"
 if [ "$METHOD" == "seurat_mapping" ]; then
     source activate scRNAseq_new2
     Rscript src/seurat_mapping.R

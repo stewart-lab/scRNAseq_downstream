@@ -89,11 +89,11 @@
     "SEURAT.file2": "output_seurat_mapping_20240219_151441/query_seurat_pred.rds"
   },
   "pseudotime":{
-    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "ADATA_FILE": "seurat_obj_labeled.h5ad",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
+    "ADATA_FILE": "GAMM_S2_clabeled-clusters_0.5_2.h5ad",
     "NC": 10,
-    "METADATA": "manual_annot_metadata.txt",
-    "annot_label": "CellType1",
+    "METADATA": "NA",
+    "annot_label": "CellType",
     "gene_list": ["CNGA3","RCVRN", "CA10", "TUBB3","SOX2"],
     "terminal_celltypes": ["Muller Glia-Retinal Prog", "Rod", "Cone", "Bipolar Cells", "Amacrine Cell"],
     "start_celltype": "Retinal Prog",
@@ -170,11 +170,11 @@
     "reduction": "phatek10d50"
   },
   "seurat2ann":{
-    "DATA_DIR":  "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/output_seuratintegrate_20241004_125959/",
-    "SEURAT_OBJ": "merged_seurat.rds",
+    "DATA_DIR":  "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
+    "SEURAT_OBJ": "GAMM_S2_clabeled-clusters_0.5.rds",
     "METADATA": "NA",
-    "OUTPUT_name": "seurat_obj_merged2.h5Seurat",
-    "DIM.RED": "integrated.cca"
+    "OUTPUT_name": "GAMM_S2_clabeled-clusters_0.5_2.h5Seurat",
+    "DIM.RED": "NA"
   },
   "subset_seurat":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",

@@ -4,7 +4,8 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(Seurat)
-use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
+library(SeuratObject)
+#use_condaenv(condaenv = 'scRNAseq_best', required = TRUE)
 ## to install SeuratDisk
 # first install hdf5r:
 # conda install -c conda-forge r-hdf5r
@@ -51,8 +52,13 @@ if(METADATA=="NA"){
     print(colnames(seurat@meta.data))
 }
 # convert to seurat v3
-seurat[["RNA3"]] <- as(object = seurat[["RNA5"]], Class = "Assay")
-DefaultAssay(seurat) <- "RNA3"
+v <- Version(seurat)
+v <- as.numeric(unlist(v))
+if(v[1]>=5){
+  seurat[["RNA"]]$scale.data <- NULL
+  seurat[["RNA3"]] <- as(object = seurat[["RNA"]], Class = "Assay")
+  DefaultAssay(seurat) <- "RNA3"
+}
 # first save seurat as h5 seurat file
 SaveH5Seurat(seurat, filename = OUTPUT_name)
 # add user- specified dimension reduction (like in the case of integration)
