@@ -14,8 +14,7 @@ read -p "Do you want to use the docker container or have you installed the conda
 
 if [[ "$confirm" =~ ^[Yy]$ ]]; then
   echo "Step 2.1: Removing and recreating the SHARED_VOLUME"
-  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-  SHARED_VOLUME="./shared_volume_$TIMESTAMP"
+  SHARED_VOLUME="./shared_volume"
 
   rm -rf "$SHARED_VOLUME"
   mkdir -p "$SHARED_VOLUME"
@@ -23,49 +22,95 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
 
   echo "Step 2.2: Building Docker container for downstream processing"
   # Build the Docker image from the pre_pipeline directory
-  docker build -t scaligner_v2_with_genomes_and_jq ./pre_pipeline
+  docker build -t scrnaseq_downstream:v1.1 ./
 
-echo "Step 3: Running the script"
-if [ "$METHOD" == "seurat_mapping" ]; then
-    source activate scRNAseq_new2
-    Rscript src/seurat_mapping.R
-elif [ "$METHOD" == "seurat_integration" ]; then
-    source activate scRNAseq_new2
-   Rscript src/seurat_integrate_v5.R
-elif [ "$METHOD" == "sccomp" ]; then
-    source activate sccomp
-    Rscript src/sccomp.R
-elif [ "$METHOD" == "pseudotime" ]; then
-    source .venv/bin/activate
-    python src/pseudotime.py
-elif [ "$METHOD" == "realtime" ]; then
-    source activate realtime
-    python src/realtime.py
-elif [ "$METHOD" == "celltypeGPT" ]; then
-    source activate scRNAseq_new
-    Rscript src/CellTypeGPT.R
-elif [ "$METHOD" == "clustifyr" ]; then
-    source activate scRNAseq_new
-    Rscript src/clustifyr.R
-elif [ "$METHOD" == "recluster" ]; then
-    source activate scRNAseq_new
-    Rscript src/recluster-and-annotate.R
-elif [ "$METHOD" == "featureplots" ]; then
-    source activate scRNAseq_new
-    Rscript src/featureplots.R
-elif [ "$METHOD" == "seurat2ann" ]; then
-    source activate scRNAseq_new
-    Rscript src/convert_seurat2anndata.R
-elif [ "$METHOD" == "subset_seurat" ]; then
-    source activate scRNAseq_best
-    Rscript -e "rmarkdown::render('src/subset_seurat.Rmd')"
-elif [ "$METHOD" == "phate" ]; then
-    source activate phate_env
-    Rscript -e "rmarkdown::render('src/phate.Rmd')"
-elif [ "$METHOD" == "sctype" ]; then
-    source activate scRNAseq_new
-    Rscript src/scType.R
+  echo "Step 3: Running Docker container for downstream processing scripts"
+  docker run --userns=host -it \
+    -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
+    -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
+    -v "$(realpath "$CONFIG_FILE"):/config.json:ro" \
+    scrnaseq_downstream:v1.1 /bin/bash -c "
+        if [ \"$METHOD\" == \"seurat_mapping\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript /src/seurat_mapping.R'
+        elif [ \"$METHOD\" == \"seurat_integration\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript /src/seurat_integrate_v5.R'
+        elif [ \"$METHOD\" == \"sccomp\" ]; then
+            conda run -n sccomp /bin/bash -c 'Rscript src/sccomp.R'
+        elif [ \"$METHOD\" == \"pseudotime\" ]; then
+            /bin/bash -c 'source pst_env/bin/activate
+            python src/pseudotime.py'
+        elif [ \"$METHOD\" == \"realtime\" ]; then
+            conda run -n realtime /bin/bash -c 'python src/realtime.py'
+        elif [ \"$METHOD\" == \"celltypeGPT\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/CellTypeGPT.R'
+        elif [ \"$METHOD\" == \"clustifyr\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/clustifyr.R'
+        elif [ \"$METHOD\" == \"recluster\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/recluster-and-annotate.R'
+        elif [ \"$METHOD\" == \"featureplots\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/featureplots.R'
+        elif [ \"$METHOD\" == \"seurat2ann\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/convert_seurat2anndata.R'
+        elif [ \"$METHOD\" == \"subset_seurat\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/subset_seurat.R'
+        elif [ \"$METHOD\" == \"phate\" ]; then
+            conda run -n phate /bin/bash -c 'Rscript -e "rmarkdown::render('src/phate.Rmd')"'
+        elif [ \"$METHOD\" == \"sctype\" ]; then
+            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/scType.R'
+        else
+            echo \"Unknown METHOD: $METHOD\"
+            exit 1
+        fi
+    "
+
 else
-    echo "Unknown method: $METHOD"
-    exit 1
+    echo "Step 2.1: Removing and recreating the SHARED_VOLUME"
+    SHARED_VOLUME="./shared_volume"
+    rm -rf "$SHARED_VOLUME"
+    mkdir -p "$SHARED_VOLUME"
+    chmod 777 "$SHARED_VOLUME"
+    echo "Step 3: Running the script with conda environments"
+    if [ "$METHOD" == "seurat_mapping" ]; then
+        source activate scRNAseq_new
+        Rscript src/seurat_mapping.R
+    elif [ "$METHOD" == "seurat_integration" ]; then
+        source activate scRNAseq_new
+        Rscript src/seurat_integrate_v5.R
+    elif [ "$METHOD" == "sccomp" ]; then
+        source activate sccomp
+        Rscript src/sccomp.R
+    elif [ "$METHOD" == "pseudotime" ]; then
+        source .venv/bin/activate
+        python src/pseudotime.py
+    elif [ "$METHOD" == "realtime" ]; then
+        source activate realtime
+        python src/realtime.py
+    elif [ "$METHOD" == "celltypeGPT" ]; then
+        source activate scRNAseq_new
+        Rscript src/CellTypeGPT.R
+    elif [ "$METHOD" == "clustifyr" ]; then
+        source activate scRNAseq_new
+        Rscript src/clustifyr.R
+    elif [ "$METHOD" == "recluster" ]; then
+        source activate scRNAseq_new
+        Rscript src/recluster-and-annotate.R
+    elif [ "$METHOD" == "featureplots" ]; then
+        source activate scRNAseq_new
+        Rscript src/featureplots.R
+    elif [ "$METHOD" == "seurat2ann" ]; then
+        source activate scRNAseq_new
+        Rscript src/convert_seurat2anndata.R
+    elif [ "$METHOD" == "subset_seurat" ]; then
+        source activate scRNAseq_new
+        Rscript -e "rmarkdown::render('src/subset_seurat.Rmd')"
+    elif [ "$METHOD" == "phate" ]; then
+        source activate phate_env
+        Rscript -e "rmarkdown::render('src/phate.Rmd')"
+    elif [ "$METHOD" == "sctype" ]; then
+        source activate scRNAseq_new
+        Rscript src/scType.R
+    else
+        echo "Unknown method: $METHOD"
+        exit 1
+    fi
 fi

@@ -18,14 +18,19 @@ library(dplyr)
 print("set variables")
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-DATA_DIR <- config$clustifyr$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$clustifyr$DATA_DIR
+}
 REF.SEURAT <-  config$clustifyr$REF.SEURAT # if NA, only marker list is used
 QUERY.SEURAT <- config$clustifyr$QUERY.SEURAT
 cluster_name <- config$clustifyr$cluster_name
 ### set working directory and output ###
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_clustifyr_", timestamp)
+output <- paste0("./shared_volume/output_clustifyr_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")

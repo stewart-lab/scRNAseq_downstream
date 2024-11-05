@@ -7,19 +7,23 @@ library(jsonlite)
 # set variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-DATA_DIR <- config$sctype$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$sctype$DATA_DIR
+}
 SEURAT.FILE <- config$sctype$SEURAT_OBJ
 DB <- config$sctype$db
 TISSUE <- config$sctype$tissue
 # set dir and get output dir
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_sctype_", timestamp)
+output <- paste0("./shared_volume/output_sctype_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
           output,"config.json")), overwrite = TRUE)
-setwd(DATA_DIR)
 # load gene set preparation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
 # load cell type annotation function
@@ -40,7 +44,7 @@ gs_list <- gene_sets_prepare(db_, tissue)
 
 # load seurat
 
-seurat.obj <- readRDS(file=SEURAT.FILE)
+seurat.obj <- readRDS(file=paste0(DATA_DIR,SEURAT.FILE))
 
 # assign cell types
 
@@ -76,7 +80,7 @@ for(j in unique(sctype_scores$cluster)){
   cl_type = sctype_scores[sctype_scores$cluster==j,]; 
   seurat.obj@meta.data$sctype_classification[seurat.obj@meta.data$seurat_clusters == j]= as.character(cl_type$type[1])
 }
-pdf(paste0(GIT_DIR,"./",output,"sctype_umap.pdf"), bg = "white")
+pdf(paste0(output,"sctype_umap.pdf"), bg = "white")
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE,
       repel = TRUE, group.by = 'sctype_classification'))
 dev.off()
@@ -129,11 +133,11 @@ gggr <- ggraph(mygraph, layout = 'circlepack', weight=I(ncells)) +
   #geom_node_label(aes(filter=ord==1,  label=shortName, colour=I("#000000"), size = I(2), 
   #fill="white", parse = T), repel = !0, segment.linetype="dotted")
 
-pdf(paste0(GIT_DIR,"./",output,"sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)  
+pdf(paste0(output,"sctype_bubbleplot.pdf"), bg = "white", width=8, height=4)  
 print(gggr)
 dev.off()
 
-pdf(paste0(GIT_DIR,"./",output,"sctype_umap2.pdf"), bg = "white", width=8, height=4)  
+pdf(paste0(output,"sctype_umap2.pdf"), bg = "white", width=8, height=4)  
 print(DimPlot(seurat.obj, reduction = "umap", label = TRUE, repel = TRUE, 
       group.by = 'sctype_classification', cols = ccolss))
 dev.off()
@@ -142,4 +146,4 @@ dev.off()
 #seurat.obj$sctype_classification_ybthymus <- seurat.obj$sctype_classification
 # delete old
 #seurat.obj$sctype_classification <- NULL
-saveRDS(seurat.obj, file=paste0(GIT_DIR,"./",output,"seurat_obj_labeled_sctype.rds"))
+saveRDS(seurat.obj, file=paste0(output,"seurat_obj_labeled_sctype.rds"))

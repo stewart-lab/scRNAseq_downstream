@@ -2,7 +2,7 @@
   "title": "seurat recluster on Gamm 120",
   "METHOD": "recluster",
   "DE_method": "Scran",
-  "species": "pig",
+  "docker": "TRUE",
   
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -107,8 +107,8 @@
     }
   },
   "realtime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
-    "ADATA_FILE": "seurat_obj_merged2.h5ad",
+    "DATA_DIR": "./data/gamm_data/",
+    "ADATA_FILE": "merged_seurat2.h5ad",
     "time_label": "orig.ident2",
     "annot_label": "CellType_combined",
     "dim_red": "integrated.cca"

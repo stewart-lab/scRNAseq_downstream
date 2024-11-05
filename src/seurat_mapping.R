@@ -31,13 +31,18 @@ library(GetoptLong)
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 source(paste0("src/sc_pipeline_functions.R"))
-DATA_DIR <- config$seurat_mapping$DATA_DIR
+docker <- config$docker
 REF.SEURAT <- config$seurat_mapping$REF.SEURAT
 QUERY.SEURAT <- config$seurat_mapping$QUERY.SEURAT
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$seurat_mapping$DATA_DIR
+}
 
 # set up environment and output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_seurat_mapping_", timestamp)
+output <- paste0("./shared_volume/output_seurat_mapping_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 

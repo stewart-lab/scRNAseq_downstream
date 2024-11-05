@@ -21,17 +21,29 @@ library(SeuratObject)
 library(SeuratDisk)
 library(hdf5r)
 # variables
-#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+GIT_DIR <- get_wd()
 config <- fromJSON(file.path("./config.json"))
-DATA_DIR <- config$seurat2ann$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$seurat2ann$DATA_DIR
+}
 SEURAT_OBJ <- config$seurat2ann$SEURAT_OBJ
 METADATA <- config$seurat2ann$METADATA
 OUTPUT_name <- config$seurat2ann$OUTPUT_name
 DIM.RED <- config$seurat2ann$DIM.RED
 # set working dir
-setwd(DATA_DIR)
+setwd(GIT_DIR)
+# create output
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("./shared_volume/output_seurat2ann_", timestamp)
+dir.create(output, showWarnings = FALSE)
+output <- paste0(output, "/")
+GIT_DIR <- paste0(GIT_DIR, "/")
+file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 # read in Seurat object
-seurat <- readRDS(file = SEURAT_OBJ)
+seurat <- readRDS(file = paste0(DATA_DIR,SEURAT_OBJ))
 
 if(METADATA=="NA"){
   print("No metadata file provided")
@@ -60,12 +72,12 @@ if(v[1]>=5){
   DefaultAssay(seurat) <- "RNA3"
 }
 # first save seurat as h5 seurat file
-SaveH5Seurat(seurat, filename = OUTPUT_name)
+SaveH5Seurat(seurat, filename = paste0(output,OUTPUT_name))
 # add user- specified dimension reduction (like in the case of integration)
 library(hdf5r)
 if(DIM.RED != "NA" && DIM.RED != ""){
     print("Adding dimension reduction")
-    h5 <- H5File$new(OUTPUT_name, mode = "r+")
+    h5 <- H5File$new(paste0(output,OUTPUT_name), mode = "r+")
     print(h5[["reductions/"]])
     red.path <- paste0("reductions/", DIM.RED, "/cell.embeddings")
     new_dimred <- h5[[red.path]]
@@ -73,4 +85,4 @@ if(DIM.RED != "NA" && DIM.RED != ""){
     h5$close()
 }
 # then convert to h5ad
-Convert(OUTPUT_name, dest = "h5ad")
+Convert(paste0(output,OUTPUT_name), dest = "h5ad")

@@ -12,11 +12,16 @@ library(dplyr)
 ## load config and get output file
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-DATA_DIR <- config$celltypeGPT$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$celltypeGPT$DATA_DIR
+}
 SEURAT_OBJ <- config$celltypeGPT$seurat.obj
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_celltypeGPT_", timestamp)
+output <- paste0("./shared_volume/output_celltypeGPT_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")

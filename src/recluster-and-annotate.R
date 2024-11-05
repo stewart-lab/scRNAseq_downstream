@@ -18,13 +18,18 @@ use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
 # set variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-WD <- config$recluster$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$recluster$DATA_DIR
+}
 SEURAT.FILE <- config$recluster$SEURAT.FILE
 # set up environment and output
 #use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_new", required=TRUE)
-setwd(WD)
+#setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_recluster_", timestamp)
+output <- paste0("./shared_volume/output_recluster_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
@@ -35,7 +40,7 @@ packageVersion("Seurat")
 
 # Load Data
 print("loading data")
-seurat.obj <- readRDS(file = SEURAT.FILE)
+seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT.FILE))
 
 # recluster
 print("reclustering")
@@ -44,7 +49,7 @@ seurat.obj_recluster <- perform_clustering(seurat.obj, output, "recluster")
 # save object
 print("saving")
 resolution <- as.character(config$recluster$perform_clustering$resolution)
-#saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
+saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
 
 # Find markers with Differential expressed features (genes)
 # analyse known markers

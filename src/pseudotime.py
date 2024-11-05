@@ -34,12 +34,15 @@ with open(GIT_DIR+'/config.json') as f:
     print("loaded config file: ", config_dict["pseudotime"])
 
 # variables
-DATA_DIR = config_dict["pseudotime"]["DATA_DIR"]
+docker = config_dict["docker"]
 ADATA_FILE = config_dict["pseudotime"]["ADATA_FILE"] 
 NC = config_dict["pseudotime"]["NC"] # number of components
 METADATA = config_dict["pseudotime"]["METADATA"]
 annot_label = config_dict["pseudotime"]["annot_label"]
-
+if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
+    DATA_DIR = "./data/input_data/"
+else:
+    DATA_DIR = config_dict["pseudotime"]["DATA_DIR"]
 # load data
 ## note- data was previously converted from seurat object to anndata object
 data_dir = os.path.expanduser(DATA_DIR)
@@ -49,7 +52,7 @@ print(adata)
 from datetime import datetime
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
-out_dir = data_dir + "pseudotime_" + now +"/"
+out_dir = "/shared_volume/pseudotime_" + now +"/"
 os.mkdir(out_dir)
 # copy config file
 shutil.copy(GIT_DIR+'/config.json', DATA_DIR) 

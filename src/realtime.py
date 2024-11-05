@@ -35,21 +35,24 @@ with open('config.json') as f:
     print("loaded config file: ", config_dict["realtime"])
     
 # variables
-DATA_DIR = config_dict["realtime"]["DATA_DIR"]
+docker = config_dict["docker"]
 ADATA_FILE = config_dict["realtime"]["ADATA_FILE"]
 time_label = config_dict["realtime"]["time_label"]
 annot_label = config_dict["realtime"]["annot_label"]
 dim_red = config_dict["realtime"]["dim_red"]
-
+if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
+    DATA_DIR = "./data/input_data/"
+else:
+    DATA_DIR = config_dict["realtime"]["DATA_DIR"]
 # make out dir
 data_dir = os.path.expanduser(DATA_DIR)
 from datetime import datetime
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
-out_dir = data_dir + "realtime_" + now +"/"
+out_dir = "/shared_volume/realtime_" + now +"/"
 os.mkdir(out_dir)
 # copy config file
-shutil.copy(GIT_DIR + '/config.json', out_dir) 
+shutil.copy('./config.json', out_dir) 
 
 # load data
 ## note- data was previously converted from seurat object to anndata object
@@ -147,12 +150,20 @@ tp = tp.score_genes_for_marginals(
 )
 
 # visualize the proliferation and apoptosis scores
-with plt.rc_context():
-    sc.pl.embedding(
-        adata, basis="X_draw_graph_fa", color=["time", "proliferation", "apoptosis"],
-        show=False)
-    plt.tight_layout()
-    plt.savefig(out_dir + "prolif-apop_graph.pdf", bbox_inches='tight')
+try:
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata, basis="X_draw_graph_fa", color=["time", "proliferation", "apoptosis"],
+            show=False)
+        plt.tight_layout()
+        plt.savefig(out_dir + "prolif-apop_graph.pdf", bbox_inches='tight')
+except(KeyError):
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata, basis="X_draw_graph_fr", color=["time", "proliferation", "apoptosis"],
+            show=False)
+        plt.tight_layout()
+        plt.savefig(out_dir + "prolif-apop_graph.pdf", bbox_inches='tight')
     
 # Following the original Waddington OT publication, 
 # we use local PCAs, computed separately for each pair of time points, 
@@ -178,15 +189,26 @@ tp = tp.solve(epsilon=1e-3, tau_a=0.95, tau_b=0.999, scale_cost="mean")
 print("compare prior and posterior growth rates")
 adata.obs["prior_growth_rates"] = tp.prior_growth_rates
 adata.obs["posterior_growth_rates"] = tp.posterior_growth_rates
-with plt.rc_context():
-    sc.pl.embedding(
-        adata,
-        basis="X_draw_graph_fa",
-        color=["prior_growth_rates", "posterior_growth_rates"],
-        vmax="p99",
-    )
-    plt.tight_layout()
-    plt.savefig(out_dir + "prior-post_growthrates.pdf", bbox_inches='tight')
+try:
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata,
+            basis="X_draw_graph_fa",
+            color=["prior_growth_rates", "posterior_growth_rates"],
+            vmax="p99",
+        )
+        plt.tight_layout()
+        plt.savefig(out_dir + "prior-post_growthrates.pdf", bbox_inches='tight')
+except(KeyError):
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata,
+            basis="X_draw_graph_fr",
+            color=["prior_growth_rates", "posterior_growth_rates"],
+            vmax="p99",
+        )
+        plt.tight_layout()
+        plt.savefig(out_dir + "prior-post_growthrates.pdf", bbox_inches='tight')
     
 # add cell costs
 print("add cell costs")
@@ -194,13 +216,22 @@ print("add cell costs")
 adata.obs["cell_costs_source"] = tp.cell_costs_source
 adata.obs["cell_costs_target"] = tp.cell_costs_target
 # visulaize cell costs
-with plt.rc_context():
-    sc.pl.embedding(
-        adata, basis="X_draw_graph_fa", 
-        color=["cell_costs_source", "cell_costs_target"]
-    )
-    plt.tight_layout()
-    plt.savefig(out_dir + "cell_costs.pdf", bbox_inches='tight')
+try:
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata, basis="X_draw_graph_fa", 
+            color=["cell_costs_source", "cell_costs_target"]
+        )
+        plt.tight_layout()
+        plt.savefig(out_dir + "cell_costs.pdf", bbox_inches='tight')
+except(KeyError):
+    with plt.rc_context():
+        sc.pl.embedding(
+            adata, basis="X_draw_graph_fr", 
+            color=["cell_costs_source", "cell_costs_target"]
+        )
+        plt.tight_layout()
+        plt.savefig(out_dir + "cell_costs.pdf", bbox_inches='tight')
     
 # identify ancestry of cells
 
@@ -255,13 +286,22 @@ for i in timepoints:
                                      ha='center', va='center')
                         axes[0].set_title(f"{ct} at timepoint {j}")
                     
-                    mtp.pull(
+                    try:
+                        mtp.pull(
                         tp,
                         time_points=[i],
                         basis="X_draw_graph_fa",
                         ax=axes[1],
                         title=[f"{ct} ancestors"],
-                    )
+                        )
+                    except(KeyError):
+                        mtp.pull(
+                        tp,
+                        time_points=[i],
+                        basis="X_draw_graph_fr",
+                        ax=axes[1],
+                        title=[f"{ct} ancestors"],
+                        )
                     
                     fig.suptitle(f"Ancestors of {ct}")
                     plt.tight_layout()
@@ -275,25 +315,42 @@ for i in timepoints:
                     # Check if the cell type exists in the source timepoint
                     source_cells = adata[(adata.obs['time'] == i) & (adata.obs[annot_label] == ct)]
                     if len(source_cells) > 0:
-                        mtp.push(
+                        try:
+                            mtp.push(
                             tp,
                             time_points=[i],
                             basis="X_draw_graph_fa",
                             ax=axes[0],
                             title=[f"{ct} at time {i}"],
-                        )
+                            )
+                        except(KeyError):
+                            mtp.push(
+                            tp,
+                            time_points=[i],
+                            basis="X_draw_graph_fr",
+                            ax=axes[0],
+                            title=[f"{ct} at time {i}"],
+                            )
                     else:
                         axes[0].text(0.5, 0.5, f"No {ct} cells at timepoint {i}", 
                                      ha='center', va='center')
                         axes[0].set_title(f"{ct} at time {i}")
-                    
-                    mtp.push(
+                    try:
+                        mtp.push(
                         tp,
                         time_points=[j],
                         basis="X_draw_graph_fa",
                         ax=axes[1],
                         title=[f"{ct} descendants"],
-                    )
+                        )
+                    except(KeyError):
+                        mtp.push(
+                        tp,
+                        time_points=[j],
+                        basis="X_draw_graph_fr",
+                        ax=axes[1],
+                        title=[f"{ct} descendants"],
+                        )
                     
                     fig.suptitle(f"Descendants of {ct}")
                     plt.tight_layout()
@@ -333,14 +390,24 @@ tmk.compute_transition_matrix(self_transitions="all", conn_weight=0.2, threshold
 # This method simulates random walks on the Markov chain defined though the corresponding transition matrix
 # Random walks are simulated by iteratively choosing the next cell based on the current cell’s transition probabilities.
 with plt.rc_context():
-    tmk.plot_random_walks(
+    try:
+        tmk.plot_random_walks(
         max_iter=500,
         start_ixs={"time": 1},
         basis="X_draw_graph_fa",
         seed=0,
         dpi=150,
         size=30,
-    )
+        )
+    except(KeyError):
+        tmk.plot_random_walks(
+        max_iter=500,
+        start_ixs={"time": 1},
+        basis="X_draw_graph_fr",
+        seed=0,
+        dpi=150,
+        size=30,
+        )
     plt.tight_layout()
     plt.savefig(out_dir + "random_walks.pdf", bbox_inches='tight')
     

@@ -28,7 +28,12 @@ library(rmarkdown)
 ### set variables ###
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-DATA_DIR <- config$sccomp$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$sccomp$DATA_DIR
+}
 CROSS_SPECIES <- config$sccomp$CROSS_SPECIES # are you comparing across species (human to pig- then yes) or within species (no)
 COMP_TYPE <- config$sccomp$COMP_TYPE # based on the annotation- did you use scpred, seuratmapping, or manual 
 ANNOT_LABEL1 <- config$sccomp$annot_label1
@@ -39,9 +44,9 @@ SEURAT.1 <- config$sccomp$SEURAT.file1
 SEURAT.2 <- config$sccomp$SEURAT.file2
 
 ### set working directory and output ###
-setwd(DATA_DIR)
+setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_cell_composition_", timestamp)
+output <- paste0("./shared_volume/output_cell_composition_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
@@ -51,8 +56,8 @@ packageVersion("sccomp") # should be >= 1.4.0
 
 # Read in processed and labeled data
 print("read in data")
-seurat.obj.1 <- readRDS(file = SEURAT.1) # reference
-seurat.obj.2 <- readRDS(file = SEURAT.2) # query
+seurat.obj.1 <- readRDS(file = paste0(DATA_DIR,SEURAT.1)) # reference
+seurat.obj.2 <- readRDS(file = paste0(DATA_DIR,SEURAT.2)) # query
 
 # check orig.ident and rename if necessary
 print("check metadata")

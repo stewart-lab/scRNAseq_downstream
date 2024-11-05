@@ -21,13 +21,18 @@ library(SeuratDisk)
 # set variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
-DATA_DIR <- config$seurat_integration$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$seurat_integration$DATA_DIR
+}
 filename_list <- config$seurat_integration$filename_list
 new_names <- config$seurat_integration$orig_ident_rename
 # set up environment and output
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_seuratintegrate_", timestamp)
+output <- paste0("./shared_volume/output_seuratintegrate_", timestamp)
 dir.create(output, showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
