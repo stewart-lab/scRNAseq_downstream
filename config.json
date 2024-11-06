@@ -1,6 +1,6 @@
 {
-  "title": "seurat_mapping on Gamm 120",
-  "METHOD": "seurat_mapping",
+  "title": "seurat_integration on Gamm 40-120",
+  "METHOD": "seurat_integration",
   "DE_method": "Scran",
   "docker": "TRUE",
   
@@ -65,7 +65,7 @@
     "score_and_plot_markers": {
       "top_n_markers": 100,
       "known_markers": "True",
-      "known_markers_path": "/w5home/bmoore/scRNAseq_downstream/data/markers/Kims_retinal_markers.txt",
+      "known_markers_path": "./data/markers/Kims_retinal_markers.txt",
       "cluster_type": "cca_clusters",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,

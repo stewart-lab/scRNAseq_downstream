@@ -13,10 +13,10 @@ echo "Step 2: Docker or conda environment?"
 read -p "Do you want to use the docker container or have you installed the conda environment on your computer? Reply y for docker, N for conda [y/N]: " confirm
 
 if [[ "$confirm" =~ ^[Yy]$ ]]; then
-  echo "Step 2.1: Removing and recreating the SHARED_VOLUME"
+  echo "Step 2.1: creating the SHARED_VOLUME"
   SHARED_VOLUME="./shared_volume"
 
-  rm -rf "$SHARED_VOLUME"
+  #rm -rf "$SHARED_VOLUME"
   mkdir -p "$SHARED_VOLUME"
   chmod 777 "$SHARED_VOLUME"
 

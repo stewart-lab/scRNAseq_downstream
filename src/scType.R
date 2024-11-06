@@ -1,7 +1,6 @@
 
 # load libraries
 library(reticulate)
-#use_condaenv("scRNAseq_new", required=TRUE)
 lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
 library(jsonlite)
 # set variables
