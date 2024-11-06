@@ -16,16 +16,30 @@ https://github.com/stewart-lab/scRNAseq_library
 ## Docker or conda environments?
 
 For each downsteam method, you can either make a conda environment to then run the script, or use the docker container that has environments already installed.
+
 To use conda environments:
+
     1. Install miniconda3. Follow instructions from here: https://docs.anaconda.com/miniconda/miniconda-install/
+    
     2. ```cd environments/```
+    
     3. For scRNAseq_new environment follow instructions in scRNAseq_env_setup.sh. Note this environment is for seurat mapping, seurat integration, all annotation scripts, and other minor scripts that are not in the environments below.
+    
     4. For sccomp environment follow instructions in sccomp_env_setup.sh. This environment is for running sccomp.
+    
     5. For pseudotime follow instructions in install_pseudotime_env.sh. This environment is for running pseudotime.
+    
     6. For realtime follow instructions in realtime_env_setup.sh. This environment is for running a realtime analysis with moscot.
+
+    7. Go to the method you want for further instruction.
+
+    
 To use docker:
+
     1. Install docker. Follow instructions here: https://docs.docker.com/engine/install/
+    
     2. Make sure you are logged in (docker login).
+    
     3. Go to the method you want for further instruction.
 
 ## Annotation via a reference
@@ -155,17 +169,16 @@ Outputs:
 ### scType
 ScType a computational method for automated selection of marker genes based on scRNA-seq expression data. A cell type specificity score is assigned to each marker gene, and this is weighted by the gene expression matrix to ultimately get a scType score and cell type annotation for each cluster. See: https://github.com/IanevskiAleksandr/sc-type?tab=readme-ov-file
 
-To run, first activate the single cell environment:
-```
-conda activate scRNAseq_new
-```
-Then set variables: 
+First set variables: 
 
-Variables in config file (under sctype header):
+Variables in config file:
 ```
-"METHOD":"sctype"
+"title": "Your title"
+"METHOD":"sctype",
+"docker": "TRUE" or "FALSE", # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
 "sctype":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/", # working dir
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/", # data dir
     "SEURAT_OBJ": "seurat_obj_labeled.rds", # clustered seurat object
     "db": "/w5home/bmoore/Brown_thymus/thymus_markers_YB_forScType.xlsx", # marker database (excel file with markers)
     "tissue": "thymus" # tissue type (should be present in marker list)
@@ -183,14 +196,11 @@ Outputs:
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
 
-To run, first activate the single cell environment:
+To run, first set variables in config file:
 ```
-conda activate scRNAseq_new
-```
-
-Variables in config file under "seurat_integration":
-```
-METHOD:"seurat_integration"
+"title": "Your title"
+"METHOD":"seurat_integration"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
 "seurat_integration":{
     "DATA_DIR":"working_dir/", # working directory
     "filename_list": ["seurat_obj_labeled_48h.rds","seurat_obj_labeled_72h.rds"], # list of seurat objects to be integrated with path relative to working directory
@@ -255,26 +265,22 @@ Outputs:
 ### SC-comp
 To determine how the cell composition changed, we used sccomp, a Bayesian analysis that models changes in cell counts. For more information on sccomp: https://github.com/stemangiola/sccomp
 
-First install and activate the sccomp environment:
+Set variables in config file:
 ```
-conda env create -f environment_sccomp.yml
-conda activate sccomp
-```
-Next update the .Rmd script and config with your working directory and the relative location of your **clustered** and **annotated** seurat objects.
-
-Variables to set in config file under sccomp header:
-```
+"title": "Your title"
 "METHOD":"sccomp"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
 "sccomp":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/", # working dir
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/", # data dir
     "CROSS_SPECIES": "yes", # are you comparing across species (yes) or within species (no)
     "COMP_TYPE": "seuratmapping", # based on the annotation- did you use scpred, seuratmapping, or manual
     "annot_label1": "type", # annotation label for file 1
     "annot_label2": "predicted.id", # annotation label for file 2
     "idents1": "human_d205", # rename idents in file 1
     "idents2": "pig_day120", # rename idents in file 2
-    "SEURAT.file1": "human_seurat_map.rds", # file 1 relative to working dir
-    "SEURAT.file2": "query_seurat_pred.rds" # file 2 relative to working dir
+    "SEURAT.file1": "human_seurat_map.rds", # file for seurat object 1
+    "SEURAT.file2": "query_seurat_pred.rds" # file for seurat object 2
   }
 ```
 Now run.
@@ -292,26 +298,38 @@ Cells are often in transition from one cell type to another, and pseudotime capt
 
 ### Palantir and CellRank
 
-Palantir models trajectories of differentiated cells by treating cell fate as a probabilistic process and leverages entropy to measure cell plasticity along the trajectory. CellRank uses Palantir in it's pseudotime kernel, but can also use RNA velocity, similarity, cytotrace, time-series, or matebolic labeling to calculate trajectories. Here we use it with Palantir. Together they identify initial and terminal states, cell fate probabilities, and driver genes.
+Palantir models trajectories of differentiated cells by treating cell fate as a probabilistic process and leverages entropy to measure cell plasticity along the trajectory.  Here we use it to identify initial and terminal states, cell fate probabilities, and driver genes.
 
-To run Palantir and CellRank you first have to have a Seurat object that is clustered and annotated (see above). 
+To run pseudotime analysis you first have to have a Seurat object that is clustered and annotated (see above). 
 
-Next convert your Seurat object to an h5ad object that can be read into python. Modify working directory and object name in script
+Next convert your Seurat object to an h5ad object that can be read into python. 
+Run seurat2ann.R by first editing the config file:
 ```
-Rscript src/convert_seurat2anndata.R
+"title": "Your title"
+"METHOD":"seurat2ann"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
+ "seurat2ann":{
+    "DATA_DIR":  "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
+    "SEURAT_OBJ": "GAMM_S2_clabeled-clusters_0.5.rds",
+    "METADATA": "NA",
+    "OUTPUT_name": "GAMM_S2_clabeled-clusters_0.5_2.h5Seurat",
+    "DIM.RED": "NA"
+  },
 ```
-Change to environments directory and install pseudotime environment
+Run to get a .h5ad file
 ```
-source install_pseudotime_env.sh
-```
-Activate a pseudotime environment
-```
-source pst_env/bin/activate
+source run_downstream_toolkit.sh
 ```
 
-Modify config variables under pseudotime header:
+Once you ahve the .h5ad file, you are ready to run pseudotime.
+
+Modify config variables:
 ```
+"title": "Your title"
 "METHOD":"pseudotime"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
 "pseudotime":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/", # working dir
     "ADATA_FILE": "seurat_obj_labeled.h5ad", # converted anndata file
@@ -322,7 +340,7 @@ Modify config variables under pseudotime header:
     "terminal_celltypes": ["Rod", "Cone", "Bipolar Cells", "Amacrine Cell"], # final cell types
     "start_celltype": "Retinal Prog", # progenitor or stem cell type
     "magic_impute": "FALSE", # impute gene expression data with MAGIC? TRUE or FALSE
-    "trajectory":{ # pseudotime cell type trajectoires you want to visualize
+    "trajectory":{ # pseudotime cell type trajectories you want to visualize
       "cone": ["Retinal Prog", "unknown", "Pan PR", "Cone"],
       "rod": ["Retinal Prog", "unknown", "Pan PR", "Muller Glia-Rod", "Rod"],
       "MG": ["Retinal Prog", "unknown", "Muller Glia-Rod", "Muller Glia-Retinal Prog"],
@@ -330,7 +348,7 @@ Modify config variables under pseudotime header:
       "amacrine": ["Retinal Prog", "unknown", "Amacrine Cell"]
     }
 ```
-Now you are ready to run Palantir and CellRank. Change to src directory and run:
+Now you are ready to run pseudotime:
 ```
 source run_downstream_toolkit.sh
 ```
@@ -342,18 +360,39 @@ Outputs:
 ## Real time analysis
 If you have actual time points in your data, you can do a real time analysis with optimal transport to see how the cells evolve over that time period.
 
-### Realtime with Cell Rank and Moscot
+### Realtime with Moscot
+If two timepoints are in separate seurat objects, objects need to be integrated before running script (see Seurat Integration)
 
-First activate conda environment
+Seurat object should be clustered and labeled, and then converted to h5ad object to read into python.
+
+To convert: run seurat2ann.R by first editing the config file:
 ```
-conda activate realtime
+"title": "Your title"
+"METHOD":"seurat2ann"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
+ "seurat2ann":{
+    "DATA_DIR":  "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
+    "SEURAT_OBJ": "GAMM_S2_clabeled-clusters_0.5.rds",
+    "METADATA": "NA",
+    "OUTPUT_name": "GAMM_S2_clabeled-clusters_0.5_2.h5Seurat",
+    "DIM.RED": "NA"
+  },
+```
+Run to get a .h5ad file:
+```
+source run_downstream_toolkit.sh
 ```
 
-Modify config variables under realtime header:
+Once you ahve the .h5ad file, you are ready to run realtime.
+Modify config variables:
 ```
+"title": "Your title"
 "METHOD":"realtime"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
 "realtime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/", # working dir
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/fluidigm_gup_expr_results/output_20231114_102348/", # data dir
     "ADATA_FILE": "clustered_seurat_obj.h5ad", # ann data object
     "time_label": "orig.ident", # label in object that designates time points
     "annot_label": "seurat_clusters" # annotation label to compare time points
@@ -372,39 +411,38 @@ Outputs:
 
 ## Other processes
 
-For other processes, use single cell environment:
-```
-conda activate scRNAseq_best
-```
 ### Recluster
-To re-cluster and re-annotate with updated cell types, use recluster-and-annotate.rmd:
+To re-cluster and re-annotate with updated cell types, use recluster-and-annotate.R:
 
-Modify config variables under the recluster header:
+Modify config variables:
 ```
+"title": "Your title"
 "METHOD":"recluster"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
 "recluster":{
-    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT.FILE": "seurat_obj_labeled.rds",
+    "DATA_DIR": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/", # data dir
+    "SEURAT.FILE": "seurat_obj_labeled.rds", # seurat file
     "perform_clustering": {
-      "reduction": "pca",
-      "resolution": 0.25,
-      "algorithm": "leiden",
-      "dims_snn": 10,
-      "cluster_name": "seurat_clusters2"
+      "reduction": "pca", # dim red to use
+      "resolution": 0.25, # resolution (higher=more clusters, lower=less clusters)
+      "algorithm": "leiden", # clustering algorithm
+      "dims_snn": 10, # number of dimmensions to put in snn
+      "cluster_name": "seurat_clusters2" # what to call the new clusters
     },
     "score_and_plot_markers": {
-      "top_n_markers": 100,
-      "known_markers": "True",
-      "known_markers_path": "/w5home/bmoore/Brown_thymus/thymus_markers_3.txt",
-      "cluster_type": "seurat_clusters2",
-      "pairwise": "FALSE",
-      "logFC_thresh": 0.25,
-      "auc_thresh": 0.5,
-      "reduction": "umap"
+      "top_n_markers": 100, # number of DE markers to consider
+      "known_markers": "True", # whether there is a known marker list
+      "known_markers_path": "/w5home/bmoore/Brown_thymus/thymus_markers_3.txt", # known markers list- for docker this should go in ./data/markers/ dir
+      "cluster_type": "seurat_clusters2", # what clusters to annotate
+      "pairwise": "FALSE", # do pairwise comparisons of clusters? TRUE or FALSE
+      "logFC_thresh": 0.25, # logFC threshold for calling genes DE
+      "auc_thresh": 0.5, # AUC threshold for calling genes DE
+      "reduction": "umap" # dim red to visualize
     },
     "process_known_markers":{
-      "annot_type": "manual",
-      "n_rank": 5
+      "annot_type": "manual", # type of annotation- manual, d120, or d40
+      "n_rank": 5 # log FC rank cutoff for marker genes to determine a cell type (5 means ranked in top 5)
     }
 ```
 Run:
@@ -413,58 +451,83 @@ source run_downstream_toolkit.sh
 ```
 ### Phate dimensionality reduction
 To use the PHATE dimension reduction tool:
-Modify config variables under "phate" header:
-**options:**
+
+Modify config variables:
+**options under "phate" header:**
 * knn : Number of nearest neighbors (default: 5)
 * decay : Alpha decay (default: 40)
 * t : Number of times to power the operator (default: ‘auto’)
 * gamma : Informational distance constant between -1 and 1 (default: 1)
 ```
+title": "Your title"
+"METHOD":"phate"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
 "METHOD":"phate"
 "phate":{
-    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240916_094725/",
-    "SEURAT_OBJ": "seurat_obj_labeled.rds",
-    "gene": "HES7",
+    "WD": "/w5home/bmoore/scRNAseq/LiFangChu/output_seuratintegrate_20240916_094725/", # data dir
+    "SEURAT_OBJ": "seurat_obj_labeled.rds", # seurat obj
+    "gene": "HES7", # example gene to visualize
     "knn":5, 
     "decay":50,
     "t":"auto",
     "gamma":1,
-    "embed_key":"phate",
-    "ANNOT": "CellType1"
+    "embed_key":"phate", # name for phate dim red
+    "ANNOT": "CellType1" # annotation label
   },
 ```
 Run:
 ```
-phate.Rmd
+source run_downstream_toolkit.sh
 ```
-### Metadata
-To output meta data to a text file, we used this script:
+
+### Make feature plots
+Make feature plots for any list of genes to visualize expression in low dimensional space
+
+Modify variables in config file
 ```
-get_gamm_metadata.R
+"title": "Your title"
+"METHOD":"featureplots"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
+"METHOD":"featureplots"
+"featureplots":{
+    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
+    "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
+    "GENE_LIST": "../KM_genelist_thymus.txt", # gene list to visualize. For docker, should be in the ./data/ dir
+    "ANNOT": "CellType1", # annotation label
+    "INPUT_NAME": "Thymus_0.5res_phate", # feature plot label
+    "reduction": "phatek10d50" # dim red to use for visualization
+  }
 ```
+Run:
+```
+source run_downstream_toolkit.sh
+```
+### Subset seurat object
+To subset cells that express certain genes
+
+Modify config:
+```
+"title": "Your title"
+"METHOD":"subset_seurat"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
+ "subset_seurat":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/", # data dir
+    "SEURAT_OBJ": "merged_seurat.rds", # seurat file
+    "GENE_LIST": ["SAG","HES5"], # genes to subset: all cells that express these genes
+    "DIM.RED": "umap.cca", # dim red to use for visualization
+    "ANNOT": "CellType_combined" # cell type annotation label
+  },
+```
+
 ### Parse DE markers
 To get the list of all DE genes and their annotation from each cluster for a seurat object (based on the output of a single cell analysis). Need a directory with the KnownDE.markers* files and Top100DEgenes_* files.
 ```
 parse_markers.py <directory with DE gene output files>
 ```
-### Make feature plots
-Make feature plots for any list of genes to visualize expression in low dimensional space
 
-Modify variables in config file under the header featureplots
-```
-"METHOD":"featureplots"
-"featureplots":{
-    "WD": "/w5home/bmoore/Brown_thymus/output_preprocess_20240910_095557/PED165thymus/output_recluster_20240911_121040/",
-    "SEURAT_OBJ": "seurat_obj_labeled_phate.rds",
-    "GENE_LIST": "../KM_genelist_thymus.txt",
-    "ANNOT": "CellType1",
-    "INPUT_NAME": "Thymus_0.5res_phate",
-    "reduction": "phatek10d50"
-  }
-```
-```
-source run_downstream_toolkit.sh
-```
 ### Subset cell cycle genes
 Subset cell cycle genes by ortholog. Modify to input ortholog list and cell cycle gene list.
 ```
