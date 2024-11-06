@@ -6,14 +6,27 @@ Clone this repository:
 
 ```
 git clone git@github.com:stewart-lab/scRNAseq_downstream.git
+cd scRNAseq_downstream
 ```
-You will also need anaconda or miniconda to install environments. To install miniconda:
-
-https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html
 
 ## For single-cell pre-processing, visit our companion single-cell repo:
 
 https://github.com/stewart-lab/scRNAseq_library
+
+## Docker or conda environments?
+
+For each downsteam method, you can either make a conda environment to then run the script, or use the docker container that has environments already installed.
+To use conda environments:
+    1. Install miniconda3. Follow instructions from here: https://docs.anaconda.com/miniconda/miniconda-install/
+    2. ```cd environments/```
+    3. For scRNAseq_new environment follow instructions in scRNAseq_env_setup.sh. Note this environment is for seurat mapping, seurat integration, all annotation scripts, and other minor scripts that are not in the environments below.
+    4. For sccomp environment follow instructions in sccomp_env_setup.sh. This environment is for running sccomp.
+    5. For pseudotime follow instructions in install_pseudotime_env.sh. This environment is for running pseudotime.
+    6. For realtime follow instructions in realtime_env_setup.sh. This environment is for running a realtime analysis with moscot.
+To use docker:
+    1. Install docker. Follow instructions here: https://docs.docker.com/engine/install/
+    2. Make sure you are logged in (docker login).
+    3. Go to the method you want for further instruction.
 
 ## Annotation via a reference
 
@@ -24,24 +37,21 @@ For more details on Seurat mapping check out their webpage: https://satijalab.or
 
 First: **Make sure query and reference data were preprocessed the same way using the scRNAseq_library repo.**
 
-Activate the single cell environment:
-```
-conda activate scRNAseq_new
-```
-
 Then update variables in the config file under the main header and seurat_mapping header.
 
 Variables in config file:
 ```
-"METHOD": "seurat_mapping
+"title": "Your title"
+"METHOD": "seurat_mapping"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
 "seurat_mapping": {
     "DATA_DIR": "working_directory" # working directory where output goes,
     "REF.SEURAT": "ref.seurat.rds" # location (relative to DATA_DIR) and file name of reference seurat (from pre-processing),
     "QUERY.SEURAT": "query.seurat.rds" # location (relative to DATA_DIR) and file name of query seurat (from pre-processing),
     "get_metadata": {
       "get_meta": "TRUE" or "FALSE", # do you want to get metadata for object?
-       "metadata_file1": "ref_metadata.txt" # location and filename of metadata for reference
-       "metadata_file2": "query_metadata.txt" # location and filename of metadata for query
+       "metadata_file1": "ref_metadata.txt" # location and filename of metadata for reference - for docker put in the scRNAseq_downstream/data/ folder
+       "metadata_file2": "query_metadata.txt" # location and filename of metadata for query - for docker put in the scRNAseq_downstream/data/ folder
        "metadata_subset1": "d205" # if needed, what to subset the reference metadata by (ie sample name), else "NA"
        "metadata_subset2": "NA" # if needed, what to subset the query metadata by, else "NA"
     },
@@ -51,7 +61,7 @@ Variables in config file:
     },
     "visualize_and_subset_ref": {
       "groupby": "type", # label column in reference used for annotating
-      "celltype_removal_list": ["AC1","AC2","T1/T3","T2","Midbrain","miG"] # list of cell types in reference to remove
+      "celltype_removal_list": ["AC1","AC2","T1/T3","T2","Midbrain","miG"] # list of cell types in reference to remove before transferring labels to query
     },
     "get_manual_comparison": { # order of prediction cell types ("rowvec") compared to manual cell types ("colvec")
     for proportion and cell count tables.
@@ -79,20 +89,17 @@ ClustifyR uses either a marker list of genes or a reference (or both!) to annota
 
 For more information on ClustifyR see: https://www.bioconductor.org/packages/release/bioc/vignettes/clustifyr/inst/doc/clustifyr.html
 
-To run, first activate the single cell environment:
-```
-conda activate scRNAseq_new
-```
-
-Then set variables under the "clustifyr" header. 
+First set variables in the config file. 
 
 Variables in config file:
 ```
+"title": "Your title"
 "METHOD":"clustifyr",
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
 "clustifyr":{
-    "DATA_DIR": "working_directory/", # working directory
-    "REF.SEURAT": "../human_D205_subset_annot.rds", # location (relative to working dir) and file name of reference seurat (from pre-processing). If "NA", then only markers are used to annotate
-    "QUERY.SEURAT": "../gamms2_cca_pred.rds", # location (relative to working dir) and file name of query seurat (from pre-processing)
+    "DATA_DIR": "data_directory/", # data directory
+    "REF.SEURAT": "../human_D205_subset_annot.rds", # file name of reference seurat (from pre-processing). If "NA", then only markers are used to annotate
+    "QUERY.SEURAT": "../gamms2_cca_pred.rds", # file name of query seurat (from pre-processing)
     "cluster_name": "seurat_clusters", # cluster name to annotate
     "visualize_and_subset_ref": { # not used if no reference
       "groupby": "cell_type2", # label column in reference used for annotating
@@ -100,7 +107,7 @@ Variables in config file:
     },
     "score_and_plot_markers": {
       "known_markers": "True", # "True" if using known marker list, otherwise "False"
-      "known_markers_path": "../../known_markers/Kims_retinal_markers.txt", # path where known markers are relative to working dir
+      "known_markers_path": "../../known_markers/Kims_retinal_markers.txt", # path where known markers are relative to data dir. For docker put in the scRNAseq_downstream/data/ folder 
       "cluster_type": "seurat_clusters", # which clusters to annotate
       "reduction": "umap" # dim reduction for visualization, ie. "umap", "pca"
     }
@@ -122,18 +129,15 @@ Automatic annotation of cell types using GPT-4 and differentially expressed mark
 
 For more information see: https://winnie09.github.io/Wenpin_Hou/pages/gptcelltype.html
 
-To run, first activate the single cell environment:
-```
-conda activate scRNAseq_new
-```
-
-Then set variables under the "celltypeGPT" header. 
+First set variables in config file. 
 
 Variables in config file:
 ```
+"title": "Your title"
 "METHOD":"celltypeGPT"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
 "celltypeGPT":{
-    "DATA_DIR": "working_directory/", # working directory,
+    "DATA_DIR": "data_directory/", # data directory,
     "seurat.obj": "seurat_obj_labeled.rds", # seurat object to annotate
     "openAI_key": "", # open AI key
     "cluster_name": "seurat_clusters2", # clusters to annotate
