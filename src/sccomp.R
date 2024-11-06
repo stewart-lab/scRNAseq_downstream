@@ -47,7 +47,7 @@ SEURAT.2 <- config$sccomp$SEURAT.file2
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_cell_composition_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
@@ -342,3 +342,4 @@ dev.off()
 # save session info
 print("save session info")
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+system(paste("chmod -R 777", output))

@@ -1,12 +1,6 @@
----
-title: "subset_data_for_positively_expressed_cells"
-author: "Beth Moore"
-date: "2024-10-08"
-output: html_document
----
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# load packages
+print("load packages")
 library(Seurat)
 library(patchwork)
 library(purrr)
@@ -21,35 +15,36 @@ library(ggplot2)
 library(scran)
 library(clustifyr)
 library(SeuratDisk)
-use_condaenv("scRNAseq_best")
 
 # set variables
-#GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+GIT_DIR <- get_wd()
 config <- jsonlite::fromJSON(file.path("./config.json"))
-DATA_DIR <- config$subset_seurat$DATA_DIR
+docker <- config$docker
+if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$subset_seurat$DATA_DIR
+}
 SEURAT_OBJ <- config$subset_seurat$SEURAT_OBJ
 GENE_LIST <- config$subset_seurat$GENE_LIST
 DIM.RED <- config$subset_seurat$DIM.RED
 ANNOT <- config$subset_seurat$ANNOT
 # set up environment and output
-setwd(DATA_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_subset_", timestamp)
-dir.create(output, showWarnings = FALSE)
-file.copy(paste0("config.json"), file.path(output, "config.json"))
+output <- paste0("./shared_volume/output_subset_", timestamp)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
-config <- jsonlite::fromJSON(file.path(output, "config.json"))
+file.copy(paste0("config.json"), file.path(output, "config.json"))
 source(paste0("src/sc_pipeline_functions.R"))
-```
-```{r load_data}
-seurat.obj <- readRDS(file = SEURAT_OBJ)
+
+# load data
+print("load data")
+seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT_OBJ))
 seurat.obj
-```
+
 # subset for positively expressed genelist
-```{r get_cells}
+print("subset for positively expressed genelist")
 new.obj <- GetAssayData(object = seurat.obj, layer = "data")[GENE_LIST,]>0
-```
-```{r subset}
 #get the required cells
 df <- as.data.frame(new.obj)
 # get cells that are true
@@ -57,8 +52,9 @@ cellstokeep <- which(apply(df, 2, any))
 #subset the required cells
 seurat.obj_subset <- subset(seurat.obj, cells = cellstokeep)
 seurat.obj_subset
-```
-```{r plot}
+
+# plot
+print("plot")
 p1 <- DimPlot(seurat.obj_subset, reduction = DIM.RED, label = TRUE, 
         pt.size = 0.5, group.by = ANNOT)
 p2 <- DimPlot(seurat.obj, reduction = DIM.RED, label = TRUE, 
@@ -75,11 +71,10 @@ combined_plot <- ((p1 | p2) / (p3 | p4) / p5) + plot_layout(width = c(2, 2, 2),
 pdf(file = paste0(output,"seurat_subset.pdf"), width = 8, height = 8)
     print(combined_plot)
 dev.off()
-```
-```{r save}
+
+# save
+print("save")
 saveRDS(seurat.obj_subset, file= paste0(output,"seurat.obj_subset.rds"))
-```
 # save session info
-```{r sessioninfo}
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-```
+system(paste("chmod -R 777", output))

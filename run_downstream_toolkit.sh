@@ -54,7 +54,7 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
         elif [ \"$METHOD\" == \"subset_seurat\" ]; then
             conda run -n scRNAseq_new /bin/bash -c 'Rscript src/subset_seurat.R'
         elif [ \"$METHOD\" == \"phate\" ]; then
-            conda run -n phate /bin/bash -c 'Rscript -e "rmarkdown::render('src/phate.Rmd')"'
+            conda run -n phate /bin/bash -c 'Rscript src/phate.R'
         elif [ \"$METHOD\" == \"sctype\" ]; then
             conda run -n scRNAseq_new /bin/bash -c 'Rscript src/scType.R'
         else

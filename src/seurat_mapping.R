@@ -43,7 +43,7 @@ if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
 # set up environment and output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_seurat_mapping_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
         overwrite = TRUE)
@@ -151,3 +151,4 @@ saveRDS(ref.seurat, file= paste0(output,"ref_seurat_map.rds"))
 
 # save session info
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+system(paste("chmod -R 777", output))

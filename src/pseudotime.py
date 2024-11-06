@@ -53,7 +53,7 @@ from datetime import datetime
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = "/shared_volume/pseudotime_" + now +"/"
-os.mkdir(out_dir)
+os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
 shutil.copy(GIT_DIR+'/config.json', DATA_DIR) 
 
@@ -296,3 +296,4 @@ for package in pkg_resources.working_set:
     print(package.key, pkg_resources.get_distribution(package).version)
     packagever.write(package.key + " " + pkg_resources.get_distribution(package).version + "\n")
 packagever.close()
+os.chmod(out_dir, 0o777)

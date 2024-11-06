@@ -31,7 +31,7 @@ cluster_name <- config$clustifyr$cluster_name
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_clustifyr_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 ## copy config to output
@@ -92,3 +92,4 @@ if(REF.SEURAT!="NA"){
 }
 
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+system(paste("chmod -R 777", output))

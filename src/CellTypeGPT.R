@@ -22,7 +22,7 @@ SEURAT_OBJ <- config$celltypeGPT$seurat.obj
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_celltypeGPT_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
@@ -109,3 +109,4 @@ dev.off()
 ## save
 saveRDS(seurat.obj, file= paste0(output,"seurat_celltypeGPT_annot.rds"))
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+system(paste("chmod -R 777", output))

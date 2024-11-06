@@ -29,7 +29,7 @@ setwd(GIT_DIR)
 # create output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_featureplots_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
@@ -76,3 +76,7 @@ plot_function <- function(features, input_name, plot1, plot2) {
 } 
 # run function: input gene list, name, and two previous plots
 plot_function(features,INPUT_NAME,plot1, plot2)
+# save session info
+print("save session info")
+writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+system(paste("chmod -R 777", output))

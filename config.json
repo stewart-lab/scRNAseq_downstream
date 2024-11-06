@@ -1,17 +1,17 @@
 {
-  "title": "seurat recluster on Gamm 120",
-  "METHOD": "recluster",
+  "title": "seurat_mapping on Gamm 120",
+  "METHOD": "seurat_mapping",
   "DE_method": "Scran",
   "docker": "TRUE",
   
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
-    "REF.SEURAT": "Reh_205/seurat_obj_labeled.rds",
+    "REF.SEURAT": "Reh_205/seurat_obj_labeled_Reh205.rds",
     "QUERY.SEURAT": "GAMM_120/seurat_obj_labeled.rds",
     "get_metadata": {
       "get_meta": "TRUE",
-      "metadata_file1": "/w5home/bmoore/scRNAseq_downstream/data/reh_metadata/Reh_cca_org_205_metadata.txt",
-      "metadata_file2": "/w5home/bmoore/scRNAseq_downstream/data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
+      "metadata_file1": "../data/reh_metadata/Reh_cca_org_205_metadata.txt",
+      "metadata_file2": "../data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
       "metadata_subset1": "NA",
       "metadata_subset2": "NA"
     },

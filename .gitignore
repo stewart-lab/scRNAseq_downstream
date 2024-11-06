@@ -58,6 +58,8 @@ pst_env/
 # data
 data/gamm_data/
 data/example_data/
+data/input_data
 
 # output
 output*
+shared_volume/

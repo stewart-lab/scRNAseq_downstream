@@ -30,7 +30,7 @@ SEURAT.FILE <- config$recluster$SEURAT.FILE
 #setwd(WD)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_recluster_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
           output,"config.json")), overwrite = TRUE)
@@ -104,7 +104,7 @@ print(DimPlot(seurat.obj_recluster, reduction = "umap", label = TRUE,
 dev.off()
 # save session info
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
-
+system(paste("chmod -R 777", output))
 
 # read back in metadata
 

@@ -33,7 +33,7 @@ new_names <- config$seurat_integration$orig_ident_rename
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_seuratintegrate_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(file.path(paste0(GIT_DIR,"config.json")), file.path(paste0("./", 
@@ -274,3 +274,4 @@ if (config$seurat_integration$score_and_plot_markers$known_markers) {
 # annotate_with_clustifyR(merged_seurat, SCE, output, "integration")
 # # save session info
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+system(paste("chmod -R 777", output))

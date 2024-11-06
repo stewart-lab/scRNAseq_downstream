@@ -20,7 +20,7 @@ TISSUE <- config$sctype$tissue
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_sctype_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
           output,"config.json")), overwrite = TRUE)
@@ -147,3 +147,4 @@ dev.off()
 # delete old
 #seurat.obj$sctype_classification <- NULL
 saveRDS(seurat.obj, file=paste0(output,"seurat_obj_labeled_sctype.rds"))
+system(paste("chmod -R 777", output))

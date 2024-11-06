@@ -38,7 +38,7 @@ setwd(GIT_DIR)
 # create output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_seurat2ann_", timestamp)
-dir.create(output, showWarnings = FALSE)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
@@ -86,3 +86,4 @@ if(DIM.RED != "NA" && DIM.RED != ""){
 }
 # then convert to h5ad
 Convert(paste0(output,OUTPUT_name), dest = "h5ad")
+system(paste("chmod -R 777", output))
