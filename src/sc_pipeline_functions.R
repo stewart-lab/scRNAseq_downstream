@@ -880,7 +880,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 
     if (nrow(marker_df) == 0) {
       print(paste0("This data frame is empty: ", clusters[i]))
-      new_row <- data.frame(Cluster = clusters[i], Cell.type = "unknown")
+      new_row <- data.frame(Cluster = clusters[i], Celltype = "unknown")
       annot_df <- rbind(annot_df, new_row)
     } else {
       subdirectory_path <- file.path(output_path, "Known_DE_Markers")
@@ -894,7 +894,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       )
 
       # Subset data
-      new_df <- marker_df[, c("Row.names", "rank.logFC.cohen", "Cell.type")]
+      new_df <- marker_df[, c("Row.names", "rank.logFC.cohen", "Celltype")]
       new_vec <- unique(as.vector(new_df$Row.names))
 
       # Get top ranked
@@ -907,28 +907,28 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 
         if (identical(new_vec2, character(0))) {
           print(paste0("This vector does not have any ranks in top ", n_rank, ": ", clusters[i]))
-          new_row <- data.frame(Cluster = clusters[i], Cell.type = "unknown")
+          new_row <- data.frame(Cluster = clusters[i], Celltype = "unknown")
           annot_df <- rbind(annot_df, new_row)
         } else {
         # UMAP plot highlighting gene expression
           pdf(paste0(output_path, clusters[i], "_featureplot_top", n_rank, "ranks.pdf"), bg = "white")
           print(FeaturePlot(seurat_obj, features = new_vec2), label = TRUE)
           dev.off()
-          allcelltypes <- unique(as.vector(new_df.ordered$Cell.type))
+          allcelltypes <- unique(as.vector(new_df.ordered$Celltype))
           result_string <- paste(allcelltypes, collapse = "-")
-          new_row <- data.frame(Cluster = clusters[i], Cell.type = result_string)
+          new_row <- data.frame(Cluster = clusters[i], Celltype = result_string)
           annot_df <- rbind(annot_df, new_row)
         }
       } else if (annot_type == "d120"| annot_type == "d40"){
         new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
-        cell_types <- unique(as.vector(known_markers_df[,"Cell.type"]))
+        cell_types <- unique(as.vector(known_markers_df[,"Celltype"]))
         # create empty list to store cell types
         cell_type_list <- c()
         cell_type_list1 <- c()
         for (j in 1:length(cell_types)){
           cell_type <- cell_types[j]
           #print(cell_type)
-          genes_df <- subset(known_markers_df, Cell.type == cell_type)
+          genes_df <- subset(known_markers_df, Celltype == cell_type)
           #print(colnames(genes_df))
           genes <- unique(rownames(genes_df))
           #print(genes)
@@ -947,7 +947,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           } else if (count >= 1 && cell_type == "Cone") {
             # check Pan PRs
             count2 <- 0
-            genes_df <- subset(known_markers_df, Cell.type == "Pan PR")
+            genes_df <- subset(known_markers_df, Celltype == "Pan PR")
             genes <- unique(rownames(genes_df))
             for (k in 1:length(new_vec2)){
               gene <- new_vec2[k]
@@ -965,7 +965,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           } else if (count >= 1 && cell_type == "Ganglion Cell") {
             # check Amacrine-Ganglion
             count3 <- 0
-            genes_df <- subset(known_markers_df, Cell.type == "Amacrine-Ganglion")
+            genes_df <- subset(known_markers_df, Celltype == "Amacrine-Ganglion")
             genes <- unique(rownames(genes_df))
             for (k in 1:length(new_vec2)){
               gene <- new_vec2[k]
@@ -985,7 +985,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           } else if (count >= 1 && cell_type == "Amacrine Cell") {
             # check Amacrine-Ganglion
             count4 <- 0
-            genes_df <- subset(known_markers_df, Cell.type == "Amacrine-Ganglion")
+            genes_df <- subset(known_markers_df, Celltype == "Amacrine-Ganglion")
             genes <- unique(rownames(genes_df))
             for (k in 1:length(new_vec2)){
               gene <- new_vec2[k]
@@ -1052,7 +1052,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
         }
         result_string <- paste(cell_type_list, collapse = "-")
         print(paste0("final cell type ", clusters[i], " ",result_string))
-        new_row <- data.frame(Cluster = clusters[i], Cell.type = result_string)
+        new_row <- data.frame(Cluster = clusters[i], Celltype = result_string)
         annot_df <- rbind(annot_df, new_row)
         } else {
           print("Need to set annotation type in config")
@@ -1311,10 +1311,16 @@ visualize_and_subset_ref <- function(ref_seurat_obj, path = output, type) {
   # remove NAs
   ref_seurat_obj <- subset(x = ref_seurat_obj, subset = idents != "<NA>")
   # Subset the reference object
-  for(i in 1:length(removal_list)) {
-    if (removal_list[i] %in% Idents(ref_seurat_obj)) {
-    ref_seurat_obj <- subset(x = ref_seurat_obj, idents = removal_list[i], invert = TRUE)
-  }
+  if(length(removal_list) != 0){
+    print(paste0("removing celltypes: ",removal_list))
+    for(i in 1:length(removal_list)) {
+      if (removal_list[i] %in% Idents(ref_seurat_obj)) {
+        ref_seurat_obj <- subset(x = ref_seurat_obj, idents = removal_list[i], 
+        invert = TRUE)
+      }
+    }
+  } else {
+    print("no cell types removed")
   }
   # Visualize the subsetted reference object
   pdf(paste0(path, "ref_seurat_obj_subset_umap.pdf"), width = 8, height = 6)

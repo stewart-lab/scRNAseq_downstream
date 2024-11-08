@@ -68,7 +68,7 @@ elif dim_red != "NA" and dim_red != "":
     # Open the original h5Seurat file
     with h5py.File(data_dir + ADATA_FILE, "r") as f:
         # Extract the dim_red data and transpose it
-        dim_red_component = f[dim_red+"1"][:].T
+        dim_red_component = f[dim_red][:].T
         # Add the integrated.cca component
     adata.obsm["X_new_dim_red"] = dim_red_component
     adata.write_h5ad(out_dir +"anndata_obj_with_"+ dim_red + ".h5ad")
@@ -443,12 +443,6 @@ import numpy as np
 
 # convert annotation to numpy array in order to save
 adata.obs[annot_label] = np.array(adata.obs[annot_label])
-# Verify the written file
-try:
-    adata_read = ad.read_h5ad(out_dir + "realtime_object.h5ad")
-    print("Successfully read the written AnnData object.")
-except Exception as e:
-    print(f"Error reading the written AnnData object: {str(e)}")
 # now save
 adata.write(out_dir + "realtime_object.h5ad")
 # save package versions

@@ -14,7 +14,7 @@ library(ggplot2)
 library(scater)
 library(SingleCellExperiment)
 library(tidyverse)
-use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
+#use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
 # set variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
@@ -77,7 +77,7 @@ annot_df <- score_and_plot_markers(seurat.obj_recluster,sce, output,"recluster")
 print("annotate and save")
 # order annot_df
 annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
-new.cluster.ids <- annot_df.ordered$Cell.type
+new.cluster.ids <- annot_df.ordered$Celltype
 # annotate
 seurat.obj_recluster<-annotate_clusters_and_save(seurat.obj_recluster, new.cluster.ids, output, "recluster")
 # print table of celltypes

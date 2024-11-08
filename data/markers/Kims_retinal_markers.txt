@@ -1,4 +1,4 @@
-gene	Cell type
+gene	Celltype
 GAD2	Amacrine Cell
 LHX9	Amacrine Cell
 ELAVL3	Amacrine-Ganglion

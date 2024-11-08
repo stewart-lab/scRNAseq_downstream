@@ -8,10 +8,10 @@ library(jsonlite)
 library(rmarkdown)
 library(ggplot2)
 library(viridis)
-use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
+#use_condaenv(condaenv = '/w5home/bmoore/miniconda3/envs/scRNAseq_best/', required = TRUE)
 # set variables
 # set variables
-GIT_DIR <- get_wd()
+GIT_DIR <- getwd()
 config <- fromJSON(file.path("./config.json"))
 docker <- config$docker
 if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
@@ -25,7 +25,7 @@ ANNOT <- config$featureplots$ANNOT
 INPUT_NAME <- config$featureplots$INPUT_NAME
 reduction <- config$featureplots$reduction
 # set working dir
-setwd(GIT_DIR)
+#setwd(GIT_DIR)
 # create output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_featureplots_", timestamp)
@@ -36,7 +36,7 @@ file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
 # load seurat object
 seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT_OBJ))
 # load list of marker genes to plot
-features <- read.csv(paste0(DATA_DIR, GENE_LIST), header = FALSE, sep = "\t")
+features <- read.csv(paste0(GENE_LIST), header = TRUE, sep = "\t")
 
 # make cluster plots
 plot1 <- DimPlot(seurat.obj, reduction = reduction, label = FALSE, 
@@ -46,13 +46,13 @@ plot2 <- DimPlot(seurat.obj, reduction = reduction, label = TRUE,
 
 # make for loop a function
 plot_function <- function(features, input_name, plot1, plot2) {
-  cell_types <- unique(features$V2)
+  cell_types <- unique(features$Celltype)
   for (c in seq(1, length(cell_types))) {
     print(c)
     print(cell_types[c])
     # subset features
-    features1 <- features[features$V2 == cell_types[c],]
-    marker.genes <- as.vector(features1$V1)
+    features1 <- features[features$Celltype == cell_types[c],]
+    marker.genes <- as.vector(features1$gene)
     # count to distinguish each plot
     count=1
     # loop to subset and plot

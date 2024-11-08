@@ -201,7 +201,7 @@ seurat.combined <- subset(x= seurat.combined, CellType != "NA")
 
 # save combined object
 print("save combined object")
-#saveRDS(seurat.combined, file = paste0(output,"seurat.combined.rds"))
+saveRDS(seurat.combined, file = paste0(output,"seurat.combined.rds"))
 
 # sccomp model composition
 print("model composition")

@@ -66,7 +66,7 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
 else
     echo "Step 2.1: Removing and recreating the SHARED_VOLUME"
     SHARED_VOLUME="./shared_volume"
-    rm -rf "$SHARED_VOLUME"
+    #rm -rf "$SHARED_VOLUME"
     mkdir -p "$SHARED_VOLUME"
     chmod 777 "$SHARED_VOLUME"
     echo "Step 3: Running the script with conda environments"
@@ -102,10 +102,10 @@ else
         Rscript src/convert_seurat2anndata.R
     elif [ "$METHOD" == "subset_seurat" ]; then
         source activate scRNAseq_new
-        Rscript -e "rmarkdown::render('src/subset_seurat.Rmd')"
+        Rscript src/subset_seurat.R
     elif [ "$METHOD" == "phate" ]; then
         source activate phate_env
-        Rscript -e "rmarkdown::render('src/phate.Rmd')"
+        Rscript src/phate.R
     elif [ "$METHOD" == "sctype" ]; then
         source activate scRNAseq_new
         Rscript src/scType.R
