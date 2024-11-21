@@ -29,7 +29,7 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
     -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json:ro" \
-    scrnaseq_downstream2:v1 /bin/bash -c "
+    stewartlab/scrnaseq_downstream2:v1 /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
             Rscript /src/seurat_mapping.R'
