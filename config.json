@@ -1,6 +1,6 @@
 {
-  "title": "realtime on Gamm 40 and 120",
-  "METHOD": "realtime",
+  "title": "seurat_mapping on Gamm 120",
+  "METHOD": "seurat_mapping",
   "docker": "TRUE",
   
   "seurat_mapping": {

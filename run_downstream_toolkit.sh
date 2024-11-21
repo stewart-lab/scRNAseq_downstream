@@ -22,41 +22,52 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
 
   echo "Step 2.2: Building Docker container for downstream processing"
   # Build the Docker image from the pre_pipeline directory
-  docker build -t scrnaseq_downstream:v1.1 ./
+  docker build -t stewartlab/scrnaseq_downstream2:v1 ./
 
   echo "Step 3: Running Docker container for downstream processing scripts"
   docker run --userns=host -it \
     -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json:ro" \
-    scrnaseq_downstream:v1.1 /bin/bash -c "
+    scrnaseq_downstream2:v1 /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript /src/seurat_mapping.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript /src/seurat_mapping.R'
         elif [ \"$METHOD\" == \"seurat_integration\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript /src/seurat_integrate_v5.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript /src/seurat_integrate_v5.R'
         elif [ \"$METHOD\" == \"sccomp\" ]; then
-            conda run -n sccomp /bin/bash -c 'Rscript src/sccomp.R'
+            /bin/bash -c '. sccomp/bin/activate 
+            Rscript src/sccomp.R'
         elif [ \"$METHOD\" == \"pseudotime\" ]; then
             /bin/bash -c 'source pst_env/bin/activate
             python src/pseudotime.py'
         elif [ \"$METHOD\" == \"realtime\" ]; then
-            conda run -n realtime /bin/bash -c 'python src/realtime.py'
+            /bin/bash -c '. realtime/bin/activate 
+            python src/realtime.py'
         elif [ \"$METHOD\" == \"celltypeGPT\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/CellTypeGPT.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/CellTypeGPT.R'
         elif [ \"$METHOD\" == \"clustifyr\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/clustifyr.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/clustifyr.R'
         elif [ \"$METHOD\" == \"recluster\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/recluster-and-annotate.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/recluster-and-annotate.R'
         elif [ \"$METHOD\" == \"featureplots\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/featureplots.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/featureplots.R'
         elif [ \"$METHOD\" == \"seurat2ann\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/convert_seurat2anndata.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/convert_seurat2anndata.R'
         elif [ \"$METHOD\" == \"subset_seurat\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/subset_seurat.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/subset_seurat.R'
         elif [ \"$METHOD\" == \"phate\" ]; then
             conda run -n phate /bin/bash -c 'Rscript src/phate.R'
         elif [ \"$METHOD\" == \"sctype\" ]; then
-            conda run -n scRNAseq_new /bin/bash -c 'Rscript src/scType.R'
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/scType.R'
         else
             echo \"Unknown METHOD: $METHOD\"
             exit 1
