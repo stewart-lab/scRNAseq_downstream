@@ -91,12 +91,27 @@ source run_downstream_toolkit.sh
 ```
 
 Outputs:
-* annotated query Seurat object
-* Subsetted reference object
-* Umaps of transferred labels to query in query space and reference space
-* Umap feature plots showing prediction score of each cell type
-* Proportion and cell count tables comparing prediction to manual annotation
-* Heatmap of proportion comparison to manual annotation
+* Annotated query Seurat object: query_seurat_pred.rds
+* Subsetted reference object: ref_seurat_map.rds
+* Initial featureplots:
+    * human_ref-nfeature-featureplot.pdf
+    * human_ref-rnacounts-featureplot.pdf
+    * query-nfeature-featureplot.pdf
+    * query-rnacounts-featureplot.pdf
+* Umap of reference:
+    * All cell types; ref_seurat_obj_umap.pdf
+    * Subsetted: ref_seurat_obj_subset_umap.pdf
+* Umaps of query:
+    * Manual annotation: query-manual_annotation_umap.pdf
+    * Predicted labels: query-celltype_seurat_predictions_umap.pdf
+    * Predicted labels in reference space with reference: celltype_seurat_predictions-umap_cca_clabels.pdf
+    * Predicted labels in reference space with manual annotation also in ref. space: celltype_seurat_predictionsvsmanual-umap_0.5_cca_clabels.pdf
+* Umap feature plots showing prediction score of each cell type: query_celltype_prediction_featureplot.pdf
+* Tables comparing prediction to manual annotation
+    * Cell counts: query_ref_data_table.txt
+    * Proportion: query_ref_data_table_proportion.txt
+* Heatmap of proportion comparison to manual annotation: celltype_manualvs.predicted_heatmap.pdf
+* Histogram of prediction score for each cell type: celltype_pred.score_histplot.pdf
 
 ### ClustifyR
 ClustifyR uses either a marker list of genes or a reference (or both!) to annotate a query object. For a marker list, Clustifyr annotates based on percent cells expressed in a given cluster for a given marker. It can also use enrichment tests. For a reference, Clustifyr performs a Spearman's correlation between the reference expression matrix and query expression matrix to find maximally correlated clusters, annotating with the highest correlated reference cluster (above a threshold).
