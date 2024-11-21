@@ -63,3 +63,7 @@ data/input_data
 # output
 output*
 shared_volume/
+
+# tar files
+*.tar.gz
+*/*.tar.gz
