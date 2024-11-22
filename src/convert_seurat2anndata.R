@@ -21,7 +21,7 @@ library(SeuratObject)
 library(SeuratDisk)
 library(hdf5r)
 # variables
-GIT_DIR <- get_wd()
+GIT_DIR <- getwd()
 config <- fromJSON(file.path("./config.json"))
 docker <- config$docker
 if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
