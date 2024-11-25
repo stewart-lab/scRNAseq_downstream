@@ -254,13 +254,14 @@ reducedDims(sce) <- list(PCA=dim_data_cca, UMAP=dim_data_umap)
 # run score and plot markers
 print("run DE analysis")
 annot_df <- score_and_plot_markers(merged_seurat, sce, output, "integration")
-
+print(annot_df)
 # annotate
 print("annotate")
 if (config$seurat_integration$score_and_plot_markers$known_markers) {
     new_df_ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
     # Get new cluster names ordered by cluster number
-    new_cluster_ids <- new_df_ordered$Cell.type
+    new_cluster_ids <- new_df_ordered$Celltype
+    print(new_cluster_ids)
     merged_seurat <- annotate_clusters_and_save(merged_seurat, new_cluster_ids, output, "integration")
   } else {
    print("no manual annotation because no known marker set")

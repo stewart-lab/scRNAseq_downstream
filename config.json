@@ -1,6 +1,6 @@
 {
-  "title": "seurat_mapping on Gamm 120",
-  "METHOD": "seurat_mapping",
+  "title": "seurat_integration on Gamm 40 & 120",
+  "METHOD": "seurat_integration",
   "docker": "TRUE",
   
   "seurat_mapping": {
@@ -120,9 +120,9 @@
     "tissue_name": "retina"
   },
   "clustifyr":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/output_seurat_mapping_20241025_143823/",
     "REF.SEURAT": "ref_seurat_map.rds",
-    "QUERY.SEURAT": "seurat_obj_labeled_S2.rds",
+    "QUERY.SEURAT": "query_seurat_pred.rds",
     "cluster_name": "seurat_clusters",
     "visualize_and_subset_ref": {
       "groupby": "type",
