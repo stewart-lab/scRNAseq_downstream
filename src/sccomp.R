@@ -252,16 +252,35 @@ model_without_association <-
     enable_loo = TRUE
   )
 # Compare models
+# Extract log likelihoods for the associated model
+log_lik_assoc <- attr(model_with_factor_association, "fit")$draws(variables = paste0("log_lik[", 1:22, "]"), format = "draws_matrix")
+
+# Extract log likelihoods for the non-associated model
+log_lik_noassoc <- attr(model_without_association, "fit")$draws(variables = paste0("log_lik[", 1:22, "]"), format = "draws_matrix")
+
+# Compute LOO for each model
+loo_assoc <- loo(log_lik_assoc)
+loo_noassoc <- loo(log_lik_noassoc)
+
+# Compare models
 comparison <- loo_compare(
-  model_with_factor_association |> attr("fit") |> loo(),
-  model_without_association |> attr("fit") |> loo()
+  loo_assoc,
+  loo_noassoc
 )
+# print to show diagnostic
+# Detailed Pareto k diagnostics
+print(loo_assoc)
+print(loo_noassoc)
+# write comparison
 comp_df <- as.data.frame(comparison)
 write.table(comp_df, file= paste0(output, "model_comparison_table.txt"), 
             quote = F, col.names = TRUE, row.names= F, sep= "\t")
 # is elpd_diff/se_diff > abs(5)?
 c.res <- comp_df$elpd_diff[2]/comp_df$se_diff[2]
 print(paste0("if ",c.res," is greater than abs(5), significant"))
+# capture output of loo
+writeLines(capture.output(loo_assoc), paste0(output,"loo_assoc-model_output.txt"))
+writeLines(capture.output(loo_noassoc), paste0(output,"loo_noassoc-model_output.txt"))
 
 # diffrential variability model
 print("differential variability model")
@@ -308,36 +327,21 @@ plots <- res |> sccomp_test() |> plot()
 # blue box is posterior predictive check and colors are 
 # associated with significant associations for composition and/or variability
 pdf(paste0(output, "signif_associations_boxplot.pdf"), width = 8, height = 6)
-print(plots$boxplot)
-# print(test |> sccomp_boxplot(factor="idents"))
+#print(plots$boxplot)
+print(test |> sccomp_boxplot(factor="idents"))
 dev.off()
 
 # credible interval plot 1
-# error bars represent 95% credible interval
-pdf(paste0(output, "credible_intervals_1d.pdf"), width = 8, height = 6)
-print(plots$credible_intervals_1D)
-#print(test |> plot_1D_intervals())
-dev.off()
+# # error bars represent 95% credible interval
+# pdf(paste0(output, "credible_intervals_1d.pdf"), width = 8, height = 6)
+# #print(plots$credible_intervals_1D)
+# print(test |> plot_1D_intervals())
+# dev.off()
 # credible interval plot 2
 pdf(paste0(output, "credible_intervals_2d.pdf"), width = 8, height = 6)
-print(plots$credible_intervals_2D)
-#print(test |> plot_2D_intervals())
+#print(plots$credible_intervals_2D)
+print(test |> plot_2D_intervals())
 dev.off()
-
-# plot2 = model_with_factor_association |> sccomp_test() |> plot()
-# # associated with significant associations for composition and/or variability
-# pdf(paste0(output, "signif_associations_boxplot2.pdf"), width = 8, height = 6)
-# print(plot2$boxplot)
-# dev.off()
-# # credible interval plot 1
-# # error bars represent 95% credible interval
-# pdf(paste0(output, "credible_intervals_1d2.pdf"), width = 8, height = 6)
-# print(plot2$credible_intervals_1D)
-# dev.off()
-# # credible interval plot 2
-# pdf(paste0(output, "credible_intervals_2d2.pdf"), width = 8, height = 6)
-# print(plot2$credible_intervals_2D)
-# dev.off()
 
 # save session info
 print("save session info")

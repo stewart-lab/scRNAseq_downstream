@@ -26,9 +26,9 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
 
   echo "Step 3: Running Docker container for downstream processing scripts"
   docker run --userns=host -it \
-    -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
+    -v "$(realpath "$DATA_DIR"):/data/input_data" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
-    -v "$(realpath "$CONFIG_FILE"):/config.json:ro" \
+    -v "$(realpath "$CONFIG_FILE"):/config.json" \
     stewartlab/scrnaseq_downstream2:v1 /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
@@ -37,8 +37,7 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
             Rscript /src/seurat_integrate_v5.R'
         elif [ \"$METHOD\" == \"sccomp\" ]; then
-            /bin/bash -c '. sccomp/bin/activate 
-            Rscript src/sccomp.R'
+            conda run -n sccomp2 /bin/bash -c 'Rscript src/sccomp.R' 
         elif [ \"$METHOD\" == \"pseudotime\" ]; then
             /bin/bash -c 'source pst_env/bin/activate
             python src/pseudotime.py'
