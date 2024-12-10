@@ -1,7 +1,7 @@
 {
   "title": "realtime on Gamm 40-120",
   "METHOD": "realtime",
-  "docker": "TRUE",
+  "docker": "FALSE",
   
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",

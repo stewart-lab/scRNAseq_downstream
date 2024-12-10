@@ -49,7 +49,7 @@ data_dir = os.path.expanduser(DATA_DIR)
 from datetime import datetime
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
-out_dir = "/shared_volume/realtime_" + now +"/"
+out_dir = "./shared_volume/realtime_" + now +"/"
 print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
