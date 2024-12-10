@@ -22,14 +22,14 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
 
   echo "Step 2.2: Building Docker container for downstream processing"
   # Build the Docker image from the pre_pipeline directory
-  docker build -t stewartlab/scrnaseq_downstream2:v1 ./
+  docker build -t stewartlab/scrnaseq_downstream2:v2 ./
 
   echo "Step 3: Running Docker container for downstream processing scripts"
   docker run --userns=host -it \
-    -v "$(realpath "$DATA_DIR"):/data/input_data" \
+    -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json" \
-    stewartlab/scrnaseq_downstream2:v1 /bin/bash -c "
+    stewartlab/scrnaseq_downstream2:v2 /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
             Rscript /src/seurat_mapping.R'

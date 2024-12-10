@@ -50,6 +50,7 @@ from datetime import datetime
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = "/shared_volume/realtime_" + now +"/"
+print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
 shutil.copy('./config.json', out_dir) 
@@ -274,13 +275,22 @@ for i in timepoints:
                     # Check if the cell type exists in the target timepoint
                     target_cells = adata[(adata.obs['time'] == j) & (adata.obs[annot_label] == ct)]
                     if len(target_cells) > 0:
-                        mtp.pull(
+                        try:
+                            mtp.pull(
                             tp,
                             time_points=[j],
                             basis="X_draw_graph_fa",
                             ax=axes[0],
                             title=[f"{ct} at timepoint {j}"],
-                        )
+                            )
+                        except(KeyError):
+                            mtp.pull(
+                                tp,
+                                time_points=[j],
+                                basis="X_draw_graph_fr",
+                                ax=axes[0],
+                                title=[f"{ct} at timepoint {j}"],
+                            )
                     else:
                         axes[0].text(0.5, 0.5, f"No {ct} cells at timepoint {j}", 
                                      ha='center', va='center')
@@ -457,5 +467,10 @@ if in_conda:
         f.write(packages)
     print("Package versions have been written to conda-requirements.txt")
 else:
-    print("Not in a conda environment. Please activate your environment first.")
+    print("Not in a conda environment. Running pip freeze")
+    result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
+    packages = result.stdout
+    # Write the packages to a file
+    with open(out_dir + 'sys-requirements.txt', 'w') as f:
+        f.write(packages)
 os.chmod(out_dir, 0o777)

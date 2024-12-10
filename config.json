@@ -1,6 +1,6 @@
 {
-  "title": "pseudotime on Gamm 120",
-  "METHOD": "pseudotime",
+  "title": "realtime on Gamm 40-120",
+  "METHOD": "realtime",
   "docker": "TRUE",
   
   "seurat_mapping": {
@@ -77,10 +77,10 @@
     }
   },
   "sccomp":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/output_seurat_mapping_20241025_143823/",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
     "CROSS_SPECIES": "no",
     "COMP_TYPE": "manual",
-    "annot_label1": "CellType_manual",
+    "annot_label1": "CellType",
     "annot_label2": "CellType_manual",
     "idents1": "pig_day40",
     "idents2": "pig_day120",
@@ -88,8 +88,8 @@
     "SEURAT.file2": "seurat_obj_labeled_S2.rds"
   },
   "pseudotime":{
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/",
-    "ADATA_FILE": "seurat_obj_labeled_S2.h5ad",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
+    "ADATA_FILE": "GAMM_S2_clabeled-clusters_0.5.h5ad",
     "NC": 12,
     "METADATA": "NA",
     "annot_label": "CellType_manual",

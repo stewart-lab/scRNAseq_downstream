@@ -53,6 +53,7 @@ from datetime import datetime
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = "/shared_volume/pseudotime_" + now +"/"
+print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
 shutil.copy(GIT_DIR+'/config.json', out_dir) 

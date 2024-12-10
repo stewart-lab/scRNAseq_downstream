@@ -1093,6 +1093,7 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
   # Save the Seurat object
   # if integration, goes directly to clustifyr, and will save there
   if (type=="integration"){
+    saveRDS(seurat_obj, file = paste0(output_path, "seurat_obj_labeled_integrated.rds"))
     return(seurat_obj)
   } else {
     saveRDS(seurat_obj, file = paste0(output_path, "seurat_obj_labeled.rds"))

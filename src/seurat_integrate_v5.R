@@ -246,9 +246,9 @@ sce <- SingleCellExperiment(list(counts=counts_matrix, logcounts=data_matrix),
 reducedDims(sce) <- list(PCA=dim_data_cca, UMAP=dim_data_umap)
 
 # first save seurat as h5 seurat file
-#SaveH5Seurat(merged_seurat, filename = paste0(output,"merged_seurat2.h5Seurat"))
-# # then convert to h5ad
-#Convert(paste0(output,"merged_seurat2.h5Seurat"), dest = "h5ad")
+SaveH5Seurat(merged_seurat, filename = paste0(output,"merged_seurat2.h5Seurat"))
+# then convert to h5ad
+Convert(paste0(output,"merged_seurat2.h5Seurat"), dest = "h5ad")
 
 # now perform DE analysis
 # run score and plot markers
