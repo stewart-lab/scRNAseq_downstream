@@ -148,8 +148,19 @@ Now run:
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* labeled Seurat object
-* 2 query labeled annotation visualizations (one for marker list, one for reference)
+* labeled Seurat objects
+    * seurat_obj_labeled.rds: Seurat object with clusters labeled by the marker list using clustifyr
+    * seurat.obj_clustifyr.rds: Seurat object with clusters labeled by a reference using clustifyr (if reference is used)
+* visualizations
+    * clustifyr_marker_annotation_umap.pdf: umap of labeled clusters using a marker list
+    * clustifyr_predicted_labels_umap.pdf: umap of labeled clusters using a reference
+    * correlation_heatmap.pdf: heatmap of clusters correlated with cell type based on the marker list annotation
+    * ref_seurat_obj_subset_umap.pdf: umap of reference cell types subsetted
+    * ref_seurat_obj_umap.pdf: umap of reference cell types
+* Other files
+    * sessionInfo.txt
+    * subset_celltype_table.txt
+    * config.json
 
 ## Annotation via marker lists
 
