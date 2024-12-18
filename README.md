@@ -281,8 +281,18 @@ Now run.
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* combined seurat object
-* pca and umap plots of integrated data
+* Objects
+    * seurat_obj_labeled_integrated.rds: integrated seurat object
+    * merged_seurat2.h5ad: converted integrated seurat object to anndata object
+    * merged_seurat2.h5Seurat: intermediate object for above conversion
+* Visualizations
+    * PCA after merging objects but before integrating
+        * elbow_pca.pdf
+        * pca_heat_map.pdf
+        * pca_scatter_plot.pdf
+        * top_n_dims_with_genes.pdf
+    * UMAP
+        * 
 * DE genes for integrated clusters
 * annotation if known marker list
 
