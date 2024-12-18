@@ -91,27 +91,34 @@ source run_downstream_toolkit.sh
 ```
 
 Outputs:
-* Annotated query Seurat object: query_seurat_pred.rds
-* Subsetted reference object: ref_seurat_map.rds
-* Initial featureplots:
-    * human_ref-nfeature-featureplot.pdf
-    * human_ref-rnacounts-featureplot.pdf
-    * query-nfeature-featureplot.pdf
-    * query-rnacounts-featureplot.pdf
-* Umap of reference:
-    * All cell types; ref_seurat_obj_umap.pdf
-    * Subsetted: ref_seurat_obj_subset_umap.pdf
-* Umaps of query:
-    * Manual annotation: query-manual_annotation_umap.pdf
-    * Predicted labels: query-celltype_seurat_predictions_umap.pdf
-    * Predicted labels in reference space with reference: celltype_seurat_predictions-umap_cca_clabels.pdf
-    * Predicted labels in reference space with manual annotation also in ref. space: celltype_seurat_predictionsvsmanual-umap_0.5_cca_clabels.pdf
-* Umap feature plots showing prediction score of each cell type: query_celltype_prediction_featureplot.pdf
+* Objects:
+    * query_seurat_pred.rds: Annotated query Seurat object 
+    * ref_seurat_map.rds: Subsetted reference object 
+* Visualizations:
+    * Initial featureplots:
+        * human_ref-nfeature-featureplot.pdf
+        * human_ref-rnacounts-featureplot.pdf
+        * query-nfeature-featureplot.pdf
+        * query-rnacounts-featureplot.pdf
+    * Umap of reference:
+        * ref_seurat_obj_umap.pdf: Ref umap with all cell types
+        * ref_seurat_obj_subset_umap.pdf: Ref umap with subsetted cell types
+    * Umaps of query:
+        * query-manual_annotation_umap.pdf: umap of manual annotation 
+        * query-celltype_seurat_predictions_umap.pdf: umap with predicted labels
+        * celltype_seurat_predictions-umap_cca_clabels.pdf: umap with predicted labels in reference space with reference 
+        * celltype_seurat_predictionsvsmanual-umap_0.5_cca_clabels.pdf: umap with predicted labels in reference space with manual annotation also in ref. space 
+        * query_celltype_prediction_featureplot.pdf: umap feature plots showing prediction score of each cell type
+    * Heatmap:
+        * celltype_manualvs.predicted_heatmap.pdf: heatmap of proportion comparison to manual annotation
+    * Histograms:
+        * <celltype>_pred.score_histplot.pdf: histogram of prediction score for each cell type: 
 * Tables comparing prediction to manual annotation
     * Cell counts: query_ref_data_table.txt
     * Proportion: query_ref_data_table_proportion.txt
-* Heatmap of proportion comparison to manual annotation: celltype_manualvs.predicted_heatmap.pdf
-* Histogram of prediction score for each cell type: celltype_pred.score_histplot.pdf
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
 
 ### ClustifyR
 ClustifyR uses either a marker list of genes or a reference (or both!) to annotate a query object. For a marker list, Clustifyr annotates based on percent cells expressed in a given cluster for a given marker. It can also use enrichment tests. For a reference, Clustifyr performs a Spearman's correlation between the reference expression matrix and query expression matrix to find maximally correlated clusters, annotating with the highest correlated reference cluster (above a threshold).
@@ -148,19 +155,20 @@ Now run:
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* labeled Seurat objects
+* Labeled Seurat objects
     * seurat_obj_labeled.rds: Seurat object with clusters labeled by the marker list using clustifyr
     * seurat.obj_clustifyr.rds: Seurat object with clusters labeled by a reference using clustifyr (if reference is used)
-* visualizations
+* Visualizations
     * clustifyr_marker_annotation_umap.pdf: umap of labeled clusters using a marker list
     * clustifyr_predicted_labels_umap.pdf: umap of labeled clusters using a reference
     * correlation_heatmap.pdf: heatmap of clusters correlated with cell type based on the marker list annotation
     * ref_seurat_obj_subset_umap.pdf: umap of reference cell types subsetted
     * ref_seurat_obj_umap.pdf: umap of reference cell types
-* Other files
-    * sessionInfo.txt
+* Tables:
     * subset_celltype_table.txt
-    * config.json
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
 
 ## Annotation via marker lists
 
@@ -189,8 +197,13 @@ Now run:
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* seurat object with annotations from GPT Celltype: seurat_celltypeGPT_annot.rds
-* UMAP figure: celltypeGPT_umap.pdf
+* seurat object with annotations from GPT Celltype:
+    * seurat_celltypeGPT_annot.rds
+* UMAP figure:
+    * celltypeGPT_umap.pdf
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
 
 ### scType
 ScType a computational method for automated selection of marker genes based on scRNA-seq expression data. A cell type specificity score is assigned to each marker gene, and this is weighted by the gene expression matrix to ultimately get a scType score and cell type annotation for each cluster. See: https://github.com/IanevskiAleksandr/sc-type?tab=readme-ov-file
@@ -215,9 +228,15 @@ Now run:
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* seurat_obj_labeled_sctype.rds --> seurat object with scType annotations
-* sctype_umap.pdf --> umap of scType annotations
-* sctype_bubbleplot.pdf --> bubble plot of all potential annotations per cluster
+* Object:
+    * seurat_obj_labeled_sctype.rds: Seurat object with scType annotations
+* Visualizations
+    * sctype_umap.pdf: umap of scType annotations
+    * sctype_umap2.pdf: umap of scType annotations with different color scheme
+    * sctype_bubbleplot.pdf: bubble plot of all potential annotations per cluster (the larger the bubble, the more cells have this annotation)
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
 
 ## Integration using Seurat
 Integrate multiple Seurat objects. Objects are merged, then feature selection, scaling, and dimensionality reduction are performed. Next integration is done via canonical correlation analysis (CCA). After integration, clustering is performed and umap reduction is run again on the cca reduction, and integrated data are visualized. Finally layers are joined to then find differentially expressed genes across the integrated clusters.
@@ -291,10 +310,20 @@ Outputs:
         * pca_heat_map.pdf
         * pca_scatter_plot.pdf
         * top_n_dims_with_genes.pdf
-    * UMAP
-        * 
+    * UMAPs
+        * umap_clusters.pdf: umap of combined objects before integration, clusters
+        * umap_lanes.pdf: umap of combined objects before integration, lanes
+        * umap_plot.pdf: umap of combined objects before integration, lanes
+        * umap_merged_cca.pdf: umap of combined objects after integration
+        * labeled-clusters.pdf: umap of cell type annotation after integration (if marker list is provided)
+        * X_featureplot_top10ranks.pdf: umap of gene feature expression for each cluster
 * DE genes for integrated clusters
-* annotation if known marker list
+    * Top100_DE_Genes folder
+* Known markers that are also top DE genes (if marker list is provided)
+    * Known_DE_Markers folder
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
 
 ## Cell type composition analysis
 
@@ -324,10 +353,24 @@ Now run.
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* combined seurat object
-* proportion figure
-* significance figures
-* results tables
+* Object:
+    * seurat.combined.rds: combined seurat object
+* Visualizations:
+    * celltype_proportions.pdf: proportion figure
+    * signif_associations_boxplot.pdf: boxplots of posterior distributions, showing significant differences between samples
+    * credible_intervals_1d.pdf: credible interval of the slope for composition (left) and variability (right). Not available with current sccomp version 2.1.3
+    * credible_intervals_2d.pdf: credible interval of the slope showing variability effect on y-axis and composition effect on x-axis for each sample
+* Tables:
+    * composition_result_table.txt: effect size results from modeling composition only
+    * composition_x_var_result_table.txt: effect size results from modeling composition X variability
+    * composition_x_var_result_testtable.txt: same as above except with p-value added
+    * loo_assoc-model_output.txt: leave one out results for model with sample association
+    * loo_noassoc-model_output.txt: leave one out results for model without sample association
+    * model_comparison_table.txt: Bayesian ANOVA, comparing loo results
+    * <celltype>_composition_result_table.txt: example of count differences for a specific cell type
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
 
 ## Pseudotime analysis
 Cells are often in transition from one cell type to another, and pseudotime captures relationships between clusters, beginning with the least differentiated state to the most mature/terminal state(s).
@@ -389,9 +432,28 @@ Now you are ready to run pseudotime:
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* pseudotime_processed.h5ad object
-* pseudotime figures including trajectories, palantir pseudotime, diffusion maps, transition maps, and terminal state probability figure
-* gene figures including gene expression and gene trajectories over pseudotime
+* Objects:
+    * pseudotime_processed.h5ad: ann data object with pseudotime
+* Visualizations:
+    * Trajectories
+        * <celltype>_trajectory.pdf: violin plots of pseudotime for different cell types in a specific cell type trajectory as defined in the config file
+    * Diffusion map
+        * diffusion_map.png: cell types visualized in diffusion map dimensionality reduction
+    * Pseudotime plots
+        * dpt-palantir_pseudotime.pdf: umap showing overall dpt and palantir pseudotime values on umap
+        * palantir_components_umap.pdf: umap showing components of palantir pseudotime
+        * palantir_results.pdf: umaps of total pseudotime, total entropy, and pseudotime for each individual terminal point
+        * palantir_terminal_cells.pdf: umap showing start cell and different terminal cells
+        * pseudotime_transition.png: arrows showing pseudotime directions
+        * terminal_state_probs.pdf: bar plots for start cell and each terminal cell showing probabilities of that cell arriving at a specific cell type state
+    * Gene figures
+        * gene_expression.pdf: umaps of gene expression for genes listed in config file
+        * gene_trends.pdf: gene expression trends over pseudotime for each terminal cell type for genes listed in the config file
+        * gene_trends_heatmap.pdf: heatmap of gene expression trends over pseudotime
+        * gene_trend_clusters_<celltype>.pdf: Clusters of different gene expression trends over pseudotime for each terminal cell type
+* Other:
+    * package_versions.txt: package information
+    * config.json: config settings used 
 
 ## Real time analysis
 If you have actual time points in your data, you can do a real time analysis with optimal transport to see how the cells evolve over that time period.
@@ -420,7 +482,7 @@ Run to get a .h5ad file:
 source run_downstream_toolkit.sh
 ```
 
-Once you ahve the .h5ad file, you are ready to run realtime.
+Once you have the .h5ad file, you are ready to run realtime.
 Modify config variables:
 ```
 "title": "Your title"
@@ -439,11 +501,22 @@ Run:
 source run_downstream_toolkit.sh
 ```
 Outputs:
-* force_directed_graph.pdf --> force directed graph of time points and annotations
-* prolif-apop_graph.pdf --> cell proliferation and apoptosis graph
-* prior-post_growthrates.pdf --> prior and posterior cell growth rates
-* cell_costs.pdf --> costs of source or target cell
-* transitions_*.png --> figures identfiying descendents of celltypes
+* Object:
+    * realtime_object.h5ad: ann data object with realtime results
+* Visualizations:
+    * force_directed_graph.pdf: force directed graph of time points and annotations
+    * prolif-apop_graph.pdf: cell proliferation and apoptosis graph
+    * prior-post_growthrates.pdf: prior and posterior cell growth rates
+    * cell_costs.pdf: costs of source or target cell
+    * transitions_*.png: heatmap of the transition of one cell type to another across time points
+    * <celltype>_ancestors_*.pdf: umap 1: cells in cell type at later timepoint, umap 2: ancestors of celltype X at earlier timepoint
+    * <celltype>_descendents_*.pdf: umap 1: cells in cell type at earlier timepoint, umap 2: descendents of celltype X at later timepoint
+    * prob_mass_flow_<celltype>.pdf: probability of the mass flow of cell type X across time
+    * cell_type_evolution1.0-2.0.pdf: probability of the mass flow of all cell types across time
+    * random_walks.pdf: connections of cells (cell coupling) across time points on umap
+* Other:
+    * sys-requirements.txt: package information
+    * config.json: config settings used
 
 ## Other processes
 
@@ -485,9 +558,31 @@ Run:
 ```
 source run_downstream_toolkit.sh
 ```
+Outputs:
+* Objects:
+    * seuratobj_recluster_resX.rds: reclustered Seurat object at resolution X
+    * seurat_obj_labeled.rds: reclustered and reannotated Seurat object of marker list provided
+* Visualizations:
+    * umap_clusters.pdf: umap of clusters
+    * umap_lanes.pdf: umap of lanes
+    * labeled-clusters.pdf: umap with new cell type annotations (if marker list provided)
+    * labeled-clusters2.pdf: umap of new cell type annotations without legend
+    * X_featureplot_top10ranks.pdf: umap of gene feature expression for cluster X
+* Tables:
+    * manual_annot_metadata_0.75.txt: metadata table for new cell types
+    * table_celltype_cluster.txt: table with cluster and cell type
+    * table_celltype_counts.txt: table with cell type and count of number of cells in the cell type
+* DE genes for integrated clusters
+    * Top100_DE_Genes folder
+* Known markers that are also top DE genes (if marker list is provided)
+    * Known_DE_Markers folder
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
+
 ### Phate dimensionality reduction
 To use the PHATE dimension reduction tool:
-
+**currently unavailable**
 Modify config variables:
 **options under "phate" header:**
 * knn : Number of nearest neighbors (default: 5)
@@ -516,6 +611,7 @@ Run:
 ```
 source run_downstream_toolkit.sh
 ```
+Outputs:
 
 ### Make feature plots
 Make feature plots for any list of genes to visualize expression in low dimensional space
@@ -540,6 +636,13 @@ Run:
 ```
 source run_downstream_toolkit.sh
 ```
+Outputs:
+* Visualizations:
+    * feature_plot_X_<celltype>.pdf: umaps of cell types, clusters, and gene feature expression for that cell type
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
+
 ### Subset seurat object
 To subset cells that express certain genes
 
@@ -557,6 +660,14 @@ Modify config:
     "ANNOT": "CellType_combined" # cell type annotation label
   },
 ```
+Outputs:
+* Object:
+    * seurat.obj_subset.rds: subsetted seurat object
+* Visualization:
+    * seurat_subset.pdf: umap1: of original with cell types, umap2: of subsetted cells expressing those genes identified in the config file, umap3: of sample types, umap4: of clusters, subsequent umaps: of gene expression from genes identified in config file
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used 
 
 ### Parse DE markers
 To get the list of all DE genes and their annotation from each cluster for a seurat object (based on the output of a single cell analysis). Need a directory with the KnownDE.markers* files and Top100DEgenes_* files.
@@ -580,6 +691,8 @@ Seurat paper: https://doi.org/10.1016/j.cell.2019.05.031
 sccomp paper: https://doi.org/10.1073/pnas.2203828120
 
 Palantir paper: https://doi.org/10.1038/s41587-019-0068-4
+
+Moscot paper: https://doi.org/10.1101/2023.05.11.540374
 
 CellRank2 paper: https://doi.org/10.1101/2023.07.19.549685
 
