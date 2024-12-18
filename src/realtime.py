@@ -22,7 +22,6 @@ import anndata as ad
 import h5py
 import numpy as np
 import subprocess
-import sys
 
 sc.settings.set_figure_params(frameon=False, dpi=100)
 cr.settings.verbosity = 2

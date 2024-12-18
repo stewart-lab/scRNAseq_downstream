@@ -43,6 +43,7 @@ if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
 # set up environment and output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_seurat_mapping_", timestamp)
+print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 

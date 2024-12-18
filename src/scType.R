@@ -19,6 +19,7 @@ TISSUE <- config$sctype$tissue
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_sctype_", timestamp)
+print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 

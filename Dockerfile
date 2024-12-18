@@ -1,5 +1,5 @@
 
-FROM stewartlab/scrnaseq_downstream2:v2
+FROM stewartlab/scrnaseq_downstream3:v1
 
 RUN rm -rf ./src/
 COPY src/ ./src/

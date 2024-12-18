@@ -29,6 +29,7 @@ reduction <- config$featureplots$reduction
 # create output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_featureplots_", timestamp)
+print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
@@ -61,8 +62,8 @@ plot_function <- function(features, input_name, plot1, plot2) {
       markers1 <- marker.genes[i:j]
       plot3 <- FeaturePlot(seurat.obj, features = markers1, ncol = 3,
                            pt.size = 0.1, reduction = reduction) &
-                           scale_color_viridis(option="B") &
-                           xlim(c(-0.03,0.04)) & ylim(c(-0.03,0.04))
+                           scale_color_viridis(option="B") #&
+                           #xlim(c(-0.03,0.04)) & ylim(c(-0.03,0.04))
       combined_plot <- ((plot1 | plot2) / plot3) + plot_layout(width = c(2, 3),
                                                                heights = c(1, 4))
       # make pdf

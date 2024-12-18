@@ -33,6 +33,7 @@ ANNOT <- config$subset_seurat$ANNOT
 # set up environment and output
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0("./shared_volume/output_subset_", timestamp)
+print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0("config.json"), file.path(output, "config.json"))
