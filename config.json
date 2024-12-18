@@ -1,6 +1,6 @@
 {
-  "title": "seurat2ann on Gamm 120",
-  "METHOD": "seurat2ann",
+  "title": "sctype on Gamm 40",
+  "METHOD": "sctype",
   "docker": "TRUE",
   
   "seurat_mapping": {
