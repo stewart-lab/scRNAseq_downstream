@@ -5,7 +5,7 @@ RUN rm -rf ./src/
 COPY src/ ./src/
 RUN ls -la ./src/
 
-RUN rm -rf ./data/
+#RUN rm -rf ./data/
 COPY data/ ./data/
 RUN ls -la ./data/
 

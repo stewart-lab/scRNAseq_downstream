@@ -41,15 +41,16 @@ packageVersion("Seurat")
 # Load Data
 print("loading data")
 seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT.FILE))
-
+print(seurat.obj)
 # recluster
 print("reclustering")
+seurat.obj <- RunPCA(seurat.obj, features = VariableFeatures(object = seurat.obj))
 seurat.obj_recluster <- perform_clustering(seurat.obj, output, "recluster")
 
 # save object
-print("saving")
+#print("saving")
 resolution <- as.character(config$recluster$perform_clustering$resolution)
-saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
+#saveRDS(seurat.obj_recluster, file = paste0(output, "seuratobj_recluster_res", resolution, ".rds"))
 
 # Find markers with Differential expressed features (genes)
 # analyse known markers

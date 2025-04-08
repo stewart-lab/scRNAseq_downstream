@@ -561,13 +561,19 @@ perform_clustering <- function(seurat_obj, path = output, type) {
   }
   # Check if Harmony embeddings exist in the Seurat object
   batch_corrected <- "harmony" %in% names(Embeddings(seurat_obj))
-
+  # check if pca in embeddings
+  pca_embed <- "pca" %in% names(Embeddings(seurat_obj))
+  print(pca_embed)
+  if (!pca_embed){
+    message("no PCA, running now")
+    seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
+  }
   # If batch correction was not performed and reduction is set to "harmony", update it to "pca"
   if (!batch_corrected && reduction == "harmony") {
     message("Batch correction was skipped. Updating reduction to 'pca'.")
     reduction <- "pca"
   }
-
+  
   # Perform K-nearest neighbor (KNN) graph
   seurat_obj <- FindNeighbors(seurat_obj, dims = dims_snn, reduction = reduction)
 

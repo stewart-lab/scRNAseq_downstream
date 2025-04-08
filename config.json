@@ -1,5 +1,5 @@
 {
-  "title": "sctype on Gamm 40",
+  "title": "sctype for Gamm 120 with stem cell markers",
   "METHOD": "sctype",
   "docker": "TRUE",
   
@@ -137,10 +137,10 @@
   },
   "recluster":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
-    "SEURAT.FILE": "seurat_obj_labeled_S1.rds",
+    "SEURAT.FILE": "seurat_obj_labeled_S2.rds",
     "perform_clustering": {
-      "reduction": "pca",
-      "resolution": 0.75,
+      "reduction": "harmony",
+      "resolution": 0.5,
       "algorithm": "leiden",
       "dims_snn": 10,
       "cluster_name": "seurat_clusters2"
@@ -148,7 +148,7 @@
     "score_and_plot_markers": {
       "top_n_markers": 100,
       "known_markers": "True",
-      "known_markers_path": "./data/markers/Kims_retinal_markers.txt",
+      "known_markers_path": "./data/markers/Kim_retinal_plus_stem_markers.txt",
       "cluster_type": "seurat_clusters2",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
@@ -163,7 +163,7 @@
   "featureplots":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
     "SEURAT_OBJ": "seurat_obj_labeled_S2.rds",
-    "GENE_LIST": "./data/markers/Kims_retinal_markers.txt",
+    "GENE_LIST": "./data/markers/retinal_stem_markers_LFJ.txt",
     "ANNOT": "CellType_manual",
     "INPUT_NAME": "day120",
     "reduction": "umap"
@@ -195,9 +195,9 @@
   },
   "sctype":{
     "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
-    "SEURAT_OBJ": "seurat_obj_labeled_S1.rds",
-    "db": "default",
-    "tissue": "Eye"
+    "SEURAT_OBJ": "seurat_obj_labeled_S2.rds",
+    "db": "./data/markers/retinal_markers_Kim-LFJ_forScType.xlsx",
+    "tissue": "retina"
   }
   
 }
