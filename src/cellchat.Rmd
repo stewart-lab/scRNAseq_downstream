@@ -1,0 +1,229 @@
+```{r load_packages}
+library(CellChat)
+library(patchwork)
+library(Seurat)
+library(Matrix)
+options(stringsAsFactors = FALSE)
+```
+# load Seurat object
+# for seurat version < 5.0.0 normalized data: seurat_object[["RNA"]]@data # normalized data matrix
+```{r load_seurat}
+seurat_obj <- readRDS(file="/w5home/bmoore/Pierre_sc_zebrafish/SCI6WK_PARSE_PG_SB_030123.rds")
+print(seurat_obj)
+```
+# get data matrix from seurat
+```{r get_input}
+data.input <- seurat_obj[["RNA"]]$data
+print(head(data.input))
+print(colnames(seurat_obj@meta.data))
+print(unique(seurat_obj$customclassif))
+labels <- seurat_obj$customclassif
+meta <- data.frame(labels = labels, row.names = names(labels)) # create a dataframe of the cell labels
+print(head(meta))
+```
+# get orthologs
+```{r subset_orthos}
+ortholog_file <-"/w5home/bmoore/Pierre_sc_zebrafish/zebrafish_homologs_ensembl.txt"
+orthologs <- read.csv2(ortholog_file, sep = "\t", header = TRUE)
+print(head(orthologs))
+orthologs <- orthologs[,c("Gene.stable.ID","Gene.name","Mouse.gene.name")]
+```
+# merge expr df with orthologs
+```{r merge_expression_orthologs}
+# Convert expression matrix to dataframe with gene names as a column
+expr_df <- as.data.frame(as.matrix(data.input))
+expr_df$gene_name <- toupper(rownames(expr_df))
+
+# Convert ortholog gene names to uppercase
+orthologs$Gene.name <- toupper(orthologs$Gene.name)
+#orthologs$Mouse.gene.name <- toupper(orthologs$Mouse.gene.name)
+orthologs$Gene.stable.ID <- toupper(orthologs$Gene.stable.ID)
+
+# Create two separate ortholog dataframes and remove duplicates from each
+# For Gene.name matches
+orthologs_gene <- orthologs[!duplicated(orthologs$Gene.name), ]
+print(paste0("Number of unique Gene.name entries: ", nrow(orthologs_gene)))
+
+# For Gene.stable.ID matches
+orthologs_stable <- orthologs[!duplicated(orthologs$Gene.stable.ID), ]
+print(paste0("Number of unique Gene.stable.ID entries: ", nrow(orthologs_stable)))
+
+# Create two separate merges - one for each potential match column
+merge1 <- merge(expr_df, orthologs_gene, by.x = "gene_name", by.y = "Gene.name", all.x = TRUE)
+merge2 <- merge(expr_df, orthologs_stable, by.x = "gene_name", by.y = "Gene.stable.ID", all.x = TRUE)
+
+# Print number of matches from each merge
+print(paste0("Number of matches from Gene.name: ", sum(!is.na(merge1$Gene.stable.ID))))
+print(paste0("Number of matches from Gene.stable.ID: ", sum(!is.na(merge2$Gene.name))))
+
+# Combine the results, prioritizing matches from merge1 if they exist
+missing_in_merge1 <- is.na(merge1$Gene.stable.ID)
+matches_in_merge2 <- !is.na(merge2$Gene.name)
+
+# Replace missing matches with those found in merge2
+final_merged <- merge1
+final_merged[missing_in_merge1 & matches_in_merge2,] <- merge2[missing_in_merge1 & matches_in_merge2,]
+
+# Check how many genes were matched in total
+n_matched <- sum(!is.na(final_merged$Mouse.gene.name))
+n_total <- nrow(final_merged)
+print(paste0("Total matched mouse genes after combining both approaches: ", 
+        n_matched, " out of ", n_total, " genes"))
+
+# Print a few examples of the matches
+print("Sample of first few matches:")
+print(head(final_merged[!is.na(final_merged$Mouse.gene.name), 
+        c("gene_name", "Gene.stable.ID", "Mouse.gene.name")]))
+out_orthos <- final_merged[,c("gene_name", "Gene.stable.ID", "Mouse.gene.name")]
+write.csv2(out_orthos, 
+        file = "/w5home/bmoore/Pierre_sc_zebrafish/merged_orthologs_zebrafish-mouse.csv", 
+        row.names=TRUE)
+print(dim(final_merged))
+```
+# subset orthologs
+```{r subset_orthos}
+# remove mouse genes that are NA or empty
+final_merged <- final_merged[!is.na(final_merged$Mouse.gene.name) & final_merged$Mouse.gene.name != "",]
+
+# remove other gene names
+data.input.matched <- final_merged[, !colnames(final_merged) %in% c("gene_name", "Gene.stable.ID")]
+# make numeric
+data.input.matched <- as.data.frame(data.input.matched)
+data.input.matched <- mutate_all(data.input.matched[, !colnames(data.input.matched) %in% 
+                        c("Mouse.gene.name")], function(x) as.numeric(as.character(x)))
+data.input.matched$Mouse.gene.name <- final_merged$Mouse.gene.name
+# merge duplicate mouse genes
+data.input.matched <- aggregate(data.input.matched, 
+                        by = list(Mouse.gene.name = data.input.matched$Mouse.gene.name), 
+                        FUN = mean)
+print(dim(data.input.matched))
+# write
+write.csv2(data.input.matched, 
+        file="/w5home/bmoore/Pierre_sc_zebrafish/mouse_ortho_sc_expr_matrix.csv", 
+        row.names=TRUE)
+print(colnames(data.input.matched))
+```
+
+```{r format}
+# remove last column that has Mouse.gene.name (as this is duplicated)
+data.input.matched2 <- data.input.matched[,-61487]
+dim(data.input.matched2)
+# Convert all numeric columns to numeric type
+numeric_cols <- colnames(data.input.matched2)[-1]  # all columns except mouse name
+head(numeric_cols)
+# Set row names from Group.1 and remove that column
+rownames(data.input.matched2) <- data.input.matched2$Mouse.gene.name
+data.input.matched2 <- data.input.matched2[,numeric_cols]
+data.input.matched2[1:5,1:5]
+# make numeric
+#data.input.matched <- as.data.frame(data.input.matched)
+#data.input.matched <- mutate_all(data.input.matched, function(x) as.numeric(as.character(x)))
+
+# Convert to matrix and then sparse matrix
+data.input.matched2 <- as.matrix(data.input.matched2)
+data.input.matched2 <- Matrix(data.input.matched2, sparse = TRUE)
+print(dim(data.input.matched2))
+
+```
+# convert back to orthologous mouse seurat obj
+```{r convert2seurat}
+# convert to seurat obj
+seurat.obj.mouse <- CreateSeuratObject(
+  counts=data.input.matched2,
+  assay = "RNA",
+  meta.data = meta,
+  project = "zebrafish-mouse-spine-regen")
+print(seurat.obj.mouse)
+
+# data was already normalized, so add back in counts as data layer
+seurat.obj.mouse[["RNA"]]$data <- seurat.obj.mouse[["RNA"]]$counts
+print(seurat.obj.mouse)
+# check out metadata
+m_metadata <- seurat.obj.mouse[[]]
+colnames(m_metadata)
+unique(m_metadata$labels)
+```
+# make cell chat obj
+```{r get_ccobject}
+# make cell chat object
+cellchat <- createCellChat(object = seurat.obj.mouse, 
+           group.by = "labels", assay = "RNA")
+# Convert dataframe to matrix first, then to sparse matrix
+# data.input.matched <- as.matrix(data.input.matched)
+# # then convert to sparse matrix
+# library(Matrix)
+# data.input.matched <- Matrix(data.input.matched, sparse = TRUE)
+# # then make cell chat obj from matrix
+# cellchat <- createCellChat(object = data.input.matched, meta = meta, group.by = "labels")
+print(cellchat)
+```
+# set idents
+```{r set_ident}
+cellchat <- setIdent(cellchat, ident.use = "labels")
+levels(cellchat@idents)
+groupSize <- as.numeric(table(cellchat@idents))
+print(groupSize)
+```
+# write gene names
+```{r get_genenames}
+mgenenames <- as.data.frame(Features(seurat_obj))
+write.csv(mgenenames, file="/w5home/bmoore/Pierre_sc_zebrafish/mouse_seurat_genenames.csv", row.names = FALSE)
+```
+# get cell chat DB
+```{r get_database}
+CellChatDB <- CellChatDB.mouse # use CellChatDB.human if running on human data
+showDatabaseCategory(CellChatDB)
+# Show the structure of the database
+dplyr::glimpse(CellChatDB$interaction)
+```
+# subset DB
+```{r subset_db}
+# use all CellChatDB except for "Non-protein Signaling" for cell-cell communication analysis
+CellChatDB.use <- subsetDB(CellChatDB)
+# set the used database in the object
+cellchat@DB <- CellChatDB.use
+```
+# preprocess expr data
+```{r preprocess_exp}
+# subset the expression data of signaling genes for saving computation cost
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+# set maxSize
+oopts <- options(future.globals.maxSize = 1.0 * 1e9) # 1GB
+on.exit(options(oopts))
+future::plan("multisession", workers = 4) # do parallel
+# ID over-expression
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+```
+# compute communication probability
+```{r cc_prob}
+ptm = Sys.time()
+# options: # type set to trimean for fewer interactioins, also control for abundant cell type bias 
+oopts <- options(future.globals.maxSize = 2.0 * 1e9)# 2GB
+on.exit(options(oopts))
+cellchat <- computeCommunProb(cellchat, type = "triMean",population.size = TRUE)
+
+```
+# filter
+```{r filter}
+# filter few cells 
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+```
+# extract data frame
+```{r df}
+df.net <- subsetCommunication(cellchat) # df of inferreed cc communications from ligand/receptors
+df.net.p <- subsetCommunication(cellchat, slot.name = "netP") # inferred at signal pathways
+
+```
+```{r sig_path}
+cellchat <- computeCommunProbPathway(cellchat)
+```
+# save
+```{r save}
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+write.table(df.net,file=paste0(output,"cellchat_df_net_ligand-recept.txt"), sep="\t", quote=FALSE)
+write.table(df.net.p,file=paste0(output,"cellchat_df_net_signal_paths.txt"), sep="\t", quote=FALSE)
+saveRDS(seurat.obj.mouse, file= paste0(output,"seurat_mouse_annot.rds"))
+saveRDS(cellchat, file=paste0(output,"cellchat_obj.rds"))
+writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+```
