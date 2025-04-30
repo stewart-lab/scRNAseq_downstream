@@ -1,0 +1,29 @@
+# niche net
+
+```{r load_packages}
+library(nichenetr) # Please update to v2.0.4
+library(Seurat)
+library(SeuratObject)
+library(tidyverse)
+```
+
+```{r load_seurat}
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+seuratObj <- readRDS(file= paste0(output,"seurat.obj.mouse_1wk.rds"))
+seuratObj@meta.data %>% head()
+table(seuratObj$labels)
+# For older Seurat objects, you may need to run this
+#seuratObj <- UpdateSeuratObject(seuratObj)
+print(seuratObj)
+```
+
+```{r convert_symbols}
+# cnovert old symbols
+seuratObj <- alias_to_symbol_seurat(seuratObj, "mouse")
+```
+
+```{r visualize}
+pdf(file=paste0(output,"seurat_mouse_umap1wk.pdf"))
+DimPlot(seuratObj, reduction = "umap", group.by = "CellType")
+dev.off()
+```

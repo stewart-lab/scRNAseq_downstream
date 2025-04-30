@@ -1,0 +1,345 @@
+# load libraries
+```{r}
+ptm = Sys.time()
+library(CellChat)
+library(patchwork)
+reticulate::use_python("/w5home/bmoore/.virtualenvs/cellchat/bin/python", required=T) 
+```
+# create dir
+```{r}
+setwd("/w5home/bmoore/Pierre_sc_zebrafish/")
+data.dir <- './comparison_2wk'
+dir.create(data.dir)
+setwd(data.dir)
+```
+# load cell chat objects from previous cell chat run
+```{r}
+cellchat.NR <- readRDS("../seurat_mouse_annot_2wkNR_cellchat_20250425_142229/cellchat_obj.rds")
+cellchat.R <- readRDS("../seurat_mouse_annot_2wkR_cellchat_20250425_154030/cellchat_obj.rds")
+object.list <- list(NR = cellchat.NR, R = cellchat.R)
+cellchat_merge <- mergeCellChat(object.list, add.names = names(object.list))
+cellchat_merge
+execution.time = Sys.time() - ptm
+print(as.numeric(execution.time, units = "secs"))
+```
+# save
+```{r}
+# Users can now export the merged CellChat object and the list of the two separate objects for later use
+save(object.list, file = "cellchat_object.list_2wk_NR_R.RData")
+save(cellchat_merge, file = "cellchat_merged_2wk_NR_R.RData")
+name <- "2wk_NR_R"
+```
+# Identify altered interactions and cell populations
+```{r}
+# Compare the total number of interactions and interaction strength and among cell populations
+ptm = Sys.time()
+gg1 <- compareInteractions(cellchat_merge, show.legend = F, group = c(1,2))
+gg2 <- compareInteractions(cellchat_merge, show.legend = F, group = c(1,2), measure = "weight")
+pdf(file = paste0(name, "_global_interactions.pdf"))
+print(gg1 + gg2)
+dev.off()
+
+# circle plot
+pdf(file = paste0(name, "_cell_diffinteractions_circ.pdf"))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_diffInteraction(cellchat_merge, weight.scale = T)
+netVisual_diffInteraction(cellchat_merge, weight.scale = T, measure = "weight")
+dev.off()
+# heatmap
+gg1 <- netVisual_heatmap(cellchat_merge)
+#> Do heatmap based on a merged object
+gg2 <- netVisual_heatmap(cellchat_merge, measure = "weight")
+#> Do heatmap based on a merged object
+pdf(file = paste0(name, "_cell_diffinteractions_heatmap.pdf"))
+print(gg1 + gg2)
+dev.off()
+```
+
+# Compare the major sources and targets
+```{r}
+#  Identify cell populations with significant changes in signals
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], 
+  title = names(object.list)[i], weight.MinMax = weight.MinMax)
+}
+pdf(file = paste0(name, "_sig_changes_each_dataset.pdf"))
+patchwork::wrap_plots(plots = gg)
+dev.off()
+```
+```{r}
+# sig changes of specific cell populations
+gg1 <- netAnalysis_signalingChanges_scatter(cellchat_merge, idents.use = 
+        "T_Cells_and_Neutrophils", signaling.exclude = c("Oligodendrocytes_maybe","Unknown"))
+gg2 <- netAnalysis_signalingChanges_scatter(cellchat_merge, idents.use = 
+        "Fibroblasts", signaling.exclude = c("Oligodendrocytes_maybe","Unknown"))
+
+pdf(file = paste0(name, "_sig_changes_Tcell-Fibroblast.pdf"))
+patchwork::wrap_plots(plots = list(gg1,gg2))
+dev.off()
+```
+#  Identify altered signaling with distinct network architecture
+```{r}
+# functional similarity
+cellchat_merge <- computeNetSimilarityPairwise(cellchat_merge, 
+                            type = "functional")
+#> Compute signaling network similarity for datasets 1 2
+cellchat_merge <- netEmbedding(cellchat_merge, type = "functional")
+#> Manifold learning of the signaling networks for datasets 1 2
+cellchat_merge <- netClustering(cellchat_merge, type = "functional")
+#> Classification learning of the signaling networks for datasets 1 2
+# Visualization in 2D-space
+pdf(file = paste0(name, "_sig_networks_functional_2D_plot.pdf"))
+netVisual_embeddingPairwise(cellchat_merge, type = "functional", 
+        label.size = 3.5)
+dev.off()
+
+# structural similarity
+cellchat_merge <- computeNetSimilarityPairwise(cellchat_merge, 
+                type = "structural")
+cellchat_merge <- netEmbedding(cellchat_merge, type = "structural")
+cellchat_merge <- netClustering(cellchat_merge, type = "structural")
+# Visualization in 2D-space
+pdf(file = paste0(name, "_sig_networks_structural_2D_plot.pdf"))
+netVisual_embeddingPairwise(cellchat_merge, type = "structural", label.size = 3.5)
+dev.off()
+```
+```{r}
+# compute pathway distance in joint manifold
+pdf(file = paste0(name, "_pathway_distance.pdf"))
+rankSimilarity(cellchat_merge, type = "functional")
+dev.off()
+```
+# Identify altered signaling with distinct interaction strength
+```{r}
+# overall information flow of each signaling pathway or ligand-receptor pair
+# Significant signaling pathways were ranked based on differences in the overall information flow
+# overall info flow is defined by the sum of communication probability among all pairs of cell groups in the inferred network (i.e., the total weights)
+gg1 <- rankNet(cellchat_merge, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE)
+gg2 <- rankNet(cellchat_merge, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE)
+pdf(file = paste0(name, "_overall_info_flow.pdf"))
+print(gg1 + gg2)
+dev.off()
+```
+```{r}
+#Compare outgoing (or incoming) signaling patterns associated with each cell population
+library(ComplexHeatmap)
+i = 1
+# combining all the identified signaling pathways from different datasets 
+# outgoing
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6)
+pdf(file = paste0(name, "_outgoing_sig_paths.pdf"))
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+dev.off()
+# incoming
+ht3 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6, color.heatmap = "GnBu")
+ht4 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6, color.heatmap = "GnBu")
+pdf(file = paste0(name, "_incoming_sig_paths.pdf"))
+draw(ht3 + ht4, ht_gap = unit(0.5, "cm"))
+dev.off()
+# all
+ht5 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6, color.heatmap = "OrRd")
+ht6 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6, color.heatmap = "OrRd")
+pdf(file = paste0(name, "_all_sig_paths.pdf"))
+draw(ht5 + ht6, ht_gap = unit(0.5, "cm"))
+dev.off()
+```
+# Identify the up-gulated and down-regulated signaling ligand-receptor pairs
+```{r}
+# Id dysfunctional signaling by comparing the communication probabities
+# for T cells
+p1 <- netVisual_bubble(cellchat_merge, sources.use = c(6), targets.use = c(4,12),  
+        comparison = c(1, 2), angle.x = 45)
+pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), 
+        height = 11, width = 8.5)
+        print(p1)
+dev.off()
+# fibroblasts
+p2 <- netVisual_bubble(cellchat_merge, sources.use = c(8), targets.use = c(6,5,3,7,13,14),  
+        comparison = c(1, 2), angle.x = 45)
+pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"), 
+        height = 11, width = 8.5)
+        print(p2)
+dev.off()
+```
+
+```{r}
+# up-regulated (increased) and down-regulated (decreased) signaling ligand-receptor pairs between datasets
+# based on communication probability
+# Tcells
+gg1 <- netVisual_bubble(cellchat_merge, sources.use = c(6), targets.use = c(4,12),  
+        comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in R", angle.x = 45, remove.isolate = T)
+
+gg2 <- netVisual_bubble(cellchat_merge, sources.use = c(6), targets.use = c(4,12),  
+        comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in R", angle.x = 45, remove.isolate = T)
+
+pdf(file=paste0(name, "_inc-dec_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"))
+print(gg1 + gg2)
+dev.off()
+
+# Tcells
+gg3 <- netVisual_bubble(cellchat_merge, sources.use = c(8), targets.use = c(6,5,3,7,13,14),  
+        comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in R", angle.x = 45, remove.isolate = T)
+
+gg4 <- netVisual_bubble(cellchat_merge, sources.use = c(8), targets.use = c(6,5,3,7,13,14),  
+        comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in R", angle.x = 45, remove.isolate = T)
+
+pdf(file=paste0(name, "_inc-dec_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"))
+print(gg3 + gg4)
+dev.off()
+```
+```{r}
+gg1_df <- as.data.frame(gg1$data)
+gg2_df <- as.data.frame(gg2$data)
+gg3_df <- as.data.frame(gg3$data)
+gg4_df <- as.data.frame(gg4$data)
+print("saving dataframes")
+write.table(gg1_df,file=paste0(name, "_incR_sig_L-Rpairs_Tcells.txt"), 
+        sep="\t", quote=FALSE)
+write.table(gg2_df,file=paste0(name, "_decR_sig_L-Rpairs_Tcells.txt"), 
+        sep="\t", quote=FALSE)
+write.table(gg3_df,file=paste0(name, "_incR_sig_L-Rpairs_fibroblasts.txt"), 
+        sep="\t", quote=FALSE)
+write.table(gg4_df,file=paste0(name, "_decR_sig_L-Rpairs_fibroblasts.txt"), 
+        sep="\t", quote=FALSE)
+```
+```{r}
+# Identify dysfunctional signaling by using differential expression analysis
+# define a positive dataset, i.e., the dataset with positive fold change against the other dataset
+pos.dataset = "R"
+# define a char name used for storing the results of differential expression analysis
+features.name = paste0(pos.dataset, ".merged")
+# perform differential expression analysis 
+cellchat_merge <- identifyOverExpressedGenes(cellchat_merge, group.dataset = "datasets", 
+    pos.dataset = pos.dataset, features.name = features.name, only.pos = FALSE, 
+    thresh.pc = 0.1, thresh.fc = 0.05, thresh.p = 0.05, group.DE.combined = FALSE)
+# map the results of differential expression analysis onto the inferred cell-cell communications
+net <- netMappingDEG(cellchat_merge, features.name = features.name, variable.all = TRUE)
+# extract the ligand-receptor pairs with upregulated ligands in LS
+net.up <- subsetCommunication(cellchat_merge, net = net, datasets = "R",ligand.logFC = 0.05, receptor.logFC = NULL)
+## extract the ligand-receptor pairs with upregulated ligands and upregulated receptors in NL, i.e.,downregulated in LS
+net.down <- subsetCommunication(cellchat_merge, net = net, datasets = "NR",ligand.logFC = -0.05, receptor.logFC = NULL)
+# deconvolute signaling genes
+gene.up <- extractGeneSubsetFromPair(net.up, cellchat_merge)
+gene.down <- extractGeneSubsetFromPair(net.down, cellchat_merge)
+```
+
+```{r}
+# Visualize the identified up-regulated and down-regulated signaling ligand-receptor pairs
+# T-cell
+pairLR.use.up = net.up[, "interaction_name", drop = F]
+gg1 <- netVisual_bubble(cellchat_merge, pairLR.use = pairLR.use.up, sources.use = c(6), 
+    targets.use = c(4,12), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,
+    title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+
+pairLR.use.down = net.down[, "interaction_name", drop = F]
+gg2 <- netVisual_bubble(cellchat_merge, pairLR.use = pairLR.use.down, sources.use = c(6), 
+    targets.use = c(4,12), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,
+    title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+
+pdf(file=paste0(name, "_up-down_reg_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"))
+print(gg1 + gg2)
+dev.off()
+
+gg3 <- netVisual_bubble(cellchat_merge, pairLR.use = pairLR.use.up, sources.use = c(8), 
+    targets.use = c(6,5,3,7,13,14), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,
+    title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+gg4 <- netVisual_bubble(cellchat_merge, pairLR.use = pairLR.use.down, sources.use = c(8), 
+    targets.use = c(6,5,3,7,13,14), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,
+    title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+
+pdf(file=paste0(name, "_up-down_reg_cc_L-Rpairs_celltypes_bubble_fibroblast.pdf"))
+print(gg3 + gg4)
+dev.off()
+```
+
+```{r}
+# Chord diagram
+# T cells
+pdf(file=paste0(name, "_up-down_reg_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_chord_gene(object.list[[2]], sources.use = c(6), targets.use = c(4,12), 
+    slot.name = 'net', net = net.up, lab.cex = 0.8, small.gap = 3.5, 
+    title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+netVisual_chord_gene(object.list[[1]], sources.use = c(6), targets.use = c(4,12), 
+    slot.name = 'net', net = net.down, lab.cex = 0.8, small.gap = 3.5, 
+    title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+dev.off()
+# fibroblasts
+pdf(file=paste0(name, "_up-down_reg_cc_L-Rpairs_celltypes_chord_fibroblasts.pdf"))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_chord_gene(object.list[[2]], sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
+    slot.name = 'net', net = net.up, lab.cex = 0.8, small.gap = 3.5, 
+    title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+netVisual_chord_gene(object.list[[1]], sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
+    slot.name = 'net', net = net.down, lab.cex = 0.8, small.gap = 3.5, 
+    title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+dev.off()
+```
+# Visually compare cell-cell communication 
+```{r}
+pathways.show <- c("WNT","LAMININ","KIT","CSPG4","AGRN","THBS","PACAP",
+            "TENASCIN","FGF","BMP","JAM")
+for(j in 1:length(pathways.show)){
+    weight.max <- getMaxWeight(object.list, slot.name = c("netP"),
+                attribute = pathways.show[j]) # control the edge weights across different datasets
+    pdf(file= paste0(pathways.show[j],"_path_sig_networks_circle.pdf"))
+    par(mfrow = c(1,2), xpd=TRUE)
+    for (i in 1:length(object.list)) {
+        netVisual_aggregate(object.list[[i]], signaling = pathways.show[j], 
+        layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, 
+        signaling.name = paste(pathways.show[j], names(object.list)[i]))
+        }
+    dev.off()
+    }
+
+```
+```{r}
+pdf(file=paste0(name, "_signal_cc_L-Rpairs_celltypes_chord_fromTcells.pdf"),
+height=10,width=10)
+par(mfrow = c(1, 2), xpd=TRUE)
+# compare all the interactions sending from T cells to  cells
+for (i in 1:length(object.list)) {
+  netVisual_chord_gene(object.list[[i]], sources.use = c(6), targets.use = c(4,12),
+        lab.cex = 0.5, title.name = paste0("Signaling from Tcells - ", names(object.list)[i]))
+}
+dev.off()
+
+pdf(file=paste0(name, "_signal_cc_L-Rpairs_celltypes_chord_toTcells.pdf"),
+height=10,width=10)
+par(mfrow = c(1, 2), xpd=TRUE)
+# compare all the interactions sending from T cells to  cells
+for (i in 1:length(object.list)) {
+  netVisual_chord_gene(object.list[[i]], sources.use = c(4,12), targets.use = c(6),
+        lab.cex = 0.5, title.name = paste0("Signaling to Tcells- ", names(object.list)[i]))
+}
+dev.off()
+
+pdf(file=paste0(name, "_signal_cc_L-Rpairs_celltypes_chord_fromFibroblast.pdf"),
+height=10,width=10)
+par(mfrow = c(1, 2), xpd=TRUE)
+# compare all the interactions sending from T cells to  cells
+for (i in 1:length(object.list)) {
+  netVisual_chord_gene(object.list[[i]], sources.use = c(8), targets.use = c(6,5,3,7,13,14),
+        lab.cex = 0.5, title.name = paste0("Signaling from Fibroblast - ", names(object.list)[i]))
+}
+dev.off()
+
+pdf(file=paste0(name, "_signal_cc_L-Rpairs_celltypes_chord_toFibroblast.pdf"),
+height=10,width=10)
+par(mfrow = c(1, 2), xpd=TRUE)
+# compare all the interactions sending from T cells to  cells
+for (i in 1:length(object.list)) {
+  netVisual_chord_gene(object.list[[i]], sources.use = c(6,5,3,7,13,14), targets.use = c(8),
+        lab.cex = 0.5, title.name = paste0("Signaling to Fibroblast - ", names(object.list)[i]))
+}
+dev.off()
+```
+```{r save}
+save(object.list, file = "cellchat_object.list_2wk_NR_R.RData")
+save(cellchat_merged, file = "cellchat_merged_2wk_NR_R.RData")
+```

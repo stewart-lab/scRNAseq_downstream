@@ -3,151 +3,31 @@ library(CellChat)
 library(patchwork)
 library(Seurat)
 library(Matrix)
+library(NMF)
+library(ggalluvial)
+library(reticulate)
 options(stringsAsFactors = FALSE)
 ```
-# load Seurat object
-# for seurat version < 5.0.0 normalized data: seurat_object[["RNA"]]@data # normalized data matrix
-```{r load_seurat}
-seurat_obj <- readRDS(file="/w5home/bmoore/Pierre_sc_zebrafish/SCI6WK_PARSE_PG_SB_030123.rds")
+```{r load_data}
+data_dir <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+setwd(data_dir)
+filename <- "seurat_mouse_annot_1wk.rds"
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        output <- paste0(data_dir, name,"_cellchat_",timestamp)
+        print(output)
+        dir.create(output, mode = "0777", showWarnings = FALSE)
+        output <- paste0(output, "/")
+name <- basename(filename)
+seurat_obj <- readRDS(filename)
 print(seurat_obj)
-```
-# get data matrix from seurat
-```{r get_input}
-data.input <- seurat_obj[["RNA"]]$data
-print(head(data.input))
-print(colnames(seurat_obj@meta.data))
-print(unique(seurat_obj$customclassif))
-labels <- seurat_obj$customclassif
-meta <- data.frame(labels = labels, row.names = names(labels)) # create a dataframe of the cell labels
-print(head(meta))
-```
-# get orthologs
-```{r subset_orthos}
-ortholog_file <-"/w5home/bmoore/Pierre_sc_zebrafish/zebrafish_homologs_ensembl.txt"
-orthologs <- read.csv2(ortholog_file, sep = "\t", header = TRUE)
-print(head(orthologs))
-orthologs <- orthologs[,c("Gene.stable.ID","Gene.name","Mouse.gene.name")]
-```
-# merge expr df with orthologs
-```{r merge_expression_orthologs}
-# Convert expression matrix to dataframe with gene names as a column
-expr_df <- as.data.frame(as.matrix(data.input))
-expr_df$gene_name <- toupper(rownames(expr_df))
-
-# Convert ortholog gene names to uppercase
-orthologs$Gene.name <- toupper(orthologs$Gene.name)
-#orthologs$Mouse.gene.name <- toupper(orthologs$Mouse.gene.name)
-orthologs$Gene.stable.ID <- toupper(orthologs$Gene.stable.ID)
-
-# Create two separate ortholog dataframes and remove duplicates from each
-# For Gene.name matches
-orthologs_gene <- orthologs[!duplicated(orthologs$Gene.name), ]
-print(paste0("Number of unique Gene.name entries: ", nrow(orthologs_gene)))
-
-# For Gene.stable.ID matches
-orthologs_stable <- orthologs[!duplicated(orthologs$Gene.stable.ID), ]
-print(paste0("Number of unique Gene.stable.ID entries: ", nrow(orthologs_stable)))
-
-# Create two separate merges - one for each potential match column
-merge1 <- merge(expr_df, orthologs_gene, by.x = "gene_name", by.y = "Gene.name", all.x = TRUE)
-merge2 <- merge(expr_df, orthologs_stable, by.x = "gene_name", by.y = "Gene.stable.ID", all.x = TRUE)
-
-# Print number of matches from each merge
-print(paste0("Number of matches from Gene.name: ", sum(!is.na(merge1$Gene.stable.ID))))
-print(paste0("Number of matches from Gene.stable.ID: ", sum(!is.na(merge2$Gene.name))))
-
-# Combine the results, prioritizing matches from merge1 if they exist
-missing_in_merge1 <- is.na(merge1$Gene.stable.ID)
-matches_in_merge2 <- !is.na(merge2$Gene.name)
-
-# Replace missing matches with those found in merge2
-final_merged <- merge1
-final_merged[missing_in_merge1 & matches_in_merge2,] <- merge2[missing_in_merge1 & matches_in_merge2,]
-
-# Check how many genes were matched in total
-n_matched <- sum(!is.na(final_merged$Mouse.gene.name))
-n_total <- nrow(final_merged)
-print(paste0("Total matched mouse genes after combining both approaches: ", 
-        n_matched, " out of ", n_total, " genes"))
-
-# Print a few examples of the matches
-print("Sample of first few matches:")
-print(head(final_merged[!is.na(final_merged$Mouse.gene.name), 
-        c("gene_name", "Gene.stable.ID", "Mouse.gene.name")]))
-out_orthos <- final_merged[,c("gene_name", "Gene.stable.ID", "Mouse.gene.name")]
-write.csv2(out_orthos, 
-        file = "/w5home/bmoore/Pierre_sc_zebrafish/merged_orthologs_zebrafish-mouse.csv", 
-        row.names=TRUE)
-print(dim(final_merged))
-```
-# subset orthologs
-```{r subset_orthos}
-# remove mouse genes that are NA or empty
-final_merged <- final_merged[!is.na(final_merged$Mouse.gene.name) & final_merged$Mouse.gene.name != "",]
-
-# remove other gene names
-data.input.matched <- final_merged[, !colnames(final_merged) %in% c("gene_name", "Gene.stable.ID")]
-# make numeric
-data.input.matched <- as.data.frame(data.input.matched)
-data.input.matched <- mutate_all(data.input.matched[, !colnames(data.input.matched) %in% 
-                        c("Mouse.gene.name")], function(x) as.numeric(as.character(x)))
-data.input.matched$Mouse.gene.name <- final_merged$Mouse.gene.name
-# merge duplicate mouse genes
-data.input.matched <- aggregate(data.input.matched, 
-                        by = list(Mouse.gene.name = data.input.matched$Mouse.gene.name), 
-                        FUN = mean)
-print(dim(data.input.matched))
-# write
-write.csv2(data.input.matched, 
-        file="/w5home/bmoore/Pierre_sc_zebrafish/mouse_ortho_sc_expr_matrix.csv", 
-        row.names=TRUE)
-print(colnames(data.input.matched))
-```
-
-```{r format}
-# remove last column that has Mouse.gene.name (as this is duplicated)
-data.input.matched2 <- data.input.matched[,-61487]
-dim(data.input.matched2)
-# Convert all numeric columns to numeric type
-numeric_cols <- colnames(data.input.matched2)[-1]  # all columns except mouse name
-head(numeric_cols)
-# Set row names from Group.1 and remove that column
-rownames(data.input.matched2) <- data.input.matched2$Mouse.gene.name
-data.input.matched2 <- data.input.matched2[,numeric_cols]
-data.input.matched2[1:5,1:5]
-# make numeric
-#data.input.matched <- as.data.frame(data.input.matched)
-#data.input.matched <- mutate_all(data.input.matched, function(x) as.numeric(as.character(x)))
-
-# Convert to matrix and then sparse matrix
-data.input.matched2 <- as.matrix(data.input.matched2)
-data.input.matched2 <- Matrix(data.input.matched2, sparse = TRUE)
-print(dim(data.input.matched2))
-
-```
-# convert back to orthologous mouse seurat obj
-```{r convert2seurat}
-# convert to seurat obj
-seurat.obj.mouse <- CreateSeuratObject(
-  counts=data.input.matched2,
-  assay = "RNA",
-  meta.data = meta,
-  project = "zebrafish-mouse-spine-regen")
-print(seurat.obj.mouse)
-
-# data was already normalized, so add back in counts as data layer
-seurat.obj.mouse[["RNA"]]$data <- seurat.obj.mouse[["RNA"]]$counts
-print(seurat.obj.mouse)
-# check out metadata
-m_metadata <- seurat.obj.mouse[[]]
-colnames(m_metadata)
-unique(m_metadata$labels)
 ```
 # make cell chat obj
 ```{r get_ccobject}
 # make cell chat object
-cellchat <- createCellChat(object = seurat.obj.mouse, 
-           group.by = "labels", assay = "RNA")
+cellchat <- createCellChat(object = seurat_obj, 
+        group.by = "CellType", assay = "RNA")
+print(cellchat)
+
 # Convert dataframe to matrix first, then to sparse matrix
 # data.input.matched <- as.matrix(data.input.matched)
 # # then convert to sparse matrix
@@ -155,19 +35,15 @@ cellchat <- createCellChat(object = seurat.obj.mouse,
 # data.input.matched <- Matrix(data.input.matched, sparse = TRUE)
 # # then make cell chat obj from matrix
 # cellchat <- createCellChat(object = data.input.matched, meta = meta, group.by = "labels")
-print(cellchat)
+
 ```
 # set idents
 ```{r set_ident}
-cellchat <- setIdent(cellchat, ident.use = "labels")
+cellchat <- setIdent(cellchat, ident.use = "CellType")
 levels(cellchat@idents)
 groupSize <- as.numeric(table(cellchat@idents))
 print(groupSize)
-```
-# write gene names
-```{r get_genenames}
-mgenenames <- as.data.frame(Features(seurat_obj))
-write.csv(mgenenames, file="/w5home/bmoore/Pierre_sc_zebrafish/mouse_seurat_genenames.csv", row.names = FALSE)
+print(table(cellchat@idents))
 ```
 # get cell chat DB
 ```{r get_database}
@@ -188,42 +64,321 @@ cellchat@DB <- CellChatDB.use
 # subset the expression data of signaling genes for saving computation cost
 cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
 # set maxSize
-oopts <- options(future.globals.maxSize = 1.0 * 1e9) # 1GB
+oopts <- options(future.globals.maxSize = 2.0 * 1e9) # 2GB
 on.exit(options(oopts))
 future::plan("multisession", workers = 4) # do parallel
 # ID over-expression
+print("Identifying over-expressed genes and interactions")
 cellchat <- identifyOverExpressedGenes(cellchat)
 cellchat <- identifyOverExpressedInteractions(cellchat)
 ```
 # compute communication probability
 ```{r cc_prob}
+# compute communication probability
+print("compute communication probability")
 ptm = Sys.time()
-# options: # type set to trimean for fewer interactioins, also control for abundant cell type bias 
-oopts <- options(future.globals.maxSize = 2.0 * 1e9)# 2GB
-on.exit(options(oopts))
-cellchat <- computeCommunProb(cellchat, type = "triMean",population.size = TRUE)
-
-```
-# filter
-```{r filter}
-# filter few cells 
-cellchat <- filterCommunication(cellchat, min.cells = 10)
-```
-# extract data frame
-```{r df}
-df.net <- subsetCommunication(cellchat) # df of inferreed cc communications from ligand/receptors
-df.net.p <- subsetCommunication(cellchat, slot.name = "netP") # inferred at signal pathways
-
-```
-```{r sig_path}
-cellchat <- computeCommunProbPathway(cellchat)
+        # options: # type set to trimean for fewer interactioins, also control for abundant cell type bias 
+        cellchat <- computeCommunProb(cellchat, type = "triMean",population.size = TRUE)
+        # filter few cells 
+        cellchat <- filterCommunication(cellchat, min.cells = 10)
+        # extract dfs
+        df.net <- subsetCommunication(cellchat) # df of inferreed cc communications from ligand/receptors
+        df.net.p <- subsetCommunication(cellchat, slot.name = "netP") # inferred at signal pathways
+        # get signifcant pathways
+        cellchat <- computeCommunProbPathway(cellchat)
+execution.time = Sys.time() - ptm
+print(paste0("communication porbability computation time: " ,as.numeric(execution.time, units = "mins")))
 ```
 # save
 ```{r save}
-output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+print("saving")
 write.table(df.net,file=paste0(output,"cellchat_df_net_ligand-recept.txt"), sep="\t", quote=FALSE)
 write.table(df.net.p,file=paste0(output,"cellchat_df_net_signal_paths.txt"), sep="\t", quote=FALSE)
-saveRDS(seurat.obj.mouse, file= paste0(output,"seurat_mouse_annot.rds"))
+saveRDS(cellchat, file=paste0(output,"cellchat_obj.rds"))
+
+```
+
+```{r}
+# read object back in
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+cellchat <- readRDS(file=paste0(output,"cellchat_obj.rds"))
+```
+
+```{r aggregate}
+# aggregate cell-cell network by summarizing cc-communication probs
+print("aggregaing cell-cell network")
+        ptm = Sys.time()
+        cellchat <- aggregateNet(cellchat)
+        execution.time = Sys.time() - ptm
+print(paste0("aggregaing cell-cell network time: " ,as.numeric(execution.time, units = "secs")))
+```
+
+```{r}
+# visualize as circle plot
+ptm = Sys.time()
+groupSize <- as.numeric(table(cellchat@idents))
+pdf(file="cc_interactions_celltype_circleplot.pdf")
+par(mfrow = c(1,2), xpd=TRUE)
+    netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T,  label.edge= F, title.name = "Number of interactions")
+    netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+dev.off()
+```
+
+```{r}
+# visualize from each cell group
+mat <- cellchat@net$weight
+pdf(file="cc_interactions_celltype_circleplot2.pdf")
+par(mfrow = c(3,4), xpd=TRUE)
+for (i in 1:nrow(mat)) {
+  mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
+  mat2[i, ] <- mat[i, ]
+  netVisual_circle(mat2, vertex.weight = groupSize, weight.scale = T, edge.weight.max = max(mat), title.name = rownames(mat)[i])
+}
+dev.off()
+```
+
+```{r}
+# Access all the signaling pathways showing significant communications
+pathways.show.all <- cellchat@netP$pathways
+# check the order of cell identity to set suitable vertex.receiver
+levels(cellchat@idents)
+vertex.receiver = seq(1,4)
+# make pathways folder
+path_dir <- paste0(output,"pathway_analysis")
+dir.create(path_dir, mode = "0777", showWarnings = FALSE)
+path_dir <- paste0(path_dir, "/")
+print("doing individual pathway analysis")
+# pathway analysis and figures
+for (i in 1:length(pathways.show.all)) {
+                # Visualize communication network associated with both signaling pathway and individual L-R pairs
+                setwd(path_dir)
+                print(pathways.show.all[i])
+                netVisual(cellchat, signaling = pathways.show.all[i], vertex.receiver = vertex.receiver, layout = "hierarchy",out.format ="pdf")
+                #dev.off()
+                # Compute and visualize the contribution of each ligand-receptor pair to the overall signaling pathway
+                gg <- netAnalysis_contribution(cellchat, signaling = pathways.show.all[i])
+                ggsave(filename=paste0(path_dir, pathways.show.all[i], "_path_L-R_contribution.pdf"), 
+                        plot=gg, width = 3, height = 2, units = 'in', dpi = 300)
+                #dev.off()
+                # aggregate interactions
+                pdf(file=paste0(path_dir, "cc_interactions_",pathways.show.all[i],"_circplot.pdf"))
+                par(mfrow=c(1,1))
+                netVisual_aggregate(cellchat, signaling = pathways.show.all[i], layout = "circle")
+                dev.off()
+                
+                # Heatmap
+                p2 <- netVisual_heatmap(cellchat, signaling = pathways.show.all[i], color.heatmap = "Reds")
+                pdf(file=paste0(path_dir, "cc_interactions_",pathways.show.all[i],"_heatmap.pdf"))
+                par(mfrow=c(1,1))
+                print(p2)
+                dev.off()
+                # extract all sig L-R pairs and related sig genes for a pathway
+                pairLR <- extractEnrichedLR(cellchat, signaling = pathways.show.all[i], geneLR.return = FALSE)
+                LR.show <- pairLR[1,] # show one ligand-receptor pair
+                
+                # Circle plot
+                pdf(file=paste0(path_dir, "top_L-Rpairs_",pathways.show.all[i],"_signaling.pdf"))
+                netVisual_individual(cellchat, signaling = pathways.show.all[i], pairLR.use = LR.show, layout = "circle")
+                dev.off()
+                # bubble plot with sig interactions for a signaling pathway
+                p4 <- netVisual_bubble(cellchat, sources.use = c(6), targets.use = c(4,12), 
+                        signaling = pathways.show.all[i], remove.isolate = FALSE)
+                pdf(file=paste0(path_dir,"sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_Tcells.pdf"), height = 11, width = 8.5)
+                print(p4)
+                dev.off()
+                p5 <- netVisual_bubble(cellchat, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
+                        signaling = pathways.show.all[i], remove.isolate = FALSE)
+                pdf(file=paste0(path_dir,"sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_fibroblast.pdf"), height = 11, width = 8.5)
+                print(p5)
+                dev.off()  
+                # plot gene expression for a given pathway
+                p6 <- plotGeneExpression(cellchat, signaling = pathways.show.all[i], enriched.only = TRUE, type = "violin")
+                pdf(file=paste0(path_dir,pathways.show.all[i],"_path_sig_geneExpr_violin.pdf"))
+                print(p6)
+                dev
+        }
+```
+```{r}
+# load libraries
+library(CellChat)
+library(patchwork)
+library(Seurat)
+library(Matrix)
+library(NMF)
+library(ggalluvial)
+library(reticulate)
+# read back in
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/seurat_mouse_annot_4wkNR_cellchat_20250425_164709/"
+cellchat <- readRDS(paste0(output,"seurat_mouse_annot_4wkNR_cellchat_obj.rds"))
+```
+```{r}
+name <- "seurat_mouse_annot_4wkNR"
+# cell-cell communication mediated by multiple ligand-receptors or signaling pathways
+# (1) show all the significant interactions (L-R pairs) from some cell groups 
+# (defined by 'sources.use') to other cell groups (defined by 'targets.use')
+# bubble plot
+setwd(output)
+        # sig L-R pairs for interaction
+        p1 <- netVisual_bubble(cellchat, sources.use = c(6), targets.use = c(4,12), remove.isolate = FALSE)
+        pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), height = 11, width = 8.5)
+        print(p1)
+        dev.off()
+        # sig L-R pairs for interaction
+        p2 <- netVisual_bubble(cellchat, sources.use = c(8), targets.use = c(6,5,3,7,13,14), remove.isolate = FALSE)
+        pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"), height = 11, width = 8.5)
+        print(p2)
+        dev.off()
+        # sig L-R pairs for interaction T cells
+        pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
+        netVisual_chord_gene(cellchat, sources.use = c(6), targets.use = c(4,12), lab.cex = 0.5,legend.pos.y = 30)
+        dev.off()
+        # receiving
+        pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells_receive.pdf"))
+        netVisual_chord_gene(cellchat, sources.use = c(4,12), targets.use = c(6), lab.cex = 0.5,legend.pos.y = 30)
+        dev.off()
+        # sig L-R pairs for interaction fibroblasts
+        pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_fibroblasts.pdf"))
+        netVisual_chord_gene(cellchat, sources.use = c(8), targets.use = c(6,5,3,7,13,14), legend.pos.x = 15)
+        dev.off()
+        # receivinb
+        pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_fibroblasts_receive.pdf"))
+        netVisual_chord_gene(cellchat, sources.use = c(6,5,3,7,13,14), targets.use = c(8), legend.pos.x = 15)
+        dev.off()
+        # show all the significant signaling pathways from some cell groups (defined by 'sources.use') to other cell groups (defined by 'targets.use')
+        pdf(file=paste0(output, name, "_sig_cc_pathways_chord_Tcells.pdf"))
+        netVisual_chord_gene(cellchat, sources.use = c(6), targets.use = c(4,12), slot.name = "netP", legend.pos.x = 10)
+        dev.off()
+        pdf(file=paste0(output, name, "_sig_cc_pathways_chord_fibroblasts.pdf"))
+        netVisual_chord_gene(cellchat, sources.use = c(8), targets.use = c(6,5,3,7,13,14), slot.name = "netP", legend.pos.x = 10)
+        dev.off()
+
+```
+
+```{r}
+# Systems analysis of cell-cell communication network
+# uses graph theory, pattern recognition and manifold learning
+# identify dominant senders, receivers, mediators and influencers in the intercellular communication network by computing several network centrality measures for each cell group
+
+print("do net analysis")
+        # Systems analysis of cell-cell communication network
+        cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP") # the slot 'netP' means the inferred intercellular communication network of signaling pathways
+        # Visualize the computed centrality scores using heatmap, allowing ready identification of major signaling roles of cell groups
+        #Visualize dominant senders (sources) and receivers (targets)
+        # Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+        gg1 <- netAnalysis_signalingRole_scatter(cellchat)
+        # save
+        pdf(file=paste0(output, name, "_NetAnalysis_celltype_allpaths_2Dmap.pdf"))
+           print(gg1)
+        dev.off()
+        # Identify signals contributing the most to outgoing or incoming signaling of certain cell groups
+        # Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+        ht1 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "outgoing")
+        ht2 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "incoming")
+        pdf(file=paste0(output, name, "_NetAnalysis_allcelltype_allpaths_heatmap.pdf")) #, width=10,height=10
+        print(ht1 + ht2)
+        dev.off()
+```
+
+```{r}
+# global communication patterns
+# For outgoing (or incoming) patterns, the cell group pattern matrix W outputted from the matrix factorization of outgoing (or incoming) cell-cell communication probability indicates how these cell groups coordinate to send (or receive) signals and the signaling pathway pattern matrix H indicates how these signaling pathways work together to send (or receive) signals.
+
+# global communication patterns
+        print("global communication patterns, running select k to get number of patterns")
+        # run selectK to infer the number of patterns.
+        po <- selectK(cellchat, pattern = "outgoing")
+        pdf(file=paste0(output, name, "_pattern_selection_outgoing.pdf"))
+        print(po)
+        dev.off()
+         # incoming
+        pi <- selectK(cellchat, pattern = "incoming")
+        pdf(file=paste0(output, name, "_pattern_selection_incoming.pdf"))
+        print(pi)
+        dev.off()
+        # where do Cophenetic and Silhouette values begin to drop suddenly?
+ 
+```
+
+```{r}
+       nPatternsOut = 5
+        cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatternsOut)
+        # river plot
+        pr <- netAnalysis_river(cellchat, pattern = "outgoing")
+        pdf(file=paste0(output, name, "_global_cc_patterns_outgoing.pdf"))
+        print(pr)
+        dev.off()
+        # dot plot
+        pd <- netAnalysis_dot(cellchat, pattern = "outgoing")
+        pdf(file=paste0(output, name, "_global_cc_patterns_outgoing_dotplot.pdf"))
+        print(pd)
+        dev.off()
+       
+        # set patterns for incoming
+        nPatternsIn = 7
+        cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatternsIn)
+        # river plot
+        pr2 <- netAnalysis_river(cellchat, pattern = "incoming")
+        pdf(file=paste0(output, name, "global_cc_patterns_incoming.pdf"))
+        print(pr2)
+        dev.off()
+        # dot plot
+        pd2 <- netAnalysis_dot(cellchat, pattern = "incoming")
+        pdf(file=paste0(output, name, "global_cc_patterns_incoming_dotplot.pdf"))
+        print(pd2)
+        dev.off()
+```
+
+```{r}
+# save then read back in
+#saveRDS(cellchat, file=paste0(output,"cellchat_obj.rds"))
+library(CellChat)
+library(patchwork)
+library(Seurat)
+library(Matrix)
+library(NMF)
+library(ggalluvial)
+library(reticulate)
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+cellchat <- readRDS(file=paste0(output,"cellchat_obj.rds"))
+```
+
+```{r}
+# Manifold and classification learning analysis of signaling networks
+#  quantify the similarity between all significant signaling pathways and then group them based on their cellular communication network similarity.
+# activate correct python env
+reticulate::use_python("/w5home/bmoore/.virtualenvs/cellchat/bin/python")
+#Identify signaling groups based on their functional similarity
+cellchat <- computeNetSimilarity(cellchat, type = "functional")
+#umap manifoldlearning
+cellchat <- netEmbedding(cellchat, type = "functional")
+# classification of signaling network
+cellchat <- netClustering(cellchat, type = "functional")
+# Visualization in 2D-space
+pf <- netVisual_embedding(cellchat, type = "functional", label.size = 3.5)
+pdf(file=paste0(output, name, "_pathway_functionality_2Dplot.pdf"))
+print(pf)
+dev.off()
+```
+
+```{r}
+# Identify signaling groups based on structure similarity
+cellchat <- computeNetSimilarity(cellchat, type = "structural")
+cellchat <- netEmbedding(cellchat, type = "structural")
+cellchat <- netClustering(cellchat, type = "structural")
+# Visualization in 2D-space
+ps <- netVisual_embedding(cellchat, type = "structural", label.size = 3.5)
+pdf(file=paste0(output, name, "_pathway_structural_2Dplot.pdf"))
+print(ps)
+dev.off()
+# zoom in
+pz <- netVisual_embeddingZoomIn(cellchat, type = "structural", nCol = 2)
+pdf(file=paste0(output, name, "_pathway_structural_2Dplot_zoomin.pdf"))
+print(pz)
+dev.off()
+```
+
+```{r save}
+print(paste0("saving object: ", name))
 saveRDS(cellchat, file=paste0(output,"cellchat_obj.rds"))
 writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
 ```
