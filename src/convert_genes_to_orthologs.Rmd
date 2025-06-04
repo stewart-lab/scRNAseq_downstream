@@ -112,6 +112,7 @@ print(colnames(data.input.matched))
 ```
 
 ```{r format}
+setwd("/w5home/bmoore/Pierre_sc_zebrafish/")
 # read expression data back in with mouse
 data.input.matched <- read.csv2(file="/w5home/bmoore/Pierre_sc_zebrafish/mouse_ortho_sc_expr_matrix.csv", 
         row.names=1)
@@ -138,9 +139,10 @@ print(dim(data.input.matched2))
 ```
 # convert back to orthologous mouse seurat obj
 ```{r convert2seurat}
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
 # read complete metadata
 seurat.obj.zebrafish.metadata <- read.table(file = paste0(output,"zebrafish_metadata.txt"), sep="\t", 
-            row.names = T)
+            row.names = 1)
 # convert to seurat obj
 seurat.obj.mouse <- CreateSeuratObject(
   counts=data.input.matched2,
@@ -180,14 +182,18 @@ seurat.obj.mouse <- RenameIdents(seurat.obj.mouse, new.cluster.ids)
 seurat.obj.mouse$CellType <- Idents(seurat.obj.mouse)
 
 # Generate and plot the UMAP plot
-pdf(paste0(output, "new-labeled-clusters.pdf"), bg = "white")
-print(DimPlot(seurat.obj.mouse, reduction = "umap", label = TRUE, 
+pdf(paste0(output, "new-labeled-clusters.pdf"), bg = "white", width=10, height=6)
+print(DimPlot(seurat.obj.mouse, reduction = "umap", label = TRUE,
         pt.size = 0.5, group.by = "CellType"))
 dev.off()
 ```
 # subset mouse by sampel type
 ```{r subset}
 table(seurat.obj.mouse$Type)
+# sham
+seurat.obj.mouse_sham <- subset(x= seurat.obj.mouse, subset = Type == "Sham")
+print(seurat.obj.mouse_sham)
+print(table(seurat.obj.mouse_sham$CellType))
 # 1 week
 seurat.obj.mouse_1wk <- subset(x = seurat.obj.mouse, subset = Type == "1Wk")
 print(seurat.obj.mouse_1wk)
@@ -220,19 +226,24 @@ print(table(seurat.obj.mouse_6WkR$CellType))
 ```
 # save objects
 ```{r save}
-output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
-saveRDS(seurat.obj.mouse_1wk, file=paste0(output,"seurat_mouse_annot_1wk.rds"))
-saveRDS(seurat.obj.mouse_2WkNR, file=paste0(output,"seurat_mouse_annot_2wkNR.rds"))
-saveRDS(seurat.obj.mouse_2WkR, file=paste0(output,"seurat_mouse_annot_2wkR.rds"))
-saveRDS(seurat.obj.mouse_4WkNR, file=paste0(output,"seurat_mouse_annot_4wkNR.rds"))
-saveRDS(seurat.obj.mouse_4WkR, file=paste0(output,"seurat_mouse_annot_4wkR.rds"))
-saveRDS(seurat.obj.mouse_6WkNR, file=paste0(output,"seurat_mouse_annot_6wkNR.rds"))
-saveRDS(seurat.obj.mouse_6WkR, file=paste0(output,"seurat_mouse_annot_6wkR.rds"))
-saveRDS(seurat.obj.mouse, file=paste0(output,"seurat_mouse_annot.rds"))
+# output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+# saveRDS(seurat.obj.mouse_1wk, file=paste0(output,"seurat_mouse_annot_1wk.rds"))
+# saveRDS(seurat.obj.mouse_2WkNR, file=paste0(output,"seurat_mouse_annot_2wkNR.rds"))
+# saveRDS(seurat.obj.mouse_2WkR, file=paste0(output,"seurat_mouse_annot_2wkR.rds"))
+# saveRDS(seurat.obj.mouse_4WkNR, file=paste0(output,"seurat_mouse_annot_4wkNR.rds"))
+# saveRDS(seurat.obj.mouse_4WkR, file=paste0(output,"seurat_mouse_annot_4wkR.rds"))
+# saveRDS(seurat.obj.mouse_6WkNR, file=paste0(output,"seurat_mouse_annot_6wkNR.rds"))
+# saveRDS(seurat.obj.mouse_6WkR, file=paste0(output,"seurat_mouse_annot_6wkR.rds"))
+# saveRDS(seurat.obj.mouse, file=paste0(output,"seurat_mouse_annot.rds"))
 # save with qs
 #install.packages("qs2")
 #remotes::install_cran("qs2", type = "source", configure.args = "--with-TBB --with-simd=AVX2")
 library(qs2)
+qs_save(seurat.obj.mouse_sham , "seurat_mouse_annot_sham.qs2")
+# convert to rds
+qs_to_rds(input_file = "seurat_mouse_annot_sham.qs2", output_file = "seurat_mouse_annot_sham.rds")
+# full sampple
+print("saving full sample")
 qs_save(seurat.obj.mouse, "seurat_mouse_annot.qs2")
 # convert to rds
 qs_to_rds(input_file = "seurat_mouse_annot.qs2", output_file = "seurat_mouse_annot.rds")

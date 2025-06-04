@@ -13,8 +13,11 @@ options(stringsAsFactors = FALSE)
 # for seurat version < 5.0.0 normalized data: seurat_object[["RNA"]]@data # normalized data matrix
 data_dir <- "/w5home/bmoore/Pierre_sc_zebrafish/"
 setwd(data_dir)
-filename_list <- c("seurat_mouse_annot_4wkR.rds", 
-        "seurat_mouse_annot_6wkNR.rds", "seurat_mouse_annot_6wkR.rds")
+# filename_list <- c("seurat_mouse_annot_4wkR.rds", 
+#         "seurat_mouse_annot_6wkNR.rds", "seurat_mouse_annot_6wkR.rds")
+filename_list <- read.table(file="filelist.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+filename_list <- filename_list$V1
+print(filename_list)
 # Create an empty list to store the imported objects
 imported_objects <- list()
 print("loading data")
@@ -52,7 +55,7 @@ cc_prob <- function(cellchatobj, output, name){
         # options: # type set to trimean for fewer interactioins, also control for abundant cell type bias 
         cellchatobj <- computeCommunProb(cellchatobj, type = "triMean",population.size = TRUE)
         # filter few cells 
-        cellchatobj <- filterCommunication(cellchatobj, min.cells = 10)
+        cellchatobj <- filterCommunication(cellchatobj, min.cells = 1)
         # extract dfs
         df.net <- subsetCommunication(cellchatobj) # df of inferreed cc communications from ligand/receptors
         df.net.p <- subsetCommunication(cellchatobj, slot.name = "netP") # inferred at signal pathways
@@ -81,8 +84,11 @@ cc_aggregate <- function(cellchatobj, output, name){
         netVisual_circle(cellchatobj@net$weight, vertex.weight = groupSize, weight.scale = T, 
             label.edge= F, title.name = "Interaction weights/strength")
     dev.off()
-    # visualize from each cell group
+    # save weight matrix
+    write.table(cellchatobj@net$weight, file=paste0(output, name, "_cc_interactions_celltype_weight_matrix.txt"), 
+        sep="\t", quote=FALSE, rownames=FALSE)
     mat <- cellchatobj@net$weight
+    # visualize from each cell group
     pdf(file=paste0(output, name, "_cc_interactions_celltype_circleplot2.pdf"))
         par(mfrow = c(3,4), xpd=TRUE)
         for (i in 1:nrow(mat)) {
@@ -444,5 +450,6 @@ for(i in 1:length(object_names)){
         #### SAVE ####
         print(paste0("saving object: ", name))
         saveRDS(cellchat, file=paste0(output, name, "_cellchat_obj.rds"))
+        writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
 
 }
