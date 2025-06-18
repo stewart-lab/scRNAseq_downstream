@@ -15,7 +15,7 @@ data_dir <- "/w5home/bmoore/Pierre_sc_zebrafish/"
 setwd(data_dir)
 # filename_list <- c("seurat_mouse_annot_4wkR.rds", 
 #         "seurat_mouse_annot_6wkNR.rds", "seurat_mouse_annot_6wkR.rds")
-filename_list <- read.table(file="filelist.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+filename_list <- read.table(file="filelist2.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
 filename_list <- filename_list$V1
 print(filename_list)
 # Create an empty list to store the imported objects
@@ -52,6 +52,9 @@ id_overexpr <- function(cellchatobj){
 # calculate cc communication prob
 cc_prob <- function(cellchatobj, output, name){
         ptm = Sys.time()
+        # drop levels that are 0
+        cellchatobj@idents = droplevels(cellchatobj@idents, 
+            exclude = setdiff(levels(cellchatobj@idents),unique(cellchatobj@idents)))
         # options: # type set to trimean for fewer interactioins, also control for abundant cell type bias 
         cellchatobj <- computeCommunProb(cellchatobj, type = "triMean",population.size = TRUE)
         # filter few cells 
@@ -74,7 +77,7 @@ cc_aggregate <- function(cellchatobj, output, name){
     ptm = Sys.time()
     cellchatobj <- aggregateNet(cellchatobj)
     execution.time = Sys.time() - ptm
-    print(paste0("aggregaing cell-cell network time: " ,as.numeric(execution.time, units = "secs")))
+    print(paste0("aggregating cell-cell network time: " ,as.numeric(execution.time, units = "secs")))
     # visualize as circle plot
     groupSize <- as.numeric(table(cellchatobj@idents))
     pdf(file=paste0(output, name, "_cc_interactions_celltype_circleplot.pdf"))
@@ -86,7 +89,7 @@ cc_aggregate <- function(cellchatobj, output, name){
     dev.off()
     # save weight matrix
     write.table(cellchatobj@net$weight, file=paste0(output, name, "_cc_interactions_celltype_weight_matrix.txt"), 
-        sep="\t", quote=FALSE, rownames=FALSE)
+        sep="\t", quote=FALSE, row.names=TRUE)
     mat <- cellchatobj@net$weight
     # visualize from each cell group
     pdf(file=paste0(output, name, "_cc_interactions_celltype_circleplot2.pdf"))

@@ -713,6 +713,14 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
     pairwise <- config$recluster$score_and_plot_markers$pairwise
     logFC_thresh <- config$recluster$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$recluster$score_and_plot_markers$auc_thresh
+  } else if (type=="de") {
+    known_markers_path <- config$de$score_and_plot_markers$known_markers_path
+    known_markers <- config$de$score_and_plot_markers$known_markers
+    top_n_markers <- config$de$score_and_plot_markers$top_n_markers
+    cluster_type <- config$de$score_and_plot_markers$cluster_type
+    pairwise <- config$de$score_and_plot_markers$pairwise
+    logFC_thresh <- config$de$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$de$score_and_plot_markers$auc_thresh
   } else {
     known_markers_path <- config$score_and_plot_markers$known_markers_path
     known_markers <- config$score_and_plot_markers$known_markers
@@ -759,7 +767,7 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2")) {
+  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2","CellType")) {
     marker_field <- paste0("label.",cluster_type)
     marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
   } else {
@@ -769,7 +777,7 @@ score_markers <- function(sce_obj, cluster_type) {
 }
 
 get_clusters <- function(seurat_obj, cluster_type) {
-  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2")) {
+  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2","CellType")) {
     return(unique(seurat_obj@meta.data[[cluster_type]]))
   } else {
     stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
@@ -788,6 +796,11 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
     logFC_thresh <- config$recluster$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$recluster$score_and_plot_markers$auc_thresh
     known_markers <- config$recluster$score_and_plot_markers$known_markers
+  } else if (type=="de") {
+    top_n_markers <- config$de$score_and_plot_markers$top_n_markers
+    logFC_thresh <- config$de$score_and_plot_markers$logFC_thresh
+    auc_thresh <- config$de$score_and_plot_markers$auc_thresh
+    known_markers <- config$de$score_and_plot_markers$known_markers
   } else {
     top_n_markers <- config$score_and_plot_markers$top_n_markers
     logFC_thresh <- config$score_and_plot_markers$logFC_thresh
@@ -877,6 +890,9 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
   } else if (type=="recluster") {
     annot_type <- config$recluster$process_known_markers$annot_type
     n_rank <- config$recluster$process_known_markers$n_rank
+  } else if (type=="de") {
+    annot_type <- config$de$process_known_markers$annot_type
+    n_rank <- config$de$process_known_markers$n_rank
   } else {
     annot_type <- config$process_known_markers$annot_type
     n_rank <- config$process_known_markers$n_rank

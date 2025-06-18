@@ -11,13 +11,13 @@ options(stringsAsFactors = FALSE)
 ```{r load_data}
 data_dir <- "/w5home/bmoore/Pierre_sc_zebrafish/"
 setwd(data_dir)
-filename <- "seurat_mouse_annot_sham.rds"
+filename <- "seurat_mouse_annot_sham_45.rds"
+name <- basename(filename)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 output <- paste0(data_dir, name,"_cellchat_",timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
-name <- basename(filename)
 seurat_obj <- readRDS(filename)
 print(seurat_obj)
 ```
@@ -77,10 +77,12 @@ cellchat <- identifyOverExpressedInteractions(cellchat)
 # compute communication probability
 print("compute communication probability")
 ptm = Sys.time()
+# drop levels that are 0
+cellchat@idents = droplevels(cellchat@idents, exclude = setdiff(levels(cellchat@idents),unique(cellchat@idents)))
 # options: # type set to trimean for fewer interactioins, also control for abundant cell type bias 
 cellchat <- computeCommunProb(cellchat, type = "triMean",population.size = TRUE)
 # filter few cells 
-cellchat <- filterCommunication(cellchat, min.cells = 10)
+cellchat <- filterCommunication(cellchat, min.cells = 1)
 # extract dfs
 df.net <- subsetCommunication(cellchat) # df of inferreed cc communications from ligand/receptors
 df.net.p <- subsetCommunication(cellchat, slot.name = "netP") # inferred at signal pathways
@@ -114,7 +116,7 @@ print("aggregating cell-cell network")
 print(paste0("aggregaing cell-cell network time: " ,as.numeric(execution.time, units = "secs")))
 # write out
 df.net.ag <- as.data.frame(cellchat@net$weight)
-write.table(df.net.ag, file=paste0(output, name, "_netaggregate_weights.txt"), quote=FALSE, row.names = FALSE)
+write.table(df.net.ag, file=paste0(output, name, "_netaggregate_weights.txt"), quote=FALSE, row.names = TRUE)
 ```
 
 ```{r}
@@ -223,7 +225,7 @@ cellchat <- readRDS(paste0(output,"cellchat_obj.rds"))
 # (1) show all the significant interactions (L-R pairs) from some cell groups 
 # (defined by 'sources.use') to other cell groups (defined by 'targets.use')
 # bubble plot
-setwd(output)
+#setwd(output)
 # sig L-R pairs for interaction
 p1 <- netVisual_bubble(cellchat, sources.use = c(6), targets.use = c(4,12), remove.isolate = FALSE)
 pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), height = 11, width = 8.5)
@@ -308,8 +310,8 @@ print("do net analysis")
 ```
 
 ```{r}
-name <- "seurat_mouse_annot_sham"
-nPatternsOut = 3
+name <- "seurat_mouse_annot_sham_45"
+nPatternsOut = 6
 cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatternsOut)
 # river plot
 pr <- netAnalysis_river(cellchat, pattern = "outgoing")
@@ -323,7 +325,7 @@ print(pd)
 dev.off()
 
 # set patterns for incoming
-nPatternsIn = 3
+nPatternsIn = 7
 cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatternsIn)
 # river plot
 pr2 <- netAnalysis_river(cellchat, pattern = "incoming")
@@ -427,8 +429,8 @@ table(seurat_obj1_44$CellType)
 ```
 ```{r}
 setwd("/w5home/bmoore/Pierre_sc_zebrafish/")
-seurat_obj <- readRDS(file="seurat_mouse_annot_4wkNR.rds")
-filename="seurat_mouse_annot_4wkNR"
+seurat_obj <- readRDS(file="seurat_mouse_annot_6wkNR.rds")
+filename="seurat_mouse_annot_6wkNR"
 ```
 ```{r subset_save}
 reps <- unique(seurat_obj$orig.ident)
