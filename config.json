@@ -1,7 +1,7 @@
 {
-  "title": "sctype for Gamm 120 with stem cell markers",
-  "METHOD": "sctype",
-  "docker": "TRUE",
+  "title": "de genes for zebrafish 6wkR",
+  "METHOD": "de",
+  "docker": "False",
   
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -198,6 +198,25 @@
     "SEURAT_OBJ": "seurat_obj_labeled_S2.rds",
     "db": "./data/markers/retinal_markers_Kim-LFJ_forScType.xlsx",
     "tissue": "retina"
+  },
+  "de":{
+    "DATA_DIR": "/mnt/cephfs/mir/rstewart/stewart-lab/isi5home/bmoore/Pierre_sc_zebrafish/",
+    "SEURAT.FILE": "seurat_mouse_annot_6wkR.rds",
+    "outname": "6wkR",
+    "score_and_plot_markers": {
+      "top_n_markers": 100,
+      "known_markers": "False",
+      "known_markers_path": "",
+      "cluster_type": "CellType",
+      "pairwise": "FALSE",
+      "logFC_thresh": 0.25,
+      "auc_thresh": 0.5,
+      "reduction": "umap"
+    },
+    "process_known_markers":{
+      "annot_type": "manual",
+      "n_rank": 10
+    }
   }
   
 }

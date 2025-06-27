@@ -1,0 +1,228 @@
+
+# load packages
+```{r load_packages}
+library(Seurat)
+library(SeuratData)
+library(patchwork)
+library(scran)
+library(BiocParallel)
+library(cowplot)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(ggplot2)
+library(scater)
+library(SingleCellExperiment)
+library(tidyverse)
+library(DESeq2)
+```
+# set dir and filenames
+```{r dir_file}
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/src/" #getwd()
+DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+#filename_list <- c("seurat_mouse_annot_2wkNR.rds","seurat_mouse_annot_2wkR.rds")
+```
+# read in 2 seurat objects as a list (one control, one condition)
+```{r read_in}
+# load data
+setwd(DATA_DIR)
+# Create an empty list to store the imported objects
+imported_objects <- list()
+print("loading data")
+# Loop through the filenames
+for (i in seq_along(filename_list)) {
+  # Extract the base filename without extension
+  base_name <- tools::file_path_sans_ext(basename(filename_list[i]))
+  # Import the file
+  imported_object <- readRDS(filename_list[i])
+  # Assign the imported object to the list with the base filename as the name
+  imported_objects[[base_name]] <- imported_object
+}
+# reset dir
+setwd(GIT_DIR)
+# Convert the list to a vector
+seurat_vector <- unlist(imported_objects)
+vector<- c()
+for(i in 2:length(seurat_vector)){
+    vector <- c(vector, seurat_vector[[i]])
+}
+# First, find the common features across all objects
+common_features <- Reduce(intersect, lapply(seurat_vector, rownames))
+# Subset each object to only these common features
+seurat_vector <- lapply(seurat_vector, function(obj) {
+  obj[common_features, ]
+})
+seurat_vector <- lapply(seurat_vector, function(obj) {
+  obj[["RNA"]] <- JoinLayers(obj[["RNA"]])
+  return(obj)})
+# This will be used to give unique identifiers to cells from each object
+object_names <- names(imported_objects)
+if (is.null(object_names)) {
+  object_names <- paste0("Object", seq_along(imported_objects))
+}
+
+# Now, we'll merge the objects
+print("merging seurat objects")
+merged_seurat <- merge(x = seurat_vector[[1]], y = seurat_vector[[2]], 
+                        add.cell.ids = object_names, 
+                        project = "2wk_comparison", merge.data = TRUE) #config$seurat_integration$project_name
+print(merged_seurat)
+merged_seurat[["RNA"]] <- JoinLayers(merged_seurat)
+```
+# read in already merged
+```{r readin_merged}
+merged_seurat <- readRDS(file = paste0(DATA_DIR, "SCI6WK_PARSE_PG_SB_030123.rds"))
+print(merged_seurat)
+colnames(merged_seurat@meta.data)
+```
+# get metadata for cell types
+```{r metadata}
+clusterids <- read.csv(paste0(DATA_DIR, "celltype_annot_df.csv"), header = TRUE)
+print(clusterids)
+new_df_ordered <- clusterids[order(as.numeric(clusterids$Cluster)), ]
+new_cluster_ids <- new_df_ordered$Celltype
+print(new_cluster_ids)
+# make sure that idents are the clusters you want annotated
+merged_seurat <- SetIdent(merged_seurat, value = "seurat_clusters")
+# Rename the clusters based on the new IDs
+names(new_cluster_ids) <- levels(merged_seurat)
+merged_seurat <- RenameIdents(merged_seurat, new_cluster_ids)
+# put in CellType metadata
+merged_seurat$CellType <- Idents(merged_seurat)
+
+# Generate and plot the UMAP plot
+pdf(paste0(DATA_DIR, "labeled-clusters.pdf"), bg = "white")
+print(DimPlot(merged_seurat, reduction = "umap", label = TRUE, 
+        pt.size = 0.5, group.by = "CellType"))
+dev.off()
+```
+# Pseudobulk analysis
+```{r pseudobulk}
+# pseudobulk cells by stimulation condition AND cell type
+bulk_seurat <- AggregateExpression(merged_seurat, assays = "RNA", 
+                                group.by = c("Type", "orig.ident","CellType"), 
+                                return.seurat = TRUE, layer = "counts" )
+Cells(bulk_seurat)
+# make new celltype column
+bulk_seurat$celltype.comp <- paste(bulk_seurat$CellType, bulk_seurat$Type, sep = "_")
+Idents(bulk_seurat) <- "celltype.comp"
+```
+# De analysis across conditions
+```{r de}
+bulk.F.de <- FindMarkers(object = bulk_seurat, 
+                         ident.1 = "Fibroblasts_g2Wk-R", 
+                         ident.2 = "Fibroblasts_g2Wk-NR",
+                         test.use = "DESeq2") # DESeq2 requires counts
+head(bulk.F.de, n = 15)
+dim(bulk.F.de)
+bulk.F.de <- subset(bulk.F.de, p_val_adj < 0.05)
+dim(bulk.F.de)
+top.10.genes <- rownames(bulk.F.de)[1:10]
+```
+# violin plot
+```{r vplot}
+# create a new column to annotate sample-condition-celltype in the single-cell dataset
+merged_seurat$celltype.comp <- paste(merged_seurat$CellType, merged_seurat$Type, sep = "_")
+Idents(merged_seurat) <- "celltype.comp"
+# violin plot
+pdf(paste0(DATA_DIR, "violinplot_fiborblast_2wk_DE.pdf"), bg = "white")
+print(VlnPlot(merged_seurat, features = top.10.genes, 
+      idents = c("Fibroblasts_2Wk-NR", "Fibroblasts_2Wk-R"), 
+      group.by = "Type"))
+dev.off()
+```
+# Loop
+```{r loop}
+comparisons <- c("2Wk","4Wk","6Wk")
+celltypes <- as.vector(unique(merged_seurat$CellType))
+for(i in 1:length(celltypes)){
+  celltype <- celltypes[i]
+  if(grepl("_", celltype,fixed = TRUE)==TRUE){
+    celltype1 <- gsub("_", "-", celltype)
+  } else {
+    celltype1 <- celltype
+  }
+  print(celltype1)
+  for(j in 1:length(comparisons)){
+    week <- comparisons[j]
+    print(week)
+    # do DE
+    # because Recovered is the first group, positive logFC values are more highly expressed in recovered
+    tryCatch({
+    bulk.de <- FindMarkers(object = bulk_seurat, 
+                          ident.1 = paste0(celltype1,"_g",week,"-R"), 
+                          ident.2 = paste0(celltype1,"_g",week,"-NR"),
+                          test.use = "DESeq2") # DESeq2 requires counts
+    # subset for significance
+    bulk.de <- subset(bulk.de, p_val_adj < 0.05)
+    # write out
+    bulk.de <- as.data.frame(bulk.de)
+    write.table(bulk.de, file = paste0(DATA_DIR, celltype1, week, 
+                "_R-NR_DE_genes.txt"))
+    },
+    error = function(cond) {
+      message(conditionMessage(cond))
+      bulk.de <- data.frame()
+    }
+    )
+    # check if dataframe is not empty
+    if (dim(bulk.de)[1] != 0) {
+      # get top 10 genes
+      top.10.genes <- rownames(bulk.de)[1:10]
+      # make violin plot with top10
+      pdf(paste0(DATA_DIR, "violinplot_",celltype1, week,"_DE.pdf"), bg = "white")
+      print(VlnPlot(merged_seurat, features = top.10.genes, 
+          idents = c(paste0(celltype,"_",week,"-NR"), paste0(celltype,"_",week,"-R")), 
+          group.by = "Type"))
+      dev.off()
+    } else {
+      print(paste0(celltype,"_",week," has no DE genes between R and NR"))
+    }
+  }
+
+}
+```
+# for sham vs 1 week comparisons
+```{r}
+celltypes <- as.vector(unique(merged_seurat$CellType))
+for(i in 1:length(celltypes)){
+  celltype <- celltypes[i]
+  if(grepl("_", celltype,fixed = TRUE)==TRUE){
+    celltype1 <- gsub("_", "-", celltype)
+  } else {
+    celltype1 <- celltype
+  }
+  print(celltype1)
+  tryCatch({
+    bulk.de <- FindMarkers(object = bulk_seurat, 
+                          ident.1 = paste0(celltype1,"_g1Wk"), 
+                          ident.2 = paste0(celltype1,"_Sham"),
+                          test.use = "DESeq2") # DESeq2 requires counts
+    # subset for significance
+    bulk.de <- subset(bulk.de, p_val_adj < 0.05)
+    # write out
+    bulk.de <- as.data.frame(bulk.de)
+    write.table(bulk.de, file = paste0(DATA_DIR, celltype1, 
+                "_1Wk-Sham_DE_genes.txt"))
+    },
+    error = function(cond) {
+      message(conditionMessage(cond))
+      bulk.de <- data.frame()
+    }
+  )
+  # check if dataframe is not empty
+  if (dim(bulk.de)[1] != 0) {
+    # get top 10 genes
+    top.10.genes <- rownames(bulk.de)[1:10]
+    # make violin plot with top10
+    pdf(paste0(DATA_DIR, "violinplot_",celltype1, "_1Wk-Sham_DE.pdf"), bg = "white")
+    print(VlnPlot(merged_seurat, features = top.10.genes, 
+        idents = c(paste0(celltype,"_Sham"), paste0(celltype,"_1Wk")), 
+        group.by = "Type"))
+    dev.off()
+  } else {
+      print(paste0(celltype," has no DE genes between Sham and 1Wk"))
+  }
+}
+```

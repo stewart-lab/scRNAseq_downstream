@@ -1,5 +1,5 @@
 
-```{r load_packages}
+# load_packages
 library(Seurat)
 library(patchwork)
 library(scran)
@@ -14,8 +14,7 @@ library(scater)
 library(SingleCellExperiment)
 library(tidyverse)
 
-```
-```{r set_variables}
+# set_variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
 docker <- config$docker
@@ -37,15 +36,13 @@ file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./",
 config <- jsonlite::fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR,"/src/sc_pipeline_functions.R"))
 packageVersion("Seurat")
-```
 
-```{r readin}
-
+# readin
 seurat.obj <- readRDS(file = paste0(SEURAT.FILE))
 print(seurat.obj)
-```
 
-```{r convert_to_sce}
+
+# convert_to_sce
 print("convert to sce")
 cluster_name <- config$de$score_and_plot_markers$cluster_type
 counts_matrix <- seurat.obj[["RNA"]]$counts
@@ -60,6 +57,7 @@ sce <- SingleCellExperiment(list(counts=counts_matrix, logcounts=data_matrix),
     colData=DataFrame(label=clusters))
 reducedDims(sce) <- list(PCA=dim_data_pca, UMAP=dim_data_umap)
 print(sce)
-```
+
+# DE_analysis
 print("run DE analysis")
 annot_df <- score_and_plot_markers(seurat.obj,sce, output,"de")

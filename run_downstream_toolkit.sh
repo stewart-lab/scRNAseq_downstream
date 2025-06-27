@@ -67,6 +67,9 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
         elif [ \"$METHOD\" == \"sctype\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
             Rscript src/scType.R'
+        elif [ \"$METHOD\" == \"de\" ]; then
+            /bin/bash -c '. scRNAseq_new/bin/activate 
+            Rscript src/get_DE_genes.R'
         else
             echo \"Unknown METHOD: $METHOD\"
             exit 1
@@ -119,6 +122,9 @@ else
     elif [ "$METHOD" == "sctype" ]; then
         source activate scRNAseq_new
         Rscript src/scType.R
+    elif [ "$METHOD" == "de" ]; then
+        source activate scRNAseq_new
+        Rscript src/get_DE_genes.R
     else
         echo "Unknown method: $METHOD"
         exit 1
