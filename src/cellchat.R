@@ -1,5 +1,5 @@
 # load packages
-
+suppressPackageStartupMessages(library("optparse"))
 library(CellChat)
 library(patchwork)
 library(Seurat)
@@ -9,13 +9,27 @@ library(ggalluvial)
 library(reticulate)
 options(stringsAsFactors = FALSE)
 
+# parse command line arguments
+option_list <- list(
+    make_option(c("--data_dir"), type = "character", default = "./",
+                help = "Path to the data directory", metavar = "character"),
+    make_option(c("--filelist"), type = "character", default = "filelist.txt",
+                help = "Path to the filelist", metavar = "character"),
+    make_option(c("--group_by"), type = "character", default = "CellType",
+                help = "Group by celltype or cluster", metavar = "character")
+)
+opt_parser <- OptionParser(option_list = option_list)
+opt <- parse_args(opt_parser)
+print(opt$group_by)
+# set working directory
+data_dir <- opt$data_dir # "/w5home/bmoore/Pierre_sc_zebrafish/"
+setwd(data_dir)
+data_dir <- paste0(getwd(), "/") # to get absolute path
 # load Seurat objects
 # for seurat version < 5.0.0 normalized data: seurat_object[["RNA"]]@data # normalized data matrix
-data_dir <- "/w5home/bmoore/Pierre_sc_zebrafish/"
-setwd(data_dir)
 # filename_list <- c("seurat_mouse_annot_4wkR.rds", 
 #         "seurat_mouse_annot_6wkNR.rds", "seurat_mouse_annot_6wkR.rds")
-filename_list <- read.table(file="filelist2.txt", header=FALSE, sep="\t", stringsAsFactors=FALSE)
+filename_list <- read.table(file=opt$filelist, header=FALSE, sep="\t", stringsAsFactors=FALSE)
 filename_list <- filename_list$V1
 print(filename_list)
 # Create an empty list to store the imported objects
@@ -120,17 +134,18 @@ analyze_paths <- function(cellchatobj, vertex.receiver, output){
                 layout = "hierarchy",out.format ="pdf")
             # Compute and visualize the contribution of each ligand-receptor pair to the overall signaling pathway
             gg <- netAnalysis_contribution(cellchatobj, signaling = pathways.show.all[i])
-            ggsave(filename=paste0(path_dir, pathways.show.all[i], "_path_L-R_contribution.pdf"), 
-                        plot=gg, width = 3, height = 2, units = 'in', dpi = 300)
+            pdf(file=paste0(pathways.show.all[i], "_path_L-R_contribution.pdf"),width = 3, height = 2)
+            print(gg)
+            dev.off()
             # aggregate interactions
-            pdf(file=paste0(path_dir, "cc_interactions_",pathways.show.all[i],"_circplot.pdf"))
+            pdf(file=paste0("cc_interactions_",pathways.show.all[i],"_circplot.pdf"))
             par(mfrow=c(1,1))
             netVisual_aggregate(cellchatobj, signaling = pathways.show.all[i], layout = "circle")
             dev.off()
                 
             # Heatmap
             p2 <- netVisual_heatmap(cellchatobj, signaling = pathways.show.all[i], color.heatmap = "Reds")
-            pdf(file=paste0(path_dir, "cc_interactions_",pathways.show.all[i],"_heatmap.pdf"))
+            pdf(file=paste0("cc_interactions_",pathways.show.all[i],"_heatmap.pdf"))
             par(mfrow=c(1,1))
             print(p2)
             dev.off()
@@ -139,27 +154,27 @@ analyze_paths <- function(cellchatobj, vertex.receiver, output){
             LR.show <- pairLR[1,] # show one ligand-receptor pair
                 
             # Circle plot
-            pdf(file=paste0(path_dir, "top_L-Rpairs_",pathways.show.all[i],"_signaling.pdf"))
+            pdf(file=paste0("top_L-Rpairs_",pathways.show.all[i],"_signaling.pdf"))
             netVisual_individual(cellchatobj, signaling = pathways.show.all[i], pairLR.use = LR.show, layout = "circle")
             dev.off()
             # bubble plot with sig interactions for a signaling pathway
             p4 <- netVisual_bubble(cellchatobj, sources.use = c(6), targets.use = c(4,12), 
                     signaling = pathways.show.all[i], remove.isolate = FALSE)
-            pdf(file=paste0(path_dir,"sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_Tcells.pdf"), height = 11, width = 8.5)
+            pdf(file=paste0("sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_Tcells.pdf"), height = 11, width = 8.5)
             print(p4)
             dev.off()
             p5 <- netVisual_bubble(cellchatobj, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
                     signaling = pathways.show.all[i], remove.isolate = FALSE)
-            pdf(file=paste0(path_dir,"sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_fibroblast.pdf"), height = 11, width = 8.5)
+            pdf(file=paste0("sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_fibroblast.pdf"), height = 11, width = 8.5)
             print(p5)
             dev.off()  
             # plot gene expression for a given pathway
             p6 <- plotGeneExpression(cellchatobj, signaling = pathways.show.all[i], enriched.only = TRUE, type = "violin")
-            pdf(file=paste0(path_dir,pathways.show.all[i],"_path_sig_geneExpr_violin.pdf"))
+            pdf(file=paste0(pathways.show.all[i],"_path_sig_geneExpr_violin.pdf"))
             print(p6)
             dev.off()            
         }
-    setwd(output)
+    
     return(cellchatobj)
 }
 
@@ -167,18 +182,18 @@ analyze_paths <- function(cellchatobj, vertex.receiver, output){
 LRpair_viz <- function(cellchatobj, output, name){
     # sig L-R pairs for interaction
     p1 <- netVisual_bubble(cellchat, sources.use = c(6), targets.use = c(4,12), remove.isolate = FALSE)
-    pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), 
+    pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), 
         height = 11, width = 8.5)
         print(p1)
     dev.off()
     # sig L-R pairs for interaction
     p2 <- netVisual_bubble(cellchat, sources.use = c(8), targets.use = c(6,5,3,7,13,14), remove.isolate = FALSE)
-    pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"), 
+    pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"), 
         height = 11, width = 8.5)
         print(p2)
     dev.off()
     # sig L-R pairs for interaction T cells
-    pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
+    pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
         tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(6), targets.use = c(4,12), 
             lab.cex = 0.5,legend.pos.y = 30); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
@@ -189,7 +204,7 @@ LRpair_viz <- function(cellchatobj, output, name){
     dev.off()
     
     # receiving
-    pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells_receive.pdf"))
+    pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells_receive.pdf"))
         tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(4,12), targets.use = c(6), 
             lab.cex = 0.5,legend.pos.y = 30); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
@@ -199,7 +214,7 @@ LRpair_viz <- function(cellchatobj, output, name){
             
     dev.off()
     # sig L-R pairs for interaction fibroblasts
-    pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts.pdf"))
+    pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts.pdf"))
         tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
             legend.pos.x = 15); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
@@ -208,7 +223,7 @@ LRpair_viz <- function(cellchatobj, output, name){
             message(conditionMessage(e))})
     dev.off()
     # receiving
-    pdf(file=paste0(output, name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts_receive.pdf"))
+    pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts_receive.pdf"))
         tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(6,5,3,7,13,14), targets.use = c(8), 
             legend.pos.x = 15); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
@@ -217,7 +232,7 @@ LRpair_viz <- function(cellchatobj, output, name){
             message(conditionMessage(e))})
     dev.off()
     # show all the significant signaling pathways from some cell groups (defined by 'sources.use') to other cell groups (defined by 'targets.use')
-    pdf(file=paste0(output, name, "_sig_cc_pathways_chord_Tcells.pdf"))
+    pdf(file=paste0(name, "_sig_cc_pathways_chord_Tcells.pdf"))
         tryCatch({ result <- netVisual_chord_gene(cellchat, sources.use = c(6), targets.use = c(4,12), 
             slot.name = "netP", legend.pos.x = 10); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
@@ -225,7 +240,7 @@ LRpair_viz <- function(cellchatobj, output, name){
             message("Here's the original error message:")
             message(conditionMessage(e))})
     dev.off()
-    pdf(file=paste0(output, name, "_sig_cc_pathways_chord_fibroblasts.pdf"))
+    pdf(file=paste0(name, "_sig_cc_pathways_chord_fibroblasts.pdf"))
         tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
             slot.name = "netP", legend.pos.x = 10); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
@@ -246,14 +261,14 @@ net_analysis <- function(cellchatobj, output, name){
     # Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
     gg1 <- netAnalysis_signalingRole_scatter(cellchatobj)
     # save
-    pdf(file=paste0(output, name, "_NetAnalysis_celltype_allpaths_2Dmap.pdf"))
+    pdf(file=paste0(name, "_NetAnalysis_celltype_allpaths_2Dmap.pdf"))
         print(gg1)
     dev.off()
     # Identify signals contributing the most to outgoing or incoming signaling of certain cell groups
     # Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
     ht1 <- netAnalysis_signalingRole_heatmap(cellchatobj, pattern = "outgoing")
     ht2 <- netAnalysis_signalingRole_heatmap(cellchatobj, pattern = "incoming")
-    pdf(file=paste0(output, name, "_NetAnalysis_allcelltype_allpaths_heatmap.pdf", 
+    pdf(file=paste0(name, "_NetAnalysis_allcelltype_allpaths_heatmap.pdf", 
         width = 10, height = 10))
         print(ht1 + ht2)
     dev.off()
@@ -274,7 +289,7 @@ global_cc <- function(cellchatobj, output, name, nPatternsOut, nPatternsIn){
     # river plot
     print("plot")
     tryCatch({pr <- netAnalysis_river(cellchatobj, pattern = "outgoing")
-            pdf(file=paste0(output, name, "_global_cc_patterns_outgoing.pdf"))
+            pdf(file=paste0(name, "_global_cc_patterns_outgoing.pdf"))
             print(pr)
             dev.off()},
             error= function(e) {an.error.occurred <<- TRUE
@@ -284,7 +299,7 @@ global_cc <- function(cellchatobj, output, name, nPatternsOut, nPatternsIn){
     
     # dot plot
     tryCatch({pd <- netAnalysis_dot(cellchatobj, pattern = "outgoing")
-            pdf(file=paste0(output, name, "_global_cc_patterns_outgoing_dotplot.pdf"))
+            pdf(file=paste0(name, "_global_cc_patterns_outgoing_dotplot.pdf"))
             print(pd)
             dev.off()},
             error= function(e) {an.error.occurred <<- TRUE
@@ -303,7 +318,7 @@ global_cc <- function(cellchatobj, output, name, nPatternsOut, nPatternsIn){
     # river plot
     print("plot")
     tryCatch({pr2 <- netAnalysis_river(cellchatobj, pattern = "incoming")
-            pdf(file=paste0(output, name, "global_cc_patterns_incoming.pdf"))
+            pdf(file=paste0(name, "global_cc_patterns_incoming.pdf"))
             print(pr2)
             dev.off()},
             error= function(e) {an.error.occurred <<- TRUE
@@ -313,7 +328,7 @@ global_cc <- function(cellchatobj, output, name, nPatternsOut, nPatternsIn){
     
     # dot plot
     tryCatch({pd2 <- netAnalysis_dot(cellchatobj, pattern = "incoming")
-            pdf(file=paste0(output, name, "global_cc_patterns_incoming_dotplot.pdf"))
+            pdf(file=paste0(name, "global_cc_patterns_incoming_dotplot.pdf"))
             print(pd2)
             dev.off()},
             error= function(e) {an.error.occurred <<- TRUE
@@ -334,8 +349,13 @@ funstr_analysis <- function(cellchatobj, output, name){
     cellchatobj <- netClustering(cellchatobj, type = "functional")
     # Visualization in 2D-space
     pf <- netVisual_embedding(cellchatobj, type = "functional", label.size = 3.5)
-    pdf(file=paste0(output, name, "_pathway_functionality_2Dplot.pdf"))
+    pdf(file=paste0(name, "_pathway_functionality_2Dplot.pdf"))
     print(pf)
+    dev.off()
+    # zoom in 
+    pz1 <- netVisual_embeddingZoomIn(cellchatobj, type = "functional", nCol = 2)
+    pdf(file=paste0(name, "_pathway_functional_2Dplot_zoomin.pdf"))
+        print(pz1)
     dev.off()
     # Identify signaling groups based on structure similarity
     cellchatobj <- computeNetSimilarity(cellchatobj, type = "structural")
@@ -343,12 +363,12 @@ funstr_analysis <- function(cellchatobj, output, name){
     cellchatobj <- netClustering(cellchatobj, type = "structural")
     #        Visualization in 2D-space
     ps <- netVisual_embedding(cellchatobj, type = "structural", label.size = 3.5)
-    pdf(file=paste0(output, name, "_pathway_structural_2Dplot.pdf"))
+    pdf(file=paste0(name, "_pathway_structural_2Dplot.pdf"))
     print(ps)
     dev.off()
     # zoom in
     pz <- netVisual_embeddingZoomIn(cellchatobj, type = "structural", nCol = 2)
-    pdf(file=paste0(output, name, "_pathway_structural_2Dplot_zoomin.pdf"))
+    pdf(file=paste0(name, "_pathway_structural_2Dplot_zoomin.pdf"))
         print(pz)
     dev.off()
 
@@ -369,15 +389,20 @@ for(i in 1:length(object_names)){
         output <- paste0(output, "/")
         seurat_obj <- seurat_vector[[name]]
         print(seurat_obj)
-
+        print(colnames(seurat_obj@meta.data))
+        print(unique(seurat_obj@meta.data[[opt$group_by]]))
+        # replace clusters labeled 0 with clust0
+        if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
+            seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
+        }
         #### make cell chat object ####
         cellchat <- createCellChat(object = seurat_obj, 
-                    group.by = "CellType", assay = "RNA")
+                    group.by = opt$group_by, assay = "RNA")
         print(cellchat)
 
         #### format cellchat obj ####
         # set idents
-        cellchat <- setIdent(cellchat, ident.use = "CellType")
+        cellchat <- setIdent(cellchat, ident.use = opt$group_by)
         levels(cellchat@idents)
         groupSize <- as.numeric(table(cellchat@idents))
         print(groupSize)
@@ -411,7 +436,7 @@ for(i in 1:length(object_names)){
         vertex.receiver = seq(1,4)
         # run pathway analysis
         cellchat <- analyze_paths(cellchat, vertex.receiver, output)
-        
+        setwd(output)
         #### visualize LR pairs ####
         print("visualize significant L-R pairs")
         cellchat <- LRpair_viz(cellchat, output, name)
@@ -425,13 +450,13 @@ for(i in 1:length(object_names)){
         # run selectK to infer the number of patterns.
         print("select k for outgoing")
         po <- selectK(cellchat, pattern = "outgoing")
-        pdf(file=paste0(output, name, "_pattern_selection_outgoing.pdf"))
+        pdf(file=paste0(name, "_pattern_selection_outgoing.pdf"))
         print(po)
         dev.off()
         # incoming
         print("select k for ingoing")
         pi <- selectK(cellchat, pattern = "incoming")
-        pdf(file=paste0(output, name, "_pattern_selection_incoming.pdf"))
+        pdf(file=paste0(name, "_pattern_selection_incoming.pdf"))
         print(pi)
         dev.off()
         nPatternsIn = 5

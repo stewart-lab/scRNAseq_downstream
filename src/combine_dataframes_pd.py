@@ -21,8 +21,16 @@ for i in range (1,len(sys.argv),2):
 df1 = pd.read_csv(DF1, sep='\t', index_col = 0)
 print(list(df1.index))
 #df1.drop_duplicates(inplace=True)
-df2 = pd.read_csv(DF2, sep=' ', index_col = 0)
+df2 = pd.read_csv(DF2, sep='\t', index_col = 0)
 print(list(df2.index))
+# drop nas
+df2.dropna(how='any', axis=0, inplace=True)
+# drop duplicates
+df2.drop_duplicates(subset='Mouse.gene.name',inplace=True)
+# set index
+df2.set_index('Mouse.gene.name',inplace=True)
+print(list(df2.index))
+
 df1_name = os.path.basename(DF1)
 df2_name = os.path.basename(DF2)
 #df2.drop_duplicates(inplace=True)
@@ -96,7 +104,7 @@ else:
             #added for combining binary and continuous data but same classes
             #df1name = str(DF1).split(".")[0]
             #df.to_csv(path_or_buf=str(df1_name)+"_"+ str(df2_name)+".txt", sep="\t", header=True)
-            df.to_csv(path_or_buf=str(df2_name)+"_mouse.genes.txt", sep="\t", header=True)
+            df.to_csv(path_or_buf=str(df2_name)+"_TFs.txt", sep="\t", header=True)
         elif TYPE == "o":
             result = pd.concat([df1, df2], axis=1, join='outer') # join union
             #for traditional combining of both names, use the following
