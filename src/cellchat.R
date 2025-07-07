@@ -477,7 +477,7 @@ for(i in 1:length(object_names)){
 
         #### SAVE ####
         print(paste0("saving object: ", name))
-        saveRDS(cellchat, file=paste0(output, name, "_cellchat_obj.rds"))
-        writeLines(capture.output(sessionInfo()), paste0(output,"sessionInfo.txt"))
+        saveRDS(cellchat, file=paste0(name, "_cellchat_obj.rds"))
+        writeLines(capture.output(sessionInfo()), paste0("sessionInfo.txt"))
 
 }
