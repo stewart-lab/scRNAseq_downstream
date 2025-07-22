@@ -1,0 +1,101 @@
+# load libraries
+```{r install}
+## install
+install.packages("reticulate")
+install.packages("devtools")
+# Install the CASSIA package
+library(devtools)
+devtools::install_github("ElliotXie/CASSIA/CASSIA_R")
+```
+```{r libraries}
+# load libraries
+library(reticulate)
+library(devtools)
+library(CASSIA)
+library(Seurat)
+library("dplyr")
+reticulate::use_python("/w5home/bmoore/miniconda3/envs/cassia_env/bin/python", required=T) 
+#setup_cassia_env()
+```
+```{r api}
+# For OpenAI
+setLLMApiKey("api_key", provider = "openai", persist = TRUE)
+```
+# read in
+```{r readin}
+getwd()
+setwd("/w5home/bmoore/Brown_thymus/Yayon_2024/")
+seurat.obj <- readRDS("1338d08a-481a-426c-ad60-9f4ac08afe16.rds")
+print(seurat.obj)
+colnames(seurat.obj@meta.data)
+table(seurat.obj$cell_type)
+```
+# subset a few cell types
+```{r subset}
+# set idents
+Idents(object = seurat.obj) <- "cell_type"
+seurat.sub <- subset(x = seurat.obj, idents = c("erythrocyte", "monocyte"))
+```
+# find all markers for each cluster/celltype
+```{r findmarkers}
+# find markers
+all.markers <- FindAllMarkers(object = seurat.sub)
+head(all.markers)
+all.markers <- as.data.frame(all.markers)
+all.markers.sub <- subset(all.markers, cluster %in% c("erythrocyte"))
+genelist <- row.names(all.markers.sub)
+write.csv(all.markers, file = "markers_celltypes_erythrocyte-monocyte.csv", row.names=FALSE)
+```
+# make sure gene symbols are used
+```{r readin_geneid}
+gene_symbols_df <- read.csv(file = "/w5home/bmoore/genomes/human_genome_38/ensemble_humanGR38_geneIDs.txt", 
+                    header =TRUE, sep = "\t")
+print(head(gene_symbols_df))
+```
+# merge with marker list
+```{r}
+markers_merge <- merge(all.markers, gene_symbols_df, by.x = "gene", by.y = "Gene.stable.ID",
+                  all.x = TRUE)
+```
+# rename columns and drop
+```{r}
+colnames(markers_merge)[1] <- "Gene.stable.ID"
+colnames(markers_merge)[11] <- "gene"
+colnames(markers_merge)
+markers_merge <- markers_merge %>% relocate(gene)
+markers_merge <- markers_merge %>% relocate(Gene.stable.ID, .after = cluster)
+markers_merge <- markers_merge[,1:8]
+head(markers_merge)
+# get unique
+markers_merge_unique <- distinct(markers_merge)
+markers.sub <- subset(markers_merge_unique, cluster %in% c("erythrocyte"))
+nrow(markers_merge_unique)
+nrow(markers.sub)
+
+```
+# run default cassia
+```{r cassia}
+runCASSIA_pipeline(
+    output_file_name = "test_analysis",
+    tissue = "thymus",
+    species = "human",
+    marker = markers.sub,
+    max_workers = 4,
+    annotation_model = "gpt-4o",
+    annotation_provider = "openai",
+    score_model = "gpt-4o",
+    score_provider = "openai",
+    annotationboost_model = "gpt-4o",
+    annotationboost_provider = "openai"
+)
+```
+```{r}
+result <- runCASSIA(
+  #model = model,
+  temperature = 0,
+  marker_list = genelist[1:10],
+  tissue = "thymus",
+  species = "human",
+  provider = "openai"
+)
+```
