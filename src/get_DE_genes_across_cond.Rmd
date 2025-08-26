@@ -21,6 +21,7 @@ library(DESeq2)
 ```{r dir_file}
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/src/" #getwd()
 DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+setwd(DATA_DIR)
 #filename_list <- c("seurat_mouse_annot_2wkNR.rds","seurat_mouse_annot_2wkR.rds")
 ```
 # read in 2 seurat objects as a list (one control, one condition)
@@ -102,7 +103,7 @@ dev.off()
 # pseudobulk cells by stimulation condition AND cell type
 bulk_seurat <- AggregateExpression(merged_seurat, assays = "RNA", 
                                 group.by = c("Type", "orig.ident","CellType"), 
-                                return.seurat = TRUE, layer = "counts" )
+                                return.seurat = TRUE) #, layer = "counts"
 Cells(bulk_seurat)
 # make new celltype column
 bulk_seurat$celltype.comp <- paste(bulk_seurat$CellType, bulk_seurat$Type, sep = "_")
@@ -113,6 +114,7 @@ Idents(bulk_seurat) <- "celltype.comp"
 bulk.F.de <- FindMarkers(object = bulk_seurat, 
                          ident.1 = "Fibroblasts_g2Wk-R", 
                          ident.2 = "Fibroblasts_g2Wk-NR",
+                         logfc.threshold = 2,
                          test.use = "DESeq2") # DESeq2 requires counts
 head(bulk.F.de, n = 15)
 dim(bulk.F.de)
@@ -153,13 +155,14 @@ for(i in 1:length(celltypes)){
     bulk.de <- FindMarkers(object = bulk_seurat, 
                           ident.1 = paste0(celltype1,"_g",week,"-R"), 
                           ident.2 = paste0(celltype1,"_g",week,"-NR"),
-                          test.use = "DESeq2") # DESeq2 requires counts
+                          test.use = "DESeq2", logfc.threshold = 2) # DESeq2 requires counts
     # subset for significance
     bulk.de <- subset(bulk.de, p_val_adj < 0.05)
+    bulk.de <- subset(bulk.de, avg_log2FC >= 2 | avg_log2FC <= -2)
     # write out
     bulk.de <- as.data.frame(bulk.de)
-    write.table(bulk.de, file = paste0(DATA_DIR, celltype1, week, 
-                "_R-NR_DE_genes.txt"))
+    write.table(bulk.de, file = paste0(DATA_DIR, "DE_genes/",celltype1, week, 
+                "_R-NR_DE_genes_lfc2.txt"), sep="\t")
     },
     error = function(cond) {
       message(conditionMessage(cond))
@@ -170,8 +173,10 @@ for(i in 1:length(celltypes)){
     if (dim(bulk.de)[1] != 0) {
       # get top 10 genes
       top.10.genes <- rownames(bulk.de)[1:10]
+      top.10.genes <- unique(top.10.genes)
+      top.10.genes <- top.10.genes[!is.na(top.10.genes)]
       # make violin plot with top10
-      pdf(paste0(DATA_DIR, "violinplot_",celltype1, week,"_DE.pdf"), bg = "white")
+      pdf(paste0(DATA_DIR, "violinplot_",celltype1, week,"_DE_lfc2.pdf"), bg = "white")
       print(VlnPlot(merged_seurat, features = top.10.genes, 
           idents = c(paste0(celltype,"_",week,"-NR"), paste0(celltype,"_",week,"-R")), 
           group.by = "Type"))
@@ -198,13 +203,14 @@ for(i in 1:length(celltypes)){
     bulk.de <- FindMarkers(object = bulk_seurat, 
                           ident.1 = paste0(celltype1,"_g1Wk"), 
                           ident.2 = paste0(celltype1,"_Sham"),
-                          test.use = "DESeq2") # DESeq2 requires counts
+                          test.use = "DESeq2", logfc.threshold = 2) # DESeq2 requires counts
     # subset for significance
     bulk.de <- subset(bulk.de, p_val_adj < 0.05)
+    bulk.de <- subset(bulk.de, avg_log2FC >= 2 | avg_log2FC <= -2)
     # write out
     bulk.de <- as.data.frame(bulk.de)
     write.table(bulk.de, file = paste0(DATA_DIR, celltype1, 
-                "_1Wk-Sham_DE_genes.txt"))
+                "_1Wk-Sham_DE_genes_lfc2.txt"))
     },
     error = function(cond) {
       message(conditionMessage(cond))
@@ -215,8 +221,10 @@ for(i in 1:length(celltypes)){
   if (dim(bulk.de)[1] != 0) {
     # get top 10 genes
     top.10.genes <- rownames(bulk.de)[1:10]
+    top.10.genes <- unique(top.10.genes)
+    top.10.genes <- top.10.genes[!is.na(top.10.genes)]
     # make violin plot with top10
-    pdf(paste0(DATA_DIR, "violinplot_",celltype1, "_1Wk-Sham_DE.pdf"), bg = "white")
+    pdf(paste0(DATA_DIR, "violinplot_",celltype1, "_1Wk-Sham_DE__lfc2.pdf"), bg = "white")
     print(VlnPlot(merged_seurat, features = top.10.genes, 
         idents = c(paste0(celltype,"_Sham"), paste0(celltype,"_1Wk")), 
         group.by = "Type"))
