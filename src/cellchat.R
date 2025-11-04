@@ -16,7 +16,11 @@ option_list <- list(
     make_option(c("--filelist"), type = "character", default = "filelist.txt",
                 help = "Path to the filelist", metavar = "character"),
     make_option(c("--group_by"), type = "character", default = "CellType",
-                help = "Group by celltype or cluster", metavar = "character")
+                help = "Group by celltype or cluster", metavar = "character"),
+    make_option(c("--source1"), type = "character", default = "Fibroblasts",
+                help = "celltype or cluster for visualization", metavar = "character"),
+    make_option(c("--source2"), type = "character", default = "T_Cells_and_Neutrophils",
+                help = "celltype or cluster for visualization", metavar = "character")
 )
 opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
@@ -25,6 +29,22 @@ print(opt$group_by)
 data_dir <- opt$data_dir # "/w5home/bmoore/Pierre_sc_zebrafish/"
 setwd(data_dir)
 data_dir <- paste0(getwd(), "/") # to get absolute path
+# set source and target cell types
+# fibroblast <- c("Fibroblasts") #c(8) or "7"
+# not_fibroblast <- c("Unknown3", "Keratinocytes", "Endothelial_Cells", "Unknown2", 
+#                 "Motor_Neurons", "Glycinergic_Neurons", "Macrophages", "Unknown1", 
+#                 "Oligodendrocytes_progenitor_cells", "Oligodendrocytes_maybe", 
+#                 "Glutamatergic_Neurons", "T_Cells_and_Neutrophils", "Immature_Neurons", 
+#                 "Microglial_Cells", "Gabaergic_Neurons", "Schwann_Cells", "Radial_Glial_Cells")
+#  # c("clust0","1","2","3","4","5","6","8","9","10","11","12","13","14","15","16") or c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
+# Tcell <- c("T_Cells_and_Neutrophils") #c(6) or "5"
+# not_Tcell <- c("Unknown3", "Keratinocytes", "Endothelial_Cells", "Unknown2", 
+#                 "Motor_Neurons", "Glycinergic_Neurons", "Macrophages", "Unknown1", 
+#                 "Oligodendrocytes_progenitor_cells", "Oligodendrocytes_maybe", 
+#                 "Glutamatergic_Neurons", "Fibroblasts", "Immature_Neurons", 
+#                 "Microglial_Cells", "Gabaergic_Neurons", "Schwann_Cells", "Radial_Glial_Cells")
+# c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17) or c("clust0","1","2","3","4","6","7","8","9","10","11","12","13","14","15","16")
+
 # load Seurat objects
 # for seurat version < 5.0.0 normalized data: seurat_object[["RNA"]]@data # normalized data matrix
 # filename_list <- c("seurat_mouse_annot_4wkR.rds", 
@@ -118,7 +138,7 @@ cc_aggregate <- function(cellchatobj, output, name){
     return(cellchatobj)
 }
 # analyze signaling pathways
-analyze_paths <- function(cellchatobj, vertex.receiver, output){
+analyze_paths <- function(cellchatobj, vertex.receiver, output, source1, source2, not_source1, not_source2){
     # Access all the signaling pathways showing significant communications
     pathways.show.all <- cellchatobj@netP$pathways
     # make pathways folder
@@ -158,14 +178,14 @@ analyze_paths <- function(cellchatobj, vertex.receiver, output){
             netVisual_individual(cellchatobj, signaling = pathways.show.all[i], pairLR.use = LR.show, layout = "circle")
             dev.off()
             # bubble plot with sig interactions for a signaling pathway
-            p4 <- netVisual_bubble(cellchatobj, sources.use = c(6), targets.use = c(4,12), 
+            p4 <- netVisual_bubble(cellchatobj, sources.use = not_source1, targets.use = source1, 
                     signaling = pathways.show.all[i], remove.isolate = FALSE)
-            pdf(file=paste0("sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_Tcells.pdf"), height = 11, width = 8.5)
+            pdf(file=paste0("sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_",source1,".pdf"), height = 11, width = 8.5)
             print(p4)
             dev.off()
-            p5 <- netVisual_bubble(cellchatobj, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
+            p5 <- netVisual_bubble(cellchatobj, sources.use = not_source2, targets.use = source2, 
                     signaling = pathways.show.all[i], remove.isolate = FALSE)
-            pdf(file=paste0("sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_fibroblast.pdf"), height = 11, width = 8.5)
+            pdf(file=paste0("sig_cc_L-Rpairs_",pathways.show.all[i],"_path_bubble_",source2,".pdf"), height = 11, width = 8.5)
             print(p5)
             dev.off()  
             # plot gene expression for a given pathway
@@ -179,22 +199,22 @@ analyze_paths <- function(cellchatobj, vertex.receiver, output){
 }
 
 # LR pair vizualization
-LRpair_viz <- function(cellchatobj, output, name){
+LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1, not_source2){
     # sig L-R pairs for interaction
-    p1 <- netVisual_bubble(cellchat, sources.use = c(6), targets.use = c(4,12), remove.isolate = FALSE)
+    p1 <- netVisual_bubble(cellchat, sources.use = not_source1, targets.use = source1, remove.isolate = FALSE)
     pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), 
         height = 11, width = 8.5)
         print(p1)
     dev.off()
     # sig L-R pairs for interaction
-    p2 <- netVisual_bubble(cellchat, sources.use = c(8), targets.use = c(6,5,3,7,13,14), remove.isolate = FALSE)
+    p2 <- netVisual_bubble(cellchat, sources.use = not_source2, targets.use = source2, remove.isolate = FALSE)
     pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"), 
         height = 11, width = 8.5)
         print(p2)
     dev.off()
     # sig L-R pairs for interaction T cells
     pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
-        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(6), targets.use = c(4,12), 
+        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = source1, targets.use = not_source1, 
             lab.cex = 0.5,legend.pos.y = 30); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
             message(paste("error? ",an.error.occurred))
@@ -205,7 +225,7 @@ LRpair_viz <- function(cellchatobj, output, name){
     
     # receiving
     pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells_receive.pdf"))
-        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(4,12), targets.use = c(6), 
+        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = not_source1, targets.use = source1, 
             lab.cex = 0.5,legend.pos.y = 30); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
             message(paste("error? ",an.error.occurred))
@@ -215,7 +235,7 @@ LRpair_viz <- function(cellchatobj, output, name){
     dev.off()
     # sig L-R pairs for interaction fibroblasts
     pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts.pdf"))
-        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
+        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = source2, targets.use = not_source2, 
             legend.pos.x = 15); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
             message(paste("error? ",an.error.occurred))
@@ -224,7 +244,7 @@ LRpair_viz <- function(cellchatobj, output, name){
     dev.off()
     # receiving
     pdf(file=paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts_receive.pdf"))
-        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(6,5,3,7,13,14), targets.use = c(8), 
+        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = not_source2, targets.use = source2, 
             legend.pos.x = 15); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
             message(paste("error? ",an.error.occurred))
@@ -233,7 +253,15 @@ LRpair_viz <- function(cellchatobj, output, name){
     dev.off()
     # show all the significant signaling pathways from some cell groups (defined by 'sources.use') to other cell groups (defined by 'targets.use')
     pdf(file=paste0(name, "_sig_cc_pathways_chord_Tcells.pdf"))
-        tryCatch({ result <- netVisual_chord_gene(cellchat, sources.use = c(6), targets.use = c(4,12), 
+        tryCatch({ result <- netVisual_chord_gene(cellchat, sources.use = source1, targets.use = not_source1, 
+            slot.name = "netP", legend.pos.x = 10); print(result)},
+            error= function(e) {an.error.occurred <<- TRUE
+            message(paste("error? ",an.error.occurred))
+            message("Here's the original error message:")
+            message(conditionMessage(e))})
+    dev.off()
+    pdf(file=paste0(name, "_sig_cc_pathways_chord_Tcells_receive.pdf"))
+        tryCatch({ result <- netVisual_chord_gene(cellchat, sources.use = not_source1, targets.use = source1, 
             slot.name = "netP", legend.pos.x = 10); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
             message(paste("error? ",an.error.occurred))
@@ -241,7 +269,15 @@ LRpair_viz <- function(cellchatobj, output, name){
             message(conditionMessage(e))})
     dev.off()
     pdf(file=paste0(name, "_sig_cc_pathways_chord_fibroblasts.pdf"))
-        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = c(8), targets.use = c(6,5,3,7,13,14), 
+        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = source2, targets.use = not_source2, 
+            slot.name = "netP", legend.pos.x = 10); print(result)},
+            error= function(e) {an.error.occurred <<- TRUE
+            message(paste("error? ",an.error.occurred))
+            message("Here's the original error message:")
+            message(conditionMessage(e))})
+    dev.off()
+    pdf(file=paste0(name, "_sig_cc_pathways_chord_fibroblasts_receive.pdf"))
+        tryCatch({ result <- netVisual_chord_gene(cellchatobj, sources.use = not_source2, targets.use = source2, 
             slot.name = "netP", legend.pos.x = 10); print(result)},
             error= function(e) {an.error.occurred <<- TRUE
             message(paste("error? ",an.error.occurred))
@@ -395,6 +431,24 @@ for(i in 1:length(object_names)){
         if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
             seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
         }
+        ## get cell type list and subset out source 1 and source 2
+        cell_types <- unique(seurat_obj@meta.data[[opt$group_by]])
+        source1 <- opt$source1
+        source2 <- opt$source2
+        not_source1 <- c()
+        not_source2 <- c()
+        for (i in 1:length(cell_types)){
+            if (cell_types[i] != source1) {
+                    not_source1 <- c(not_source1, cell_types[i])
+                    }
+                }
+        for (i in 1:length(cell_types)){
+            if (cell_types[i] != source2) {
+                not_source2 <- c(not_source2, cell_types[i])
+                }
+            }
+        print(not_source1)
+        print(not_source2)
         #### make cell chat object ####
         cellchat <- createCellChat(object = seurat_obj, 
                     group.by = opt$group_by, assay = "RNA")
@@ -435,11 +489,11 @@ for(i in 1:length(object_names)){
         levels(cellchat@idents)
         vertex.receiver = seq(1,4)
         # run pathway analysis
-        cellchat <- analyze_paths(cellchat, vertex.receiver, output)
+        cellchat <- analyze_paths(cellchat, vertex.receiver, output, source1, source2, not_source1, not_source2)
         setwd(output)
         #### visualize LR pairs ####
         print("visualize significant L-R pairs")
-        cellchat <- LRpair_viz(cellchat, output, name)
+        cellchat <- LRpair_viz(cellchat, output, name, source1, source2, not_source1, not_source2)
         
         #### Network Analysis ####
         print("do Net analysis")

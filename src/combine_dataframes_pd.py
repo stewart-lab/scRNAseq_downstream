@@ -18,11 +18,11 @@ for i in range (1,len(sys.argv),2):
                 TYPE = str(sys.argv[i+1])
             if sys.argv[i] == "-lower":
                 LOWER = str(sys.argv[i+1])
-df1 = pd.read_csv(DF1, sep=' ', index_col = 0)
-print(list(df1.index))
+df1 = pd.read_csv(DF1, sep='\t', index_col = 0)
+#print(list(df1.index))
 #df1.drop_duplicates(inplace=True)
 df2 = pd.read_csv(DF2, sep='\t', index_col = 0)
-print(list(df2.index))
+#print(list(df2.index))
 # drop nas
 df2.dropna(how='any', axis=0, inplace=True)
 # drop duplicates
@@ -46,6 +46,10 @@ elif LOWER.lower() == "true":
 	df2.index = df2.index.str.lower()
 else:
 	pass
+
+print(list(df1.index))
+print(list(df2.index))
+
 if df1.empty == True:
     if TYPE == "i":
         result= pd.concat([df1, df2], axis=1, join='inner')
@@ -55,7 +59,7 @@ if df1.empty == True:
         #for traditional combining of both names, use the following
         result.to_csv(path_or_buf=str(df1_name)+"_"+ str(df2_name)+".txt", sep="\t", header=True)
     elif TYPE == "df1":
-        result = pd.merge([df1, df2], how='left') # exact join from first dataframe
+        result = pd.merge([df1, df2], how='left', on=0) # exact join from first dataframe
         result.to_csv(path_or_buf=str(df1_name)+"_"+ str(df2_name)+".txt", sep="\t", header=True)
     else:
         print ("Need TYPE {i= inner/intersection, o= outer/union, df1= exact join from first dataframe")
@@ -110,7 +114,7 @@ else:
             #for traditional combining of both names, use the following
             result.to_csv(path_or_buf=str(df1_name)+"_"+ str(df2_name)+".txt", sep="\t", header=True)
         elif TYPE == "df1":
-            result = pd.merge(df1, df2, how='left')  # exact join from first dataframe
+            result = pd.merge(df1, df2, how='left', left_index=True, right_index=True)  # exact join from first dataframe
             result.to_csv(path_or_buf=str(df1_name)+"_"+ str(df2_name)+".txt", sep="\t", header=True)
         else:
             print ("Need TYPE {i= inner/intersection, o= outer/union, df1= exact join from first dataframe")
