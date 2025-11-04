@@ -1,0 +1,41 @@
+# load libraries and data
+```{r}
+# Load libraries
+library(dplyr)
+setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat/comparison_4wk_clusters/")
+# Read the file (adjust path if needed)
+nm <- "4wk_R_NR_2_decR_sig_L-Rpairs_Tcells_target.txt"
+df <- read.table(nm, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+head(df)
+```
+# reformat df get difference in prob
+```{r}
+# Compute the difference in prob (R - NR)
+df_diff <- df %>%
+  # Focus only on relevant columns + prob + dataset
+  select(source, target, ligand, receptor, prob, dataset) %>%
+  # Reshape to wide format so R and NR are side-by-side
+  tidyr::pivot_wider(
+    names_from = dataset,
+    values_from = prob
+  ) %>%
+  # Compute difference
+  mutate(prob_diff = R - NR)
+
+head(df_diff)
+```
+# join back and write
+```{r}
+# # Join back into original dataframe
+df_final <- df %>%
+  left_join(df_diff, by = c("source", "target", "ligand", "receptor"))
+
+sorted_df_final <- df_final[order(df_final$dataset, df_final$source, df_final$prob_diff, df_final$prob, 
+                    decreasing = TRUE), ]
+# Now df_final has a new column 'prob_diff'
+head(sorted_df_final)
+
+# write table
+write.table(sorted_df_final, file= paste0(nm, "_prob_diff.txt"), 
+            sep="\t", row.names = FALSE)
+```
