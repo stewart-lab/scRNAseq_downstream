@@ -30,35 +30,59 @@ option_list <- list(
     make_option(c("--source2"),
         type = "character", default = "T_Cells_and_Neutrophils",
         help = "celltype or cluster for visualization", metavar = "character"
+    ),
+    make_option(c("--task_id"),
+        type = "integer", default = NULL,
+        help = "Task ID for parallel execution (1-based index). If specified, only the file at this index is processed.", metavar = "integer"
     )
 )
 opt_parser <- OptionParser(option_list = option_list)
 opt <- parse_args(opt_parser)
 print(opt$group_by)
 # set working directory
-data_dir <- opt$data_dir # "/w5home/bmoore/Pierre_sc_zebrafish/"
+data_dir <- opt$data_dir # "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/"
 setwd(data_dir)
 data_dir <- paste0(getwd(), "/") # to get absolute path
 
 # load Seurat objects
 filename_list <- read.table(file = opt$filelist, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
 filename_list <- filename_list$V1
-print(filename_list)
-# Create an empty list to store the imported objects
-imported_objects <- list()
-print("loading data")
-# Loop through the filenames
-for (i in seq_along(filename_list)) {
-    # Extract the base filename without extension
-    base_name <- tools::file_path_sans_ext(basename(filename_list[i]))
-    # Import the file
-    imported_object <- readRDS(filename_list[i])
-    # Assign the imported object to the list with the base filename as the name
+
+# Filter filelist if task_id is provided
+if (!is.null(opt$task_id)) {
+    task_id <- opt$task_id
+    if (task_id > length(filename_list) || task_id < 1) {
+        stop(paste0("Error: task_id ", task_id, " is out of range. Filelist has ", length(filename_list), " entries."))
+    }
+    print(paste0("Running task_id: ", task_id, " -> Processing file: ", filename_list[task_id]))
+    imported_objects <- list()
+    filename_list <- filename_list[task_id]
+    imported_object <- readRDS(filename_list)
+    base_name <- tools::file_path_sans_ext(basename(filename_list))
     imported_objects[[base_name]] <- imported_object
+    object_names <- names(imported_objects)
+    seurat_vector <- unlist(imported_objects)
+} else {
+    print("No task_id specified. Processing all files sequentially.")
+    print(filename_list)
+    # Create an empty list to store the imported objects
+    imported_objects <- list()
+    print("loading data")
+    # Loop through the filenames
+    for (i in seq_along(filename_list)) {
+        # Extract the base filename without extension
+        base_name <- tools::file_path_sans_ext(basename(filename_list[i]))
+        # Import the file
+        imported_object <- readRDS(filename_list[i])
+        # Assign the imported object to the list with the base filename as the name
+        imported_objects[[base_name]] <- imported_object
+    }
+    print(imported_objects)
+    object_names <- names(imported_objects)
+    seurat_vector <- unlist(imported_objects)
 }
-print(imported_objects)
-object_names <- names(imported_objects)
-seurat_vector <- unlist(imported_objects)
+
+
 
 # get cell chat DB
 CellChatDB <- CellChatDB.mouse # use CellChatDB.human if running on human data
@@ -88,7 +112,8 @@ cc_prob <- function(cellchatobj, output, name) {
     cellchatobj <- filterCommunication(cellchatobj, min.cells = 1)
     # get all pathways
     cellchatobj <- computeCommunProbPathway(cellchatobj)
-    df.net.p.all <- reshape2::melt(cellchat@netP$prob, value.name = "prob")
+    saveRDS(cellchatobj, file = paste0(output, name, "_cellchat_obj.rds"))
+    df.net.p.all <- reshape2::melt(cellchatobj@netP$prob, value.name = "prob")
     colnames(df.net.p.all)[1:3] <- c("source", "target", "pathway_name")
     # df.net.p.all <- cellchatobj@netP
     # extract significant dfs
@@ -607,7 +632,7 @@ for (i in 1:length(object_names)) {
     cellchat <- cc_prob(cellchat, output, name)
 
     #### aggregate cell-cell network ####
-    print("aggregaing cell-cell network")
+    print("aggregating cell-cell network")
     cellchat <- cc_aggregate(cellchat, output, name)
 
     #### pathway analysis ####

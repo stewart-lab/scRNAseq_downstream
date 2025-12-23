@@ -20,15 +20,16 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
   mkdir -p "$SHARED_VOLUME"
   chmod 777 "$SHARED_VOLUME"
 
-  echo "Step 2.2: Building Docker container for downstream processing"
-  # Build the Docker image from the pre_pipeline directory
-  docker build -t stewartlab/scrnaseq_downstream3:v1 ./
+  echo "Step 2.2: Skipping Docker build to avoid layer limit issues"
+  #docker build -t stewartlab/scrnaseq_downstream3:v1 ./
 
   echo "Step 3: Running Docker container for downstream processing scripts"
   docker run --userns=host -it --rm \
     -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json" \
+    -v "$(realpath "./src"):/src" \
+    -v "$(realpath "./data"):/data" \
     stewartlab/scrnaseq_downstream3:v1 /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 

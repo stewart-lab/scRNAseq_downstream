@@ -51,11 +51,11 @@ ligand_tf_matrix_df <- as.data.frame(ligand_tf_matrix)
 ligand_target_matrix_df <- as.data.frame(ligand_target_matrix)
 lr_network_df <- as.data.frame(lr_network)
 # write out
-# write.table(ligand_tf_matrix_df, file = paste0("Nichenet_ligand-tf_matrix.txt"), 
+# write.table(ligand_tf_matrix_df, file = paste0("Nichenet_ligand-tf_matrix.txt"),
 #     sep = "\t", quote = FALSE)
-# write.table(ligand_target_matrix_df, file = paste0("Nichenet_ligand-target_matrix.txt"), 
+# write.table(ligand_target_matrix_df, file = paste0("Nichenet_ligand-target_matrix.txt"),
 #     sep = "\t", quote = FALSE)
-# write.table(lr_network_df, file = paste0("Nichenet_ligand-receptor_network.txt"), 
+# write.table(lr_network_df, file = paste0("Nichenet_ligand-receptor_network.txt"),
 #     sep = "\t", quote = FALSE)
 ```
 
@@ -93,7 +93,7 @@ condition_reference <- "4Wk-NR" # this is the "control"
 Idents(seuratObj) <- seuratObj$CellType
 table(Idents(seuratObj))
 # define receiver
-receivers <- c("Immature_Neurons","Gabaergic_Neurons","Glutamatergic_Neurons","Glycinergic_Neurons","Motor_Neurons") # "Fibroblasts", "T_Cells_and_Neutrophils"
+receivers <- c("T_Cells_and_Neutrophils") # "Fibroblasts", "T_Cells_and_Neutrophils", "Immature_Neurons","Gabaergic_Neurons","Glutamatergic_Neurons",,"Glycinergic_Neurons", "Motor_Neurons"
 for (i in 1:length(receivers)) {
   print(receivers[i])
 }
@@ -319,7 +319,15 @@ for (i in 1:length(receivers)) {
     abs(DE_table_receiver$avg_log2FC) >= 0.25, ]
   geneset_oi <- rownames(geneset_oi)[rownames(geneset_oi) %in%
     rownames(ligand_target_matrix)]
-  print(paste0("DE genes: ", geneset_oi))
+  if (length(geneset_oi) == 0) {
+    geneset_oi <- DE_table_receiver[DE_table_receiver$p_val_adj <= 0.06 &
+      abs(DE_table_receiver$avg_log2FC) >= 0.2, ]
+    geneset_oi <- rownames(geneset_oi)[rownames(geneset_oi) %in%
+      rownames(ligand_target_matrix)]
+    print(paste0("DE genes: ", geneset_oi))
+  } else {
+    print(paste0("DE genes: ", geneset_oi))
+  }
   # determine background genes, or all genes expressed in the receiver cell type that are also in ligand-target matrix
   background_expressed_genes <- expressed_genes_receiver[expressed_genes_receiver %in%
     rownames(ligand_target_matrix)]
@@ -345,6 +353,7 @@ for (i in 1:length(receivers)) {
   # top 50 ligands
   best_upstream_ligands <- top_n(ligand_activities, 50, aupr_corrected)$test_ligand
   print(best_upstream_ligands)
+  best_upstream_ligands <- append(best_upstream_ligands, "App")
   # make dataframe of ligand activities
   ligand_activities_df <- as.data.frame(ligand_activities)
   write.table(ligand_activities_df,
@@ -431,6 +440,10 @@ for (i in 1:length(receivers)) {
     )
   } else {
     print(paste0(receiver, ": No active_ligand_target_links"))
+    ligand_type_indication_df <- assign_ligands_to_celltype(seuratObj,
+      best_upstream_ligands[1:20],
+      celltype_col = "CellType"
+    )
   }
 
   ## Heatmap of LR interaction potential
