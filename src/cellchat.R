@@ -562,47 +562,11 @@ funstr_analysis <- function(cellchatobj, output, name) {
     return(cellchatobj)
 }
 
-# loop through to run cell chat
-for (i in 1:length(object_names)) {
-    print(object_names[i])
-    name <- object_names[i]
-
-    #### make output dir  and read in data ####
-    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-    output <- paste0(data_dir, name, "_cellchat_", timestamp)
-    print(output)
-    dir.create(output, mode = "0777", showWarnings = FALSE)
-    output <- paste0(output, "/")
-    seurat_obj <- seurat_vector[[name]]
-    print(seurat_obj)
-    print(colnames(seurat_obj@meta.data))
-    print(unique(seurat_obj@meta.data[[opt$group_by]]))
-    # replace clusters labeled 0 with clust0
-    if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
-        seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
-    }
-    ## get cell type list and subset out source 1 and source 2
-    cell_types <- unique(seurat_obj@meta.data[[opt$group_by]])
-    source1 <- opt$source1
-    source2 <- opt$source2
-    not_source1 <- c()
-    not_source2 <- c()
-    for (i in 1:length(cell_types)) {
-        if (cell_types[i] != source1) {
-            not_source1 <- c(not_source1, cell_types[i])
-        }
-    }
-    for (i in 1:length(cell_types)) {
-        if (cell_types[i] != source2) {
-            not_source2 <- c(not_source2, cell_types[i])
-        }
-    }
-    print(not_source1)
-    print(not_source2)
+run_cellchat <- function(seurat_obj, output, name, source1, source2, not_source1, not_source2, group_by) {
     #### make cell chat object ####
     cellchat <- createCellChat(
         object = seurat_obj,
-        group.by = opt$group_by, assay = "RNA"
+        group.by = group_by, assay = "RNA"
     )
     print(cellchat)
 
@@ -685,4 +649,83 @@ for (i in 1:length(object_names)) {
     print(paste0("saving object: ", name))
     saveRDS(cellchat, file = paste0(name, "_cellchat_obj.rds"))
     writeLines(capture.output(sessionInfo()), paste0("sessionInfo.txt"))
+}
+
+if (length(object_names) == 1) {
+    print(object_names[1])
+    name <- object_names[1]
+    #### make output dir  and read in data ####
+    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+    output <- paste0(data_dir, name, "_cellchat_", timestamp)
+    print(output)
+    dir.create(output, mode = "0777", showWarnings = FALSE)
+    output <- paste0(output, "/")
+    seurat_obj <- seurat_vector[[name]]
+    print(seurat_obj)
+    print(colnames(seurat_obj@meta.data))
+    print(unique(seurat_obj@meta.data[[opt$group_by]]))
+    # replace clusters labeled 0 with clust0
+    if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
+        seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
+    }
+    ## get cell type list and subset out source 1 and source 2
+    cell_types <- unique(seurat_obj@meta.data[[opt$group_by]])
+    source1 <- opt$source1
+    source2 <- opt$source2
+    not_source1 <- c()
+    not_source2 <- c()
+    for (i in 1:length(cell_types)) {
+        if (cell_types[i] != source1) {
+            not_source1 <- c(not_source1, cell_types[i])
+        }
+    }
+    for (i in 1:length(cell_types)) {
+        if (cell_types[i] != source2) {
+            not_source2 <- c(not_source2, cell_types[i])
+        }
+    }
+    print(not_source1)
+    print(not_source2)
+    group_by <- opt$group_by
+    run_cellchat(seurat_obj, output, name, source1, source2, not_source1, not_source2, group_by)
+} else {
+    for (i in 1:length(object_names)) {
+        print(object_names[i])
+        name <- object_names[i]
+
+        #### make output dir  and read in data ####
+        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        output <- paste0(data_dir, name, "_cellchat_", timestamp)
+        print(output)
+        dir.create(output, mode = "0777", showWarnings = FALSE)
+        output <- paste0(output, "/")
+        seurat_obj <- seurat_vector[[name]]
+        print(seurat_obj)
+        print(colnames(seurat_obj@meta.data))
+        print(unique(seurat_obj@meta.data[[opt$group_by]]))
+        # replace clusters labeled 0 with clust0
+        if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
+            seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
+        }
+        ## get cell type list and subset out source 1 and source 2
+        cell_types <- unique(seurat_obj@meta.data[[opt$group_by]])
+        source1 <- opt$source1
+        source2 <- opt$source2
+        not_source1 <- c()
+        not_source2 <- c()
+        for (i in 1:length(cell_types)) {
+            if (cell_types[i] != source1) {
+                not_source1 <- c(not_source1, cell_types[i])
+            }
+        }
+        for (i in 1:length(cell_types)) {
+            if (cell_types[i] != source2) {
+                not_source2 <- c(not_source2, cell_types[i])
+            }
+        }
+        print(not_source1)
+        print(not_source2)
+        group_by <- opt$group_by
+        run_cellchat(seurat_obj, output, name, source1, source2, not_source1, not_source2, group_by)
+    }
 }
