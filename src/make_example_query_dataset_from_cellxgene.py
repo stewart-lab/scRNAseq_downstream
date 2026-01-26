@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Make an example query dataset from CellxGene
+# # Make a small example dataset from CellxGene
 
 # %% [markdown]
 # This can serve as the input for `cellxgene_scvi` and other annotation tools to test that they work as expected. This dataset will contain a subset of cells from a reference dataset in CellxGene. Since CellxGene provides cell type annotations, we have a “gold standard” answer.
@@ -11,10 +11,13 @@
 # ### Load libraries
 
 # %%
+print("loading libraries...")
 # Standard python libraries
+import json
 import numpy as np
-import pandas as pd
 import os
+import pandas as pd
+import shutil
 
 # scVerse
 import anndata
@@ -31,31 +34,33 @@ from oaklib import get_adapter
 # Make sure the plots show up in the notebook
 
 # %%
-%matplotlib inline
+# %matplotlib inline
 
 # %% [markdown]
-# ### Specify inputs
-# Later, these will be read from the config file.
+# ### Parse the config file.
 
 # %%
+work_dir = os.getcwd()
+with open(work_dir+'/config.json') as f:
+    config_dict = json.load(f)
+    print(
+        "loaded config file: ", 
+        config_dict["example_ds_from_cellxgene"]
+    )
+
 # Reference dataset(s)
-census_version = "2025-11-08"
-organism = "homo_sapiens"
-ref_dataset_ids = [
-    "29244e1d-02e6-4133-b411-516ef7474638",
-]
+census_version = config_dict["example_ds_from_cellxgene"]["census_version"]
+organism = config_dict["example_ds_from_cellxgene"]["organism"]
+ref_dataset_ids = config_dict["example_ds_from_cellxgene"]["ref_dataset_ids"]
 
 # High-level cell types
-high_level_cell_types = {
-    "epithelial cell", "hematopoietic cell", "neural cell", "connective tissue cell", "muscle cell",
-    "absorptive cell", "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
-}
+high_level_cell_types = config_dict["example_ds_from_cellxgene"]["high_level_cell_types"]
 
 # Number of cells per cell type in a subset of the reference
-ref_cells_per_cell_type = 100
+ref_cells_per_cell_type = config_dict["example_ds_from_cellxgene"]["ref_cells_per_cell_type"]
 
 # Name of the output file that would contain the example subset
-output_file = "test_Yayon_subset.h5ad"
+output_file = config_dict["example_ds_from_cellxgene"]["output_file"]
 
 # %% [markdown]
 # ### Load the reference dataset from CellxGene
