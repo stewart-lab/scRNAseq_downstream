@@ -54,10 +54,14 @@ organism = config_dict["example_ds_from_cellxgene"]["organism"]
 ref_dataset_ids = config_dict["example_ds_from_cellxgene"]["ref_dataset_ids"]
 
 # High-level cell types
-high_level_cell_types = config_dict["example_ds_from_cellxgene"]["high_level_cell_types"]
+high_level_cell_types = (
+    config_dict["example_ds_from_cellxgene"]["high_level_cell_types"]
+)
 
 # Number of cells per cell type in a subset of the reference
-ref_cells_per_cell_type = config_dict["example_ds_from_cellxgene"]["ref_cells_per_cell_type"]
+ref_cells_per_cell_type = (
+    config_dict["example_ds_from_cellxgene"]["ref_cells_per_cell_type"]
+)
 
 # Name of the output file that would contain the example subset
 output_file = config_dict["example_ds_from_cellxgene"]["output_file"]
