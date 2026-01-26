@@ -3,12 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12
-  - datetime
-  - json
   - numpy
-  - os
   - pandas
-  - shutil
   - anndata
   - pip
   - pip:
