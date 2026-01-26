@@ -40,6 +40,7 @@ from oaklib import get_adapter
 # ### Parse the config file.
 
 # %%
+# Read in the config file
 work_dir = os.getcwd()
 with open(work_dir+'/config.json') as f:
     config_dict = json.load(f)
@@ -47,6 +48,15 @@ with open(work_dir+'/config.json') as f:
         "loaded config file: ", 
         config_dict["example_ds_from_cellxgene"]
     )
+
+# docker and data directory
+# (the data directory is not really used in this script, but we parse it for 
+# consistency with other pipeline scripts)
+docker = config_dict["docker"]
+if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
+    DATA_DIR = "./data/input_data/"
+else:
+    DATA_DIR = config_dict["example_ds_from_cellxgene"]["DATA_DIR"]
 
 # Reference dataset(s)
 census_version = config_dict["example_ds_from_cellxgene"]["census_version"]
