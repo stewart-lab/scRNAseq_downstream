@@ -12,7 +12,9 @@
 
 # %%
 print("loading libraries...")
+
 # Standard python libraries
+from datetime import datetime
 import json
 import numpy as np
 import os
@@ -75,6 +77,18 @@ ref_cells_per_cell_type = (
 
 # Name of the output file that would contain the example subset
 output_file = config_dict["example_ds_from_cellxgene"]["output_file"]
+
+# %% [markdown]
+# ### Initialize the output directory
+
+# %%
+now = datetime.now()
+now = now.strftime("%Y%m%d_%H%M%S")
+out_dir = "./shared_volume/realtime_" + now +"/"
+print("out_dir: ", out_dir)
+os.makedirs(out_dir, mode=0o777, exist_ok=True)
+# copy config file
+shutil.copy('./config.json', out_dir) 
 
 # %% [markdown]
 # ### Load the reference dataset from CellxGene
