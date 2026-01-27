@@ -78,6 +78,9 @@ ref_cells_per_cell_type = (
 # Name of the output file that would contain the example subset
 output_file = config_dict["example_ds_from_cellxgene"]["output_file"]
 
+# Random seed
+random_seed = config_dict["example_ds_from_cellxgene"]["random_seed"]
+
 # %% [markdown]
 # ### Initialize the output directory
 
@@ -97,13 +100,14 @@ shutil.copy('./config.json', out_dir)
 # Create a census object
 
 # %%
+print("loading census version ", census_version, " ...")
 census = cellxgene_census.open_soma(census_version=census_version)
-census
 
 # %% [markdown]
 # Load the reference dataset
 
 # %%
+print("loading reference dataset from CellxGene...")
 adata_census = cellxgene_census.get_anndata(
     census=census,
     measurement_name="RNA",
@@ -111,7 +115,7 @@ adata_census = cellxgene_census.get_anndata(
     obs_value_filter=f"dataset_id in {ref_dataset_ids}",
     obs_embeddings=["scvi"],
 )
-adata_census
+print(adata_census)
 
 # %% [markdown]
 # ## Sub-sample the data
@@ -158,7 +162,7 @@ def subsample_by_cell_type(adata, num_cells_per_cell_type):
     return adata[indices_q, :].copy()
 
 # Set random seed for reproducibility
-np.random.seed(86)
+np.random.seed(random_seed)
 
 # Subsample the reference dataset
 adata_query = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)

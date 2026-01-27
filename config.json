@@ -231,6 +231,7 @@
       "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
     ],
     "ref_cells_per_cell_type": 100,
-    "output_file": "test_Yayon_subset.h5ad"
+    "output_file": "test_Yayon_subset.h5ad",
+    "random_seed": 1037
   }
 }
