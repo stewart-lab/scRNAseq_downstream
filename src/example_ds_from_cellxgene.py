@@ -280,13 +280,16 @@ if in_conda:
     # Write the packages to a file
     with open(out_dir + 'conda-requirements.txt', 'w') as f:
         f.write(packages)
-    print("Package versions have been written to conda-requirements.txt")
-else:
-    print("Not in a conda environment. Running pip freeze")
-    result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
-    packages = result.stdout
-    # Write the packages to a file
-    with open(out_dir + 'sys-requirements.txt', 'w') as f:
-        f.write(packages)
+    print("- conda package versions have been written to conda-requirements.txt")
+
+# Also save pip freeze output
+result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
+packages = result.stdout
+# Write the packages to a file
+with open(out_dir + 'pip-requirements.txt', 'w') as f:
+    f.write(packages)
+print("- pip package versions have been written to pip-requirements.txt")
+
 os.chmod(out_dir, 0o777)
+
 print("Done.")
