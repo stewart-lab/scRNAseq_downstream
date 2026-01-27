@@ -67,3 +67,9 @@ shared_volume/
 # tar files
 *.tar.gz
 */*.tar.gz
+
+# MacOS system files
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
