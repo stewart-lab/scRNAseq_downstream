@@ -1,0 +1,13 @@
+name: example_ds_from_cellxgene
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - anndata
+  - pip
+  - pip:
+      - cellxgene_census
+      - cellxgene-census[experimental]  
+      - oaklib

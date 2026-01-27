@@ -1,6 +1,6 @@
 {
-  "title": "de genes for zebrafish 6wkR",
-  "METHOD": "de",
+  "title": "generate example query dataset from cellxgene",
+  "METHOD": "example_ds_from_cellxgene",
   "docker": "False",
   
   "seurat_mapping": {
@@ -217,6 +217,21 @@
       "annot_type": "manual",
       "n_rank": 10
     }
+  },
+  "example_ds_from_cellxgene":{
+    "DATA_DIR": "",
+    "reference_datasets":{
+      "census_version":"2025-11-08",
+      "organism":"homo_sapiens",
+      "ref_dataset_ids": ["29244e1d-02e6-4133-b411-516ef7474638"]
+    },
+    "high_level_cell_types": [
+      "epithelial cell", "hematopoietic cell", "neural cell", 
+      "connective tissue cell", "muscle cell", "absorptive cell", 
+      "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
+    ],
+    "ref_cells_per_cell_type": 100,
+    "output_file": "test_Yayon_subset.h5ad",
+    "random_seed": 1037
   }
-  
 }
