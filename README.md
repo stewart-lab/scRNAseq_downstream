@@ -680,6 +680,36 @@ Subset cell cycle genes by ortholog. Modify to input ortholog list and cell cycl
 ```
 Rscript merge_orthologs_to_cellcycle_genes.R
 ```
+### Subset a CellxGene dataset to create a smaller dataset for testing
+This tool generates a relatively small dataset that can serve as the input for cell type annotation tools to test if they work as expected. The generated dataset contains a subset of cells from an original CellxGene dataset, including a random selection of cells from each annotated cell type. The original CellxGene cell type annotations can be used as a “gold standard” when testing an annotation method.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title
+    * `METHOD`: set to `example_ds_from_cellxgene`
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
+
+* Under the `example_ds_from_cellxgene` section:
+    * `DATA_DIR`: leave blank (""), as no data is loaded from disk
+    * `reference_datasets`:
+        * `census_version`: the major CellxGene Census releases are named by their dates. 2025-11-08 is the latest stable release at the time of writing. See more at https://chanzuckerberg.github.io/cellxgene-census/cellxgene_census_docsite_data_release_info.html
+        * `organism`: your species, e.g., "homo_sapiens"
+        * `ref_dataset_ids`: a list of ids of the datasets to retrieve. For example, `29244e1d-02e6-4133-b411-516ef7474638` is the 2025-11-08 version of the Yayon et al. thymus cell atlas. One can potentially specify more than one dataset, although this has not been tested
+    * `high_level_cell_types`: the (relatively low-level) cell types provided by CellxGene are mapped to a smaller set of high-level types using the Obo Cell Ontology (CL). When testing an annotation method, one can expect that high-level cell types are going to be annotated more successfully than the original, lower-level ones
+    * `ref_cells_per_cell_type`: how many cells of each cell type to keep in the dataset, e.g., 100
+    * `output_file`: the file to save the generated dataset to, e.g., "test_Yayon_subset.h5ad". The data are saved as an `anndata` object in the `a5hd` format.
+    * `random_seed`: a seed for the random number generator
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The subsetted dataset: <output_file> as specified in the config file
+* Other:
+    * config.json: config settings used
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
 
 # References: 
 
