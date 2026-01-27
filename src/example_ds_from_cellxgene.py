@@ -61,9 +61,15 @@ else:
     DATA_DIR = config_dict["example_ds_from_cellxgene"]["DATA_DIR"]
 
 # Reference dataset(s)
-census_version = config_dict["example_ds_from_cellxgene"]["census_version"]
-organism = config_dict["example_ds_from_cellxgene"]["organism"]
-ref_dataset_ids = config_dict["example_ds_from_cellxgene"]["ref_dataset_ids"]
+census_version = (
+    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["census_version"]
+)
+organism = (
+    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["organism"]
+)
+ref_dataset_ids = (
+    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["ref_dataset_ids"]
+)
 
 # High-level cell types
 high_level_cell_types = (
@@ -174,7 +180,7 @@ print(adata_query)
 # Tabulate the number of cells of each cell type in adata_query
 
 # %%
-adata_query.obs['cell_type'].value_counts().sort_index().print()
+print(adata_query.obs['cell_type'].value_counts().sort_index())
 
 # %% [markdown]
 # ## Assign high-level cell types
