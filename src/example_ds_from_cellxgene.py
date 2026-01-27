@@ -29,10 +29,14 @@ import anndata
 import cellxgene_census
 import cellxgene_census.experimental
 
+# - suppress "Transforming to str index" warnings when loading CellxGene census 
+#   data into anndata
+import warnings
+from anndata import ImplicitModificationWarning
+warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
+
 # Ontology
 from oaklib import get_adapter
-
-
 # %% [markdown]
 # Make sure the plots show up in the notebook
 
