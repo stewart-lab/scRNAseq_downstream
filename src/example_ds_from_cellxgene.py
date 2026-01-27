@@ -20,6 +20,7 @@ import numpy as np
 import os
 import pandas as pd
 import shutil
+import subprocess
 
 # scVerse
 import anndata
@@ -177,12 +178,6 @@ adata_query = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)
 print(adata_query)
 
 # %% [markdown]
-# Tabulate the number of cells of each cell type in adata_query
-
-# %%
-print(adata_query.obs['cell_type'].value_counts().sort_index())
-
-# %% [markdown]
 # ## Assign high-level cell types
 
 # %%
@@ -263,9 +258,31 @@ assign_high_level_cell_types(adata_query, high_level_cell_types)
 print(adata_query.obs[["cell_type","high_level_cell_type"]].value_counts())
 
 # %% [markdown]
-# ## Write out the query dataset to file
+# ## Save the generated dataset and package versions
 
 # %%
-print(f"Saving query dataset to {output_file} ...")
-adata_query.write_h5ad(output_file)
+# Save the generated dataset
+print(f"Saving generated dataset to {output_file} ...")
+adata_query.write_h5ad(out_dir + output_file)
+
+# save package versions
+print("Saving package versions...")
+# Check if we're in a conda environment
+in_conda = os.environ.get('CONDA_DEFAULT_ENV') is not None
+if in_conda:
+    # Use conda list command
+    result = subprocess.run(['conda', 'list', '--explicit'], capture_output=True, text=True)
+    packages = result.stdout
+    # Write the packages to a file
+    with open(out_dir + 'conda-requirements.txt', 'w') as f:
+        f.write(packages)
+    print("Package versions have been written to conda-requirements.txt")
+else:
+    print("Not in a conda environment. Running pip freeze")
+    result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
+    packages = result.stdout
+    # Write the packages to a file
+    with open(out_dir + 'sys-requirements.txt', 'w') as f:
+        f.write(packages)
+os.chmod(out_dir, 0o777)
 print("Done.")
