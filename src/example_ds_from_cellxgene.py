@@ -122,6 +122,8 @@ print(adata_census)
 # Create a random subset having ```ref_cells_per_cell_type``` representatives of each cell type. 
 
 # %%
+print("subsampling the reference dataset...")
+
 def subsample_by_cell_type(adata, num_cells_per_cell_type):
     """
     Subsample an AnnData object to have a specified number of cells per cell type.
@@ -166,18 +168,20 @@ np.random.seed(random_seed)
 
 # Subsample the reference dataset
 adata_query = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)
-adata_query
+print(adata_query)
 
 # %% [markdown]
 # Tabulate the number of cells of each cell type in adata_query
 
 # %%
-adata_query.obs['cell_type'].value_counts().sort_index()
+adata_query.obs['cell_type'].value_counts().sort_index().print()
 
 # %% [markdown]
 # ## Assign high-level cell types
 
 # %%
+print("assigning high-level cell types...")
+
 def assign_high_level_cell_types(adata, high_level_cell_types):
     """
     Assign high-level cell types to cells in an AnnData object based on ontology ancestors.
@@ -250,13 +254,12 @@ def assign_high_level_cell_types(adata, high_level_cell_types):
 # Assign high-level cell types to adata_query (as per the comment in CELL INDEX 19)
 assign_high_level_cell_types(adata_query, high_level_cell_types)
 
-adata_query.obs[["cell_type","high_level_cell_type"]].value_counts()
+print(adata_query.obs[["cell_type","high_level_cell_type"]].value_counts())
 
 # %% [markdown]
 # ## Write out the query dataset to file
 
 # %%
+print(f"Saving query dataset to {output_file} ...")
 adata_query.write_h5ad(output_file)
-print(f"Saved query dataset to {output_file}")
-
-
+print("Done.")
