@@ -98,7 +98,7 @@ random_seed = config_dict["example_ds_from_cellxgene"]["random_seed"]
 # %%
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
-out_dir = "./shared_volume/realtime_" + now +"/"
+out_dir = "./shared_volume/" + config_dict["METHOD"] + "_" + now +"/"
 print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
