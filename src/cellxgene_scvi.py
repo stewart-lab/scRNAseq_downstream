@@ -26,16 +26,6 @@ import scvi
 import cellxgene_census
 import cellxgene_census.experimental
 
-# Ontology
-from oaklib import get_adapter
-
-
-# %% [markdown]
-# Make sure the plots show up in the notebook
-
-# %%
-%matplotlib inline
-
 # %% [markdown]
 # ### Specify inputs
 # Later, these will be read from the config file.
