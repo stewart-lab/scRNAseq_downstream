@@ -1,0 +1,481 @@
+# %% [markdown]
+# # Annotate a dataset using scVI with a reference dataset from CellxGene
+
+# %% [markdown]
+# ## Set up
+
+# %% [markdown]
+# ### Load libraries
+
+# %%
+# Standard python libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
+import os
+
+# scVerse
+import anndata
+import scanpy as sc
+import scvi
+
+# CellxGene
+import cellxgene_census
+import cellxgene_census.experimental
+
+# Ontology
+from oaklib import get_adapter
+
+
+# %% [markdown]
+# Make sure the plots show up in the notebook
+
+# %%
+%matplotlib inline
+
+# %% [markdown]
+# ### Specify inputs
+# Later, these will be read from the config file.
+
+# %%
+# Reference dataset(s)
+census_version = "2025-11-08"
+organism = "homo_sapiens"
+ref_dataset_ids = [
+    "29244e1d-02e6-4133-b411-516ef7474638",
+]
+
+# High-level cell types
+high_level_cell_types = {
+    "epithelial cell", "hematopoietic cell", "neural cell", "connective tissue cell", "muscle cell",
+    "absorptive cell", "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
+}
+
+# Number of cells per cell type in a subset reference
+ref_cells_per_cell_type = 100
+
+# Query dataset
+query_data_file = "/mnt/cephfs/mir/rstewart/BrownCollab/THYMUBROWN/results/69_example-query-dataset-from-CellxGene/test_Yayon_subset_20260112.h5ad"
+
+# scVI model file
+model_filename = "/mnt/cephfs/mir/rstewart/BrownCollab/BrownCollabData/CellxGene-scVI-models/2025-11-08-scvi-homo-sapiens"
+
+# %% [markdown]
+# ### Load the query dataset from file
+
+# %%
+adata_query = sc.read_h5ad(query_data_file)
+adata_query
+
+# %% [markdown]
+# ### Load the reference dataset from CellxGene
+
+# %% [markdown]
+# Create a census object
+
+# %%
+census = cellxgene_census.open_soma(census_version=census_version)
+census
+
+# %% [markdown]
+# Load the reference dataset
+
+# %%
+adata_census = cellxgene_census.get_anndata(
+    census=census,
+    measurement_name="RNA",
+    organism="Homo sapiens",
+    obs_value_filter=f"dataset_id in {ref_dataset_ids}",
+    obs_embeddings=["scvi"],
+)
+adata_census
+
+# %% [markdown]
+# ## Sub-sample the reference dataset
+# Create a random subset having `ref_cells_per_cell_type` representatives of each cell type.
+
+# %%
+def subsample_by_cell_type(adata, num_cells_per_cell_type):
+    """
+    Subsample an AnnData object to have a specified number of cells per cell type.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object to subsample.
+    num_cells_per_cell_type : int
+        The target number of cells per cell type.
+    
+    Returns
+    -------
+    AnnData
+        A subsampled AnnData object.
+    """
+    # Get all unique cell types
+    cell_types = adata.obs.loc[adata.obs['cell_type'] != "unknown", 'cell_type'].dropna().unique()
+    
+    # For each cell type, sample up to num_cells_per_cell_type cells (if available)
+    indices_q = []
+    
+    for ct in cell_types:
+        idx = adata.obs[adata.obs['cell_type'] == ct].index.values
+        n = min(num_cells_per_cell_type, len(idx))
+        if n == 0:
+            continue
+        # Shuffle indices
+        idx = np.random.permutation(idx)
+        # If more than num_cells_per_cell_type, select a random set of num_cells_per_cell_type
+        if len(idx) >= num_cells_per_cell_type:
+            indices_q.extend(list(idx[:num_cells_per_cell_type]))
+        else:
+            # If less than num_cells_per_cell_type, use all cells for this cell type
+            indices_q.extend(list(idx))
+    
+    # Create the query AnnData subset
+    return adata[indices_q, :].copy()
+
+# Set random seed for reproducibility
+np.random.seed(227)
+
+# Subsample the reference dataset
+adata_ref = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)
+adata_ref
+
+# %% [markdown]
+# ## Assign high-level cell types to the reference dataset
+
+# %% [markdown]
+# Connect to the Cell Ontology (CL)
+
+# %%
+adapter = get_adapter("sqlite:obo:cl")
+adapter
+
+# %% [markdown]
+# Assign high-level cell types to all cells
+
+# %%
+def assign_high_level_cell_types(adata, high_level_cell_types):
+    """
+    Assign high-level cell types to cells in an AnnData object based on ontology ancestors.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object to annotate. Modified in place.
+    high_level_cell_types : set or list
+        A collection of high-level cell type names to match against ancestors.
+    
+    Returns
+    -------
+    None
+        The function modifies adata.obs in place, adding two columns:
+        - 'high_level_cell_type_ontology_term_id'
+        - 'high_level_cell_type'
+    """
+    # Get all unique cell_type_ontology_term_id values except "unknown"
+    cell_type_ids = adata.obs["cell_type_ontology_term_id"].unique()
+    cell_type_ids = [ctid for ctid in cell_type_ids if ctid != "unknown"]
+    
+    # Map from cell_type_ontology_term_id to (high_level_id, high_level_name)
+    adapter = get_adapter("sqlite:obo:cl")
+    high_level_map = {}
+    
+    for ctid in cell_type_ids:
+        try:
+            ancestors = list(adapter.ancestors([ctid]))
+        except Exception as e:
+            print(f"Warning: Could not get ancestors for {ctid}: {e}")
+            high_level_map[ctid] = (None, None)
+            continue
+        matching_ancestors = []
+        for ancestor in ancestors:
+            if str(ancestor).startswith("CL:"):
+                name = adapter.label(ancestor)
+                if name in high_level_cell_types:
+                    matching_ancestors.append((ancestor, name))
+        if len(matching_ancestors) == 1:
+            ancestor, name = matching_ancestors[0]
+            high_level_map[ctid] = (ancestor, name)
+        elif len(matching_ancestors) == 0:
+            print(f"Warning: No matching ancestor in high_level_cell_types for {ctid} ({adapter.label(ctid)})")
+            high_level_map[ctid] = (None, None)
+        elif (
+            len(matching_ancestors) == 2 and
+            ("hematopoietic cell" in [n for _, n in matching_ancestors]) and
+            ("connective tissue cell" in [n for _, n in matching_ancestors])
+        ):
+            # Special case: show only hematopoietic cell
+            for ancestor, name in matching_ancestors:
+                if name == "hematopoietic cell":
+                    high_level_map[ctid] = (ancestor, name)
+                    break
+        else:
+            print(f"Warning: Multiple matching ancestors for {ctid} ({adapter.label(ctid)}): {matching_ancestors}")
+            high_level_map[ctid] = (None, None)
+    
+    # Now, map these to the obs DataFrame
+    def get_high_level_id(ctid):
+        return high_level_map.get(ctid, (None, None))[0]
+    
+    def get_high_level_name(ctid):
+        return high_level_map.get(ctid, (None, None))[1]
+    
+    adata.obs["high_level_cell_type_ontology_term_id"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_id)
+    adata.obs["high_level_cell_type"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_name)
+
+# Assign high-level cell types to adata_ref (as per the comment in CELL INDEX 19)
+assign_high_level_cell_types(adata_ref, high_level_cell_types)
+
+adata_ref.obs[["cell_type","high_level_cell_type"]].value_counts()
+
+# %% [markdown]
+# ## Annotate the query dataset
+
+# %% [markdown]
+# Add necessary cell metadata columns
+
+# %%
+adata_query.obs["n_counts"] = adata_query.X.sum(axis=1)
+adata_query.obs["joinid"] = list(range(adata_query.n_obs))
+adata_query.obs["batch"] = "unassigned"
+adata_query.obs["dataset_id"] = "query"
+
+adata_ref.obs["n_counts"] = adata_ref.X.sum(axis=1)
+adata_ref.obs["joinid"] = list(range(adata_ref.n_obs))
+adata_ref.obs["batch"] = "unassigned"
+adata_ref.obs["dataset_id"] = "reference"
+
+# %% [markdown]
+# Index genes by Ensembl ids
+
+# %%
+adata_query.var.index = adata_query.var["feature_id"]
+adata_ref.var.index = adata_ref.var["feature_id"]
+adata_query.var
+
+# %% [markdown]
+# ### Project the query dataset into the scVI embedding
+
+# %% [markdown]
+# Copy the query dataset so as to preserve it. When the scVI model is loaded, all but 8,000 genes will be dropped.
+
+# %%
+adata_query_scvi = adata_query.copy()
+adata_query_scvi
+
+# %% [markdown]
+# Load the scVI model and prepare the query data (the model was downloaded from s3://cellxgene-contrib-public/models/scvi/2025-11-08/homo_sapiens/model.pt)
+
+# %%
+scvi.model.SCVI.prepare_query_anndata(adata_query_scvi, model_filename)
+adata_query_scvi
+
+# %% [markdown]
+# Load the query data into the model, set “is_trained” to True to trick the model into thinking it was already trained, and do a forward pass through the model to get the latent representation of the query data.
+
+# %%
+vae_q = scvi.model.SCVI.load_query_data(
+    adata_query_scvi,
+    model_filename,
+)
+
+# This allows for a simple forward pass
+vae_q.is_trained = True
+latent = vae_q.get_latent_representation()
+adata_query.obsm["scvi"] = latent
+adata_query
+
+# %% [markdown]
+# Combine and plot the two datasets
+
+# %%
+adata_combined = anndata.concat([adata_query, adata_ref])
+adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
+sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
+sc.tl.umap(adata_combined)
+sc.pl.umap(adata_combined, color=["dataset_id"])
+
+# %% [markdown]
+# ### Predict high-level cell types
+
+# %% [markdown]
+# Tabulate high-level cell types in the reference dataset
+
+# %%
+adata_ref.obs["high_level_cell_type"].value_counts()
+
+# %% [markdown]
+# Define a function to annotate cell types based on a column in the reference
+
+# %%
+def predict_cell_types_with_rf(
+    adata_query,
+    adata_ref,
+    cell_type_col,
+    mask_query=None,
+    mask_ref=None
+):
+    """
+    Fit a Random Forest Classifier on the reference dataset's embedding and use it to predict cell type labels
+    for the query dataset, for the specified cell type column.
+    Also computes and plots the prediction confidence probabilities.
+
+    Parameters
+    ----------
+    adata_query : AnnData
+        Query AnnData object to annotate.
+    adata_ref : AnnData
+        Reference AnnData object with cell type annotations.
+    cell_type_col : str
+        The name of the cell type column to use for training and prediction.
+    mask_query : pd.Series, np.ndarray, or None
+        Boolean mask for adata_query.obs to select cells to annotate. If None, use all.
+    mask_ref : pd.Series, np.ndarray, or None
+        Boolean mask for adata_ref.obs to select reference cells for training. If None, use all.
+
+    Returns
+    -------
+    preds : np.ndarray
+        Predicted cell type labels for the selected query cells.
+    probs : np.ndarray
+        Prediction confidence probabilities for the selected query cells.
+    """
+
+    # Select reference cells
+    if mask_ref is not None:
+        X_ref = adata_ref.obsm["scvi"][mask_ref]
+        y_ref = adata_ref.obs[cell_type_col][mask_ref].values
+    else:
+        X_ref = adata_ref.obsm["scvi"]
+        y_ref = adata_ref.obs[cell_type_col].values
+
+    # Select query cells
+    if mask_query is not None:
+        X_query = adata_query.obsm["scvi"][mask_query]
+    else:
+        X_query = adata_query.obsm["scvi"]
+
+    # Fit classifier
+    rfc = RandomForestClassifier()
+    rfc.fit(X_ref, y_ref)
+    preds = rfc.predict(X_query)
+
+    # Compute confidence scores
+    probabilities = rfc.predict_proba(X_query)
+    confidence = np.zeros(len(preds))
+    for i in range(len(preds)):
+        confidence[i] = probabilities[i][rfc.classes_ == preds[i]].item()
+
+    return preds, confidence
+
+# %% [markdown]
+# Predict high-level cell types in the query dataset
+
+# %%
+preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, "high_level_cell_type")
+adata_query.obs["predicted_high_level_cell_type"] = preds
+adata_query.obs["predicted_high_level_cell_type_probability"] = probs
+adata_query.obs["predicted_high_level_cell_type_probability"].describe()
+
+# %%
+adata_query.obs["predicted_high_level_cell_type"].value_counts()
+
+# %% [markdown]
+# Uncomment this if the query dataset has pre-annotated high-level cell types that you consider a gold standard.
+
+# %%
+frac_correct = sum(adata_query.obs["high_level_cell_type"] == adata_query.obs["predicted_high_level_cell_type"]) / adata_query.n_obs
+print(f"Fraction of correctly predicted: {frac_correct:.3f}")
+
+# %% [markdown]
+# ### Predict low-level cell types for each high-level cell type
+
+# %%
+# For each high-level cell type, annotate within that group
+col_prev_pred = "predicted_high_level_cell_type"
+unique_types = adata_query.obs[col_prev_pred].dropna().unique()
+for ct in unique_types:
+    print(f"  Annotating {ct}...")
+    # Mask for query and reference cells of this type at previous level
+    mask_query = adata_query.obs[col_prev_pred] == ct
+    mask_ref = adata_ref.obs["high_level_cell_type"] == ct
+    if mask_ref.sum() == 0 or mask_query.sum() == 0:
+        print(f"    Skipping {ct}: no cells in reference or query.")
+        continue
+    else:
+        print(f"    Reference cells: {mask_ref.sum()}, Query cells: {mask_query.sum()}")
+    preds, probs = predict_cell_types_with_rf(
+        adata_query, adata_ref, "cell_type", mask_query=mask_query, mask_ref=mask_ref
+    )
+    # Assign only to the relevant subset
+    adata_query.obs.loc[mask_query, "predicted_cell_type"] = preds
+    adata_query.obs.loc[mask_query, "predicted_cell_type_probability"] = probs
+
+# %%
+adata_query.obs["predicted_cell_type"].value_counts()
+
+# %%
+adata_query.obs["predicted_cell_type_probability"].describe()
+
+# %% [markdown]
+# Uncomment this if the query dataset has pre-annotated CL ontology cell types that you consider a gold standard.
+
+# %%
+frac_correct = sum(adata_query.obs["cell_type"] == adata_query.obs["predicted_cell_type"]) / adata_query.n_obs
+print(f"Fraction of correctly predicted: {frac_correct:.3f}")
+
+# %% [markdown]
+# ## Visualize the results
+
+# %% [markdown]
+# ### High-level cell types
+
+# %%
+# Set "predicted" cell types in the reference dataset to the actual reference cell types
+adata_ref.obs["predicted_high_level_cell_type"] = adata_ref.obs["high_level_cell_type"]
+adata_ref.obs["predicted_cell_type"] = adata_ref.obs["cell_type"]
+
+# Set the reference prediction scores to nan
+adata_ref.obs["predicted_high_level_cell_type_probability"] = np.nan
+adata_ref.obs["predicted_cell_type_probability"] = np.nan
+
+# Combine the datasets
+adata_combined = anndata.concat([adata_query, adata_ref])
+adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
+
+# Plot the UMAP
+sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
+sc.tl.umap(adata_combined)
+sc.pl.umap(adata_combined, color=["dataset_id", "predicted_high_level_cell_type", "predicted_high_level_cell_type_probability"])
+
+# %% [markdown]
+# ### Low-level cell types
+
+# %%
+high_level_cell_types = adata_combined.obs["predicted_high_level_cell_type"].unique()
+for hlct in high_level_cell_types:
+    print(f"### High-level cell type: {hlct}")
+    mask = adata_combined.obs["predicted_high_level_cell_type"] == hlct
+    cell_types = adata_combined.obs.loc[mask, "predicted_cell_type"].unique()
+    cell_types_nonempty = [ct for ct in cell_types if pd.notna(ct)]
+    print(f"  Low-level cell types: {cell_types_nonempty}")
+    sc.pl.umap(
+        adata_combined[mask, :],
+        color=["dataset_id", "predicted_cell_type", "predicted_cell_type_probability"],
+        title=[f"{hlct} - Dataset", f"{hlct} - Predicted Cell Type", f"{hlct} - Prediction Probability"]
+    )
+
+# %% [markdown]
+# ## Save the results
+
+# %%
+# Extract the base filename without extension from query_data_file
+query_basename = os.path.splitext(os.path.basename(query_data_file))[0]
+output_filename = f"{query_basename}_cellxgene_scvi_annotated.h5ad"
+adata_query.write_h5ad(output_filename)
+
+
