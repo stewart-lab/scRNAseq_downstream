@@ -26,32 +26,78 @@ import scvi
 import cellxgene_census
 import cellxgene_census.experimental
 
+# - suppress "Transforming to str index" warnings when loading CellxGene census 
+#   data into anndata
+import warnings
+from anndata import ImplicitModificationWarning
+warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
+
+# Ontology
+from oaklib import get_adapter
+
 # %% [markdown]
-# ### Specify inputs
-# Later, these will be read from the config file.
+# Make sure the plots show up in the notebook
 
 # %%
+# %matplotlib inline
+
+# %% [markdown]
+# ### Parse the config file.
+
+# %%
+# Read in the config file
+work_dir = os.getcwd()
+with open(work_dir+'/config.json') as f:
+    config_dict = json.load(f)
+    print(
+        "loaded parameters from config file: ", 
+        config_dict["cellxgene_scvi"]
+    )
+
+# docker and data directory
+# (the data directory is not really used in this script, but we parse it for 
+# consistency with other pipeline scripts)
+docker = config_dict["docker"]
+if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
+    DATA_DIR = "./data/input_data/"
+else:
+    DATA_DIR = config_dict["cellxgene_scvi"]["DATA_DIR"]
+
 # Reference dataset(s)
-census_version = "2025-11-08"
-organism = "homo_sapiens"
-ref_dataset_ids = [
-    "29244e1d-02e6-4133-b411-516ef7474638",
-]
+census_version = (
+    config_dict["cellxgene_scvi"]["reference_datasets"]["census_version"]
+)
+organism = (
+    config_dict["cellxgene_scvi"]["reference_datasets"]["organism"]
+)
+ref_dataset_ids = (
+    config_dict["cellxgene_scvi"]["reference_datasets"]["ref_dataset_ids"]
+)
 
 # High-level cell types
-high_level_cell_types = {
-    "epithelial cell", "hematopoietic cell", "neural cell", "connective tissue cell", "muscle cell",
-    "absorptive cell", "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
-}
+high_level_cell_types = (
+    config_dict["cellxgene_scvi"]["high_level_cell_types"]
+)
 
-# Number of cells per cell type in a subset reference
-ref_cells_per_cell_type = 100
+# Number of cells per cell type in a subset of the reference
+ref_cells_per_cell_type = (
+    config_dict["cellxgene_scvi"]["ref_cells_per_cell_type"]
+)
 
 # Query dataset
-query_data_file = "/mnt/cephfs/mir/rstewart/BrownCollab/THYMUBROWN/results/69_example-query-dataset-from-CellxGene/test_Yayon_subset_20260112.h5ad"
+DATA_DIR = config_dict["cellxgene_scvi"]["DATA_DIR"]
+query_data_file = (os.path.join(
+    DATA_DIR + config_dict["cellxgene_scvi"]["query_data_file"]))
 
 # scVI model file
-model_filename = "/mnt/cephfs/mir/rstewart/BrownCollab/BrownCollabData/CellxGene-scVI-models/2025-11-08-scvi-homo-sapiens"
+model_file = (os.path.join(
+    DATA_DIR + config_dict["cellxgene_scvi"]["model_file"]))
+
+# Name of the output file that would contain the example subset
+output_file = config_dict["cellxgene_scvi"]["output_file"]
+
+# Random seed
+random_seed = config_dict["cellxgene_scvi"]["random_seed"]
 
 # %% [markdown]
 # ### Load the query dataset from file
@@ -261,7 +307,7 @@ adata_query_scvi
 # Load the scVI model and prepare the query data (the model was downloaded from s3://cellxgene-contrib-public/models/scvi/2025-11-08/homo_sapiens/model.pt)
 
 # %%
-scvi.model.SCVI.prepare_query_anndata(adata_query_scvi, model_filename)
+scvi.model.SCVI.prepare_query_anndata(adata_query_scvi, model_file)
 adata_query_scvi
 
 # %% [markdown]
@@ -270,7 +316,7 @@ adata_query_scvi
 # %%
 vae_q = scvi.model.SCVI.load_query_data(
     adata_query_scvi,
-    model_filename,
+    model_file,
 )
 
 # This allows for a simple forward pass
