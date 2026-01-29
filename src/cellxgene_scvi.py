@@ -100,6 +100,19 @@ output_file = config_dict["cellxgene_scvi"]["output_file"]
 random_seed = config_dict["cellxgene_scvi"]["random_seed"]
 
 # %% [markdown]
+# ### Initialize the output directory
+
+# %%
+print("Initializing the output directory...")
+now = datetime.now()
+now = now.strftime("%Y%m%d_%H%M%S")
+out_dir = "./shared_volume/" + config_dict["METHOD"] + "_" + now +"/"
+print("out_dir: ", out_dir)
+os.makedirs(out_dir, mode=0o777, exist_ok=True)
+# copy config file
+shutil.copy('./config.json', out_dir) 
+
+# %% [markdown]
 # ### Load the query dataset from file
 
 # %%
@@ -125,7 +138,7 @@ census
 adata_census = cellxgene_census.get_anndata(
     census=census,
     measurement_name="RNA",
-    organism="Homo sapiens",
+    organism=organism,
     obs_value_filter=f"dataset_id in {ref_dataset_ids}",
     obs_embeddings=["scvi"],
 )
@@ -176,11 +189,11 @@ def subsample_by_cell_type(adata, num_cells_per_cell_type):
     return adata[indices_q, :].copy()
 
 # Set random seed for reproducibility
-np.random.seed(227)
+np.random.seed(random_seed)
 
 # Subsample the reference dataset
 adata_ref = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)
-adata_ref
+print(adata_ref)
 
 # %% [markdown]
 # ## Assign high-level cell types to the reference dataset
@@ -189,8 +202,9 @@ adata_ref
 # Connect to the Cell Ontology (CL)
 
 # %%
+print("Connecting to the Cell Ontology...")
 adapter = get_adapter("sqlite:obo:cl")
-adapter
+print(adapter)
 
 # %% [markdown]
 # Assign high-level cell types to all cells
@@ -265,10 +279,11 @@ def assign_high_level_cell_types(adata, high_level_cell_types):
     adata.obs["high_level_cell_type_ontology_term_id"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_id)
     adata.obs["high_level_cell_type"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_name)
 
-# Assign high-level cell types to adata_ref (as per the comment in CELL INDEX 19)
+# Assign high-level cell types to adata_ref
+print("Assigning high-level cell types to the reference dataset...")
 assign_high_level_cell_types(adata_ref, high_level_cell_types)
 
-adata_ref.obs[["cell_type","high_level_cell_type"]].value_counts()
+print(adata_ref.obs[["cell_type","high_level_cell_type"]].value_counts())
 
 # %% [markdown]
 # ## Annotate the query dataset
@@ -277,6 +292,7 @@ adata_ref.obs[["cell_type","high_level_cell_type"]].value_counts()
 # Add necessary cell metadata columns
 
 # %%
+print("Formatting the data...")
 adata_query.obs["n_counts"] = adata_query.X.sum(axis=1)
 adata_query.obs["joinid"] = list(range(adata_query.n_obs))
 adata_query.obs["batch"] = "unassigned"
@@ -293,7 +309,7 @@ adata_ref.obs["dataset_id"] = "reference"
 # %%
 adata_query.var.index = adata_query.var["feature_id"]
 adata_ref.var.index = adata_ref.var["feature_id"]
-adata_query.var
+print(adata_query.var)
 
 # %% [markdown]
 # ### Project the query dataset into the scVI embedding
@@ -306,9 +322,10 @@ adata_query_scvi = adata_query.copy()
 adata_query_scvi
 
 # %% [markdown]
-# Load the scVI model and prepare the query data (the model was downloaded from s3://cellxgene-contrib-public/models/scvi/2025-11-08/homo_sapiens/model.pt)
+# Load the scVI model and prepare the query data
 
 # %%
+print("Preparing the query data for scVI model...")
 scvi.model.SCVI.prepare_query_anndata(adata_query_scvi, model_file)
 adata_query_scvi
 
@@ -316,6 +333,7 @@ adata_query_scvi
 # Load the query data into the model, set “is_trained” to True to trick the model into thinking it was already trained, and do a forward pass through the model to get the latent representation of the query data.
 
 # %%
+print("Projecting the query data to SCVI embedding...")
 vae_q = scvi.model.SCVI.load_query_data(
     adata_query_scvi,
     model_file,
@@ -325,7 +343,7 @@ vae_q = scvi.model.SCVI.load_query_data(
 vae_q.is_trained = True
 latent = vae_q.get_latent_representation()
 adata_query.obsm["scvi"] = latent
-adata_query
+print(adata_query)
 
 # %% [markdown]
 # Combine and plot the two datasets

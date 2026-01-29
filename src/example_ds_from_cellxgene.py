@@ -96,6 +96,7 @@ random_seed = config_dict["example_ds_from_cellxgene"]["random_seed"]
 # ### Initialize the output directory
 
 # %%
+print("Initializing the output directory...")
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
 out_dir = "./shared_volume/" + config_dict["METHOD"] + "_" + now +"/"
