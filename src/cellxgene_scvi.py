@@ -319,7 +319,6 @@ print(adata_query.var)
 
 # %%
 adata_query_scvi = adata_query.copy()
-adata_query_scvi
 
 # %% [markdown]
 # Load the scVI model and prepare the query data
@@ -327,7 +326,7 @@ adata_query_scvi
 # %%
 print("Preparing the query data for scVI model...")
 scvi.model.SCVI.prepare_query_anndata(adata_query_scvi, model_file)
-adata_query_scvi
+print(adata_query_scvi)
 
 # %% [markdown]
 # Load the query data into the model, set “is_trained” to True to trick the model into thinking it was already trained, and do a forward pass through the model to get the latent representation of the query data.
@@ -349,23 +348,19 @@ print(adata_query)
 # Combine and plot the two datasets
 
 # %%
+print("Combining the query and reference datasets for visualization...")
 adata_combined = anndata.concat([adata_query, adata_ref])
 adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
-sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
+sc.pp.neighbors(
+    adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation"
+)
 sc.tl.umap(adata_combined)
-sc.pl.umap(adata_combined, color=["dataset_id"])
+with plt.rc_context():
+    sc.pl.umap(adata_combined, color=["dataset_id"])
+    plt.savefig(out_dir + "query_and_reference_umap.pdf")
 
 # %% [markdown]
 # ### Predict high-level cell types
-
-# %% [markdown]
-# Tabulate high-level cell types in the reference dataset
-
-# %%
-adata_ref.obs["high_level_cell_type"].value_counts()
-
-# %% [markdown]
-# Define a function to annotate cell types based on a column in the reference
 
 # %%
 def predict_cell_types_with_rf(
@@ -432,26 +427,21 @@ def predict_cell_types_with_rf(
 # Predict high-level cell types in the query dataset
 
 # %%
+print("Predicting high-level cell types for the query dataset...")
 preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, "high_level_cell_type")
 adata_query.obs["predicted_high_level_cell_type"] = preds
 adata_query.obs["predicted_high_level_cell_type_probability"] = probs
-adata_query.obs["predicted_high_level_cell_type_probability"].describe()
+print(adata_query.obs["predicted_high_level_cell_type_probability"].describe())
 
 # %%
-adata_query.obs["predicted_high_level_cell_type"].value_counts()
-
-# %% [markdown]
-# Uncomment this if the query dataset has pre-annotated high-level cell types that you consider a gold standard.
-
-# %%
-frac_correct = sum(adata_query.obs["high_level_cell_type"] == adata_query.obs["predicted_high_level_cell_type"]) / adata_query.n_obs
-print(f"Fraction of correctly predicted: {frac_correct:.3f}")
+print(adata_query.obs["predicted_high_level_cell_type"].value_counts())
 
 # %% [markdown]
 # ### Predict low-level cell types for each high-level cell type
 
 # %%
 # For each high-level cell type, annotate within that group
+print("Predicting low-level cell types for each high-level cell type...")
 col_prev_pred = "predicted_high_level_cell_type"
 unique_types = adata_query.obs[col_prev_pred].dropna().unique()
 for ct in unique_types:
@@ -472,17 +462,10 @@ for ct in unique_types:
     adata_query.obs.loc[mask_query, "predicted_cell_type_probability"] = probs
 
 # %%
-adata_query.obs["predicted_cell_type"].value_counts()
+print(adata_query.obs["predicted_cell_type"].value_counts())
 
 # %%
-adata_query.obs["predicted_cell_type_probability"].describe()
-
-# %% [markdown]
-# Uncomment this if the query dataset has pre-annotated CL ontology cell types that you consider a gold standard.
-
-# %%
-frac_correct = sum(adata_query.obs["cell_type"] == adata_query.obs["predicted_cell_type"]) / adata_query.n_obs
-print(f"Fraction of correctly predicted: {frac_correct:.3f}")
+print(adata_query.obs["predicted_cell_type_probability"].describe())
 
 # %% [markdown]
 # ## Visualize the results
@@ -491,6 +474,7 @@ print(f"Fraction of correctly predicted: {frac_correct:.3f}")
 # ### High-level cell types
 
 # %%
+print("Visualizing high-level cell types predictions...")
 # Set "predicted" cell types in the reference dataset to the actual reference cell types
 adata_ref.obs["predicted_high_level_cell_type"] = adata_ref.obs["high_level_cell_type"]
 adata_ref.obs["predicted_cell_type"] = adata_ref.obs["cell_type"]
@@ -506,7 +490,16 @@ adata_combined.obs_names_make_unique() # this is necessary when the query and th
 # Plot the UMAP
 sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
 sc.tl.umap(adata_combined)
-sc.pl.umap(adata_combined, color=["dataset_id", "predicted_high_level_cell_type", "predicted_high_level_cell_type_probability"])
+with plt.rc_context():
+    sc.pl.umap(
+        adata_combined, 
+        color=[
+            "dataset_id", 
+            "predicted_high_level_cell_type",
+            "predicted_high_level_cell_type_probability"
+        ]
+    )
+    plt.savefig(out_dir + "high_level_cell_types_umap.pdf")
 
 # %% [markdown]
 # ### Low-level cell types
