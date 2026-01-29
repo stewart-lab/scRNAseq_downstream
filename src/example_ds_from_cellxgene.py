@@ -124,7 +124,6 @@ adata_census = cellxgene_census.get_anndata(
     measurement_name="RNA",
     organism=organism,
     obs_value_filter=f"dataset_id in {ref_dataset_ids}",
-    obs_embeddings=["scvi"],
 )
 print(adata_census)
 

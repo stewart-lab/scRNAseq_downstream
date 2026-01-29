@@ -103,8 +103,9 @@ random_seed = config_dict["cellxgene_scvi"]["random_seed"]
 # ### Load the query dataset from file
 
 # %%
+print(f"Loading query dataset from file: {query_data_file}")
 adata_query = sc.read_h5ad(query_data_file)
-adata_query
+print(adata_query)
 
 # %% [markdown]
 # ### Load the reference dataset from CellxGene
@@ -113,6 +114,7 @@ adata_query
 # Create a census object
 
 # %%
+print(f"Loading CellxGene census version: {census_version}")
 census = cellxgene_census.open_soma(census_version=census_version)
 census
 
