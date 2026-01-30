@@ -1,4 +1,4 @@
-name: example_ds_from_cellxgene
+name: cellxgene_scvi
 channels:
   - conda-forge
 dependencies:
