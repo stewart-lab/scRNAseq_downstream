@@ -9,12 +9,14 @@
 
 # %%
 # Standard python libraries
+from datetime import datetime
+import json
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import shutil
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
+import subprocess
 import os
 
 # scVerse
@@ -536,13 +538,37 @@ for hlct in high_level_cell_types:
         plt.savefig(out_dir + f"{hlct}_low_level_cell_types_umap.pdf")   
 
 # %% [markdown]
-# ## Save the results
+# ## Save the annotated query dataset
 
 # %%
-# CONTINUE HERE
 # Extract the base filename without extension from query_data_file
+print("Saving the annotated query dataset...")
 query_basename = os.path.splitext(os.path.basename(query_data_file))[0]
 output_filename = f"{query_basename}_cellxgene_scvi_annotated.h5ad"
-adata_query.write_h5ad(output_filename)
+adata_query.write_h5ad(out_dir + output_file)
 
+# save package versions
+print("Saving package versions...")
+# Check if we're in a conda environment
+in_conda = os.environ.get('CONDA_DEFAULT_ENV') is not None
+if in_conda:
+    # Use conda list command
+    result = subprocess.run(['conda', 'list', '--explicit'], capture_output=True, text=True)
+    packages = result.stdout
+    # Write the packages to a file
+    with open(out_dir + 'conda-requirements.txt', 'w') as f:
+        f.write(packages)
+    print("- conda package versions have been written to conda-requirements.txt")
+
+# Also save pip freeze output
+result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
+packages = result.stdout
+# Write the packages to a file
+with open(out_dir + 'pip-requirements.txt', 'w') as f:
+    f.write(packages)
+print("- pip package versions have been written to pip-requirements.txt")
+
+os.chmod(out_dir, 0o777)
+
+print("Done.")
 
