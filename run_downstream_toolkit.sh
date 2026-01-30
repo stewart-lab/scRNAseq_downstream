@@ -126,8 +126,11 @@ else
         source activate scRNAseq_new
         Rscript src/get_DE_genes.R
     elif [ "$METHOD" == "example_ds_from_cellxgene" ]; then
-        source activate example_ds_from_cellxgene
+        source activate cellxgene_scvi
         python src/example_ds_from_cellxgene.py
+    elif [ "$METHOD" == "cellxgene_scvi" ]; then
+        source activate cellxgene_scvi
+        python src/cellxgene_scvi.py
     else
         echo "Unknown method: $METHOD"
         exit 1
