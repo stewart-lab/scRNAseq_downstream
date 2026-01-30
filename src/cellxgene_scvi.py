@@ -543,8 +543,6 @@ for hlct in high_level_cell_types:
 # %%
 # Extract the base filename without extension from query_data_file
 print("Saving the annotated query dataset...")
-query_basename = os.path.splitext(os.path.basename(query_data_file))[0]
-output_filename = f"{query_basename}_cellxgene_scvi_annotated.h5ad"
 adata_query.write_h5ad(out_dir + output_file)
 
 # save package versions
