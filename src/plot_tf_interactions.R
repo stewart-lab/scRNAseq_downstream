@@ -37,7 +37,6 @@ TARGET_LIGANDS <- c(
 )
 
 # 4. Output directory for heatmaps
-# 4. Output directory for heatmaps
 OUTPUT_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/nichenet/TF_Interaction_Heatmaps"
 
 # 5. Top N interactions to show for Ligands (optional)
@@ -83,11 +82,6 @@ get_feature_interactions <- function(mat, feature_name, axis) {
     }
     return(NULL)
 }
-
-# ... (generate_sorted_heatmap function remains unchanged) ... since I cannot replace non-contiguous blocks easily in one replace call if they are far, I will assume validation logic holds.
-# Wait, I need to update the calls. I will update the function and the calls in one go if they were close, but they are far.
-# I will update the function first, then the calls. Actually, I can use multi_replace.
-
 
 generate_sorted_heatmap <- function(data_matrix, feature_name, interaction_type, output_dir, top_n = NULL) {
     # data_matrix is 1 x N

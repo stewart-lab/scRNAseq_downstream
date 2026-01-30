@@ -1,0 +1,24 @@
+```{r}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(reticulate)
+# read in data
+emtab.data <- Read10X(data.dir = "/w5home/bmoore/scRNAseq/LiFangChu/public_data/E_MTAB_11334/output_20251204_225619/alignment_No_Matrigel_CHIR99021_8-10_lane2/raw/")
+# make seurat object
+seurat.obj <- CreateSeuratObject(
+    counts = emtab.data,
+    project = "emtab",
+    min.cells = 3,
+    min.features = 200
+)
+seurat.obj
+```
+
+```{r}
+sox2.data <- FetchData(object = seurat.obj, vars = "SOX2", layer = "counts")
+head(sox2.data)
+```
+```{r}
+sum(sox2.data$SOX2)
+```

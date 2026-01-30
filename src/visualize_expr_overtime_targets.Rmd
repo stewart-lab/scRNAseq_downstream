@@ -15,6 +15,7 @@ library(ggplot2)
 library(scater)
 library(SingleCellExperiment)
 library(tidyverse)
+library(viridis)
 ```
 # set dir and filenames
 ```{r dir_file}
@@ -32,25 +33,38 @@ colnames(merged_seurat@meta.data)
 # create output
 ```{r}
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0(DATA_DIR, "output_bulk_expr_", timestamp)
+output <- paste0(DATA_DIR, "output_expr_vis_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 ```
 # get metadata for cell types
 ```{r metadata}
-clusterids <- read.csv(paste0(DATA_DIR, "celltype_annot_df.csv"), header = TRUE)
-print(clusterids)
-new_df_ordered <- clusterids[order(as.numeric(clusterids$Cluster)), ]
-new_cluster_ids <- new_df_ordered$Celltype
-print(new_cluster_ids)
-# make sure that idents are the clusters you want annotated
-merged_seurat <- SetIdent(merged_seurat, value = "seurat_clusters")
-# Rename the clusters based on the new IDs
-names(new_cluster_ids) <- levels(merged_seurat)
-merged_seurat <- RenameIdents(merged_seurat, new_cluster_ids)
-# put in CellType metadata
-merged_seurat$CellType <- Idents(merged_seurat)
+# clusterids <- read.csv(paste0(DATA_DIR, "celltype_annot_df.csv"), header = TRUE)
+# print(clusterids)
+# new_df_ordered <- clusterids[order(as.numeric(clusterids$Cluster)), ]
+# new_cluster_ids <- new_df_ordered$Celltype
+# print(new_cluster_ids)
+# # make sure that idents are the clusters you want annotated
+# merged_seurat <- SetIdent(merged_seurat, value = "seurat_clusters")
+# # Rename the clusters based on the new IDs
+# names(new_cluster_ids) <- levels(merged_seurat)
+# merged_seurat <- RenameIdents(merged_seurat, new_cluster_ids)
+# # put in CellType metadata
+# merged_seurat$CellType <- Idents(merged_seurat)
+
+# Separate Type into timepoint and condition
+Type <- as.character(merged_seurat$Type)
+# Split by "-"
+split_res <- strsplit(Type, "-")
+# Extract timepoint (first part)
+merged_seurat$timepoint <- sapply(split_res, `[`, 1)
+# Extract condition (second part, if exists)
+merged_seurat$condition <- sapply(split_res, function(x) if (length(x) > 1) x[2] else NA)
+
+# Verify
+print(unique(merged_seurat$timepoint))
+print(unique(merged_seurat$condition))
 
 # Generate and plot the UMAP plot
 # pdf(paste0(DATA_DIR, "labeled-clusters.pdf"), bg = "white")
@@ -74,20 +88,29 @@ unique(bulk_seurat$celltype.comp)
 ```
 # modify expression matrix function
 ```{r}
-modify_matrix <- function(df) {
-    # Get the rownames (sample names)
-    sample_names <- rownames(df)
+modify_matrix <- function(df, type) {
+    if (type == "bulk") {
+        # Get the rownames (sample names)
+        sample_names <- rownames(df)
 
-    # Split by "_" and convert to a data.frame
-    split_names <- do.call(rbind, strsplit(sample_names, "_"))
+        # Split by "_" and convert to a data.frame
+        split_names <- do.call(rbind, strsplit(sample_names, "_"))
 
-    # Assign to new columns in your dataframe
-    df$timepoint <- split_names[, 1]
-    df$rep <- split_names[, 2]
-    df$celltype <- split_names[, 3]
-
+        # Assign to new columns in your dataframe
+        df$timepoint <- split_names[, 1]
+        df$rep <- split_names[, 2]
+        df$celltype <- split_names[, 3]
+    } else if (type == "merged") {
+        sample_names <- as.character(df$ident)
+        # Split by "_" and convert to a data.frame
+        split_names <- do.call(rbind, strsplit(sample_names, "_"))
+        df$timepoint <- split_names[, 2]
+        df$celltype <- split_names[, 1]
+    }
+    print(head(df$timepoint))
     # split to get recovered/ not recovered
     R.NR.type <- do.call(rbind, strsplit(df$timepoint, "-"))[, 2]
+    # print(head(R.NR.type))
     timepoint <- do.call(rbind, strsplit(df$timepoint, "-"))[, 1]
     timepoint <- ifelse(
         tolower(timepoint) == "sham",
@@ -95,7 +118,7 @@ modify_matrix <- function(df) {
         sub("^g(\\d+)Wk$", "\\1Wk", timepoint)
     )
     R.NR.type <- ifelse(
-        R.NR.type %in% c("Sham", "g1Wk"), NA, R.NR.type
+        R.NR.type %in% c("Sham", "g1Wk", "1Wk"), NA, R.NR.type
     )
 
     df$type <- R.NR.type
@@ -158,7 +181,7 @@ summarise_gene <- function(dfsub) {
 ```
 # plot function
 ```{r}
-plot_function <- function(df_summary_connected, gene, Celltype, timept, output) {
+plot_function <- function(df_summary_connected, gene, Celltype, output) {
     p1 <- ggplot(data = df_summary_connected, aes(
         x = timepoint,
         y = mean.expr, group = type, color = type
@@ -175,7 +198,63 @@ plot_function <- function(df_summary_connected, gene, Celltype, timept, output) 
     # make pdf
     pdf(
         file = paste0(
-            output, gene, "_", Celltype, "_", timept, "_expr_lineplot",
+            output, gene, "_", Celltype, "_expr_lineplot",
+            ".pdf"
+        ),
+        height = 4, width = 5
+    )
+    print(p1)
+    dev.off()
+}
+```
+# violin plot function
+```{r}
+vln_plot_function <- function(seurat.obj, gene, Celltype, output) {
+    seurat.sub <- subset(seurat.obj, seurat_clusters == Celltype)
+
+    # Handle NA conditions
+    condition_vec <- as.character(seurat.sub$condition)
+    condition_vec[is.na(condition_vec)] <- "both"
+    seurat.sub$condition <- condition_vec
+
+    # Fetch data for plotting
+    plot_data <- FetchData(seurat.sub, vars = c(gene, "timepoint", "condition"))
+    colnames(plot_data)[1] <- "expression"
+
+    p1 <- ggplot(plot_data, aes(x = timepoint, y = expression, fill = condition)) +
+        geom_violin(scale = "width", trim = TRUE) +
+        geom_jitter(size = 0.1, position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.9)) +
+        theme_minimal() +
+        labs(
+            title = paste0(gene, " ", Celltype), x = "Time point",
+            y = "Normalized expr"
+        )
+
+    # make pdf
+    pdf(
+        file = paste0(
+            output, gene, "_", Celltype, "_expr_violinplot",
+            ".pdf"
+        ),
+        height = 4, width = 5
+    )
+    print(p1)
+    dev.off()
+}
+```
+# feature plot function
+```{r}
+feature_plot_function <- function(gene, timepoint, seurat.obj, output) {
+    p1 <- FeaturePlot(seurat.obj,
+        features = gene,
+        pt.size = 0.1, reduction = "umap"
+    ) &
+        scale_color_viridis(option = "B")
+
+    # make pdf
+    pdf(
+        file = paste0(
+            output, gene, "_", timepoint, "_expr_featureplot",
             ".pdf"
         ),
         height = 4, width = 5
@@ -216,22 +295,6 @@ for (f in filelist) {
 
     print(paste("Celltype:", celltype_part, "Timepoint:", timepoint))
 
-    # get top DE genes by adj pval
-    # # sort
-    # de_df <- de_df %>%
-    #   arrange(p_val_adj)
-    # # print(head(de_df))
-    # # subset
-    # if (nrow(de_df) < 10) {
-    #   if (dim(de_df)[1] == 0) {
-    #     de_df_sub <- NULL
-    #   } else {
-    #     n <- nrow(de_df)
-    #     de_df_sub <- de_df[1:n, ]
-    #   }
-    # } else {
-    #   de_df_sub <- de_df[1:10, ]
-    # }
     if (is.null(de_df)) {
         print(paste0("No DE genes for ", celltype_part, " ", timepoint))
     } else {
@@ -261,7 +324,7 @@ for (f in filelist) {
         # format data
         gene.matrix <- as.data.frame(t(gene.matrix))
 
-        df <- modify_matrix(gene.matrix)
+        df <- modify_matrix(gene.matrix, "bulk")
 
         # loop through genes
         for (gene in valid_genes) {
@@ -285,14 +348,97 @@ for (f in filelist) {
     }
 }
 ```
+# loop through genes and celltypes for lineplot of bulk expression
 ```{r}
-gene.vector <- c("ANO1", "GLULB", "ENSDARG00000109963", "PKD1B", "GFAP", "SLC2A1B", "MYH11A", "ABCA1A", "ARHGEF4", "BCL2A")
-gene.matrix <- bulk_seurat[["RNA"]]$counts[gene.vector, ]
-head(gene.matrix)
-colnames(gene.matrix)
+# input gene vector and celltype
+# gene.vector <- c("Cntn1", "Notch2", "Cntn2", "Nfasc", "Jag2", "App", "Cd74") #c("Hoxb5", "Etv4")
+# Celltypes <- c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16")
+gene.vector <- c("Hoxb5", "Etv4")
+Celltypes <- c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16")
+# read in orthologs
+orthologs <- read.table(file.path(DATA_DIR, "merged_orthologs_zebrafish-mouse.txt"), header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+# loop through celltypes
+for (Celltype in Celltypes) {
+    print(Celltype)
+    # get zebrafish names
+    orthologs <- orthologs %>% filter(Mouse.gene.name %in% gene.vector)
+    zebrafish_names <- unique(orthologs$gene)
+
+    # Filter for valid genes present in the object
+    valid_genes <- intersect(zebrafish_names, rownames(bulk_seurat[["RNA"]]$counts))
+
+    # get gene matrix
+    # drop = FALSE ensures we keep dimensions even if only one gene is found
+    gene.matrix <- bulk_seurat[["RNA"]]$counts[valid_genes, , drop = FALSE]
+
+    # format data
+    gene.matrix <- as.data.frame(t(gene.matrix))
+
+    df <- modify_matrix(gene.matrix, "bulk")
+
+    # loop through genes
+    for (gene in valid_genes) {
+        print(gene)
+        # subset for gene and cell type
+        dfsub <- df[, c(gene, "timepoint", "rep", "celltype", "type")]
+        # print(head(dfsub))
+        dfsub <- subset(x = dfsub, celltype %in% Celltype)
+        colnames(dfsub) <- c("norm.expr", "timepoint", "rep", "celltype", "type")
+        # summarise expression values
+        df_summary <- summarise_gene(dfsub)
+        # write summary
+        write.csv(df_summary, file = paste0(
+            output,
+            "summary_",
+            gene, "_", Celltype, ".csv"
+        ))
+        # plot summary
+        plot_function(df_summary, gene, Celltype, output)
+    }
+}
 ```
-# loop through all celltypes for all timepoints to get expression and visualize
+# get genes and celltypes
 ```{r}
-celltypes <- unique(bulk_seurat$CellType)
-timepoints <- unique(bulk_seurat$Type)
+# input gene vector and celltype
+gene.vector <- c("Hoxb5", "Etv4") # c("Hoxb5", "Etv4", "Cntn1", "Notch2", "Cntn2", "Nfasc", "Jag2", "App", "Cd74")
+Celltypes <- c("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16")
+merged_seurat$celltype.comp <- paste(merged_seurat$seurat_clusters, merged_seurat$Type, sep = "_")
+Idents(merged_seurat) <- "celltype.comp"
+unique(merged_seurat$celltype.comp)
+clusterassignments <- data.frame(ident = merged_seurat@active.ident)
+
+# read in orthologs
+orthologs <- read.table(file.path(DATA_DIR, "merged_orthologs_zebrafish-mouse.txt"),
+    header = TRUE, sep = "\t", stringsAsFactors = FALSE
+)
+# get zebrafish names
+orthologs <- orthologs %>% filter(Mouse.gene.name %in% gene.vector)
+zebrafish_names <- unique(orthologs$gene)
+
+# Filter for valid genes present in the object
+valid_genes <- intersect(zebrafish_names, rownames(merged_seurat[["RNA"]]$counts))
 ```
+# visualize expression over time with violin plots
+```{r}
+# loop through genes
+for (gene in valid_genes) {
+    print(gene)
+    print("making violin plots")
+    # loop through celltypes
+    for (Celltype in Celltypes) {
+        print(Celltype)
+        # vioolin plot across time
+        vln_plot_function(merged_seurat, gene, Celltype, output)
+    }
+
+    # feature plot
+    print("making feature plots")
+    for (type1 in unique(merged_seurat$Type)) {
+        print(type1)
+        # subset seurat object for timepoint
+        seurat.sub <- subset(merged_seurat, Type == type1)
+        feature_plot_function(gene, type1, seurat.sub, output)
+    }
+}
+```
+

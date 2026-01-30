@@ -20,8 +20,8 @@ projPath <- "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/"
 # example data from https://zenodo.org/records/3531889/files/seuratObj.rds
 # seuratObj <- readRDS(file= paste0(projPath,"seuratObj_nichenet.rds"))
 # read in object 1
-seuratObjNR <- readRDS(file = paste0(projPath, "seurat_mouse_annot_4WkNR.rds"))
-seuratObjR <- readRDS(file = paste0(projPath, "seurat_mouse_annot_4WkR.rds"))
+seuratObjNR <- readRDS(file = paste0(projPath, "seurat_mouse_annot_6WkNR.rds"))
+seuratObjR <- readRDS(file = paste0(projPath, "seurat_mouse_annot_6WkR.rds"))
 print(seuratObjNR@meta.data %>% head())
 print(seuratObjR@meta.data %>% head())
 ```
@@ -40,7 +40,7 @@ table(seuratObj$seurat_clusters)
 
 ```{r readin_networks}
 # from: zenodo_path <- " https://zenodo.org/record/7074291/files/"
-network_path <- "/w5home/bmoore/scRNAseq_downstream/data/example_data/"
+network_path <- "/w5home/bmoore/Pierre_sc_zebrafish/nichenet/nichenet_networks/"
 ligand_target_matrix <- readRDS(paste0(network_path, "ligand_target_matrix_nsga2r_final_mouse.rds"))
 lr_network <- readRDS(paste0(network_path, "lr_network_mouse_21122021.rds"))
 weighted_networks <- readRDS(paste0(network_path, "weighted_networks_nsga2r_final_mouse.rds"))
@@ -66,9 +66,9 @@ Features(seuratObj[["RNA"]])
 ```
 
 ```{r outputdir}
-name <- "4wk_R-NR_"
+name <- "6wk_R-NR_"
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("/w5home/bmoore/Pierre_sc_zebrafish/nichnet_", name, timestamp)
+output <- paste0("/w5home/bmoore/Pierre_sc_zebrafish/nichenet/nichnet_", name, timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
@@ -79,21 +79,21 @@ seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
 seuratObj <- RunUMAP(seuratObj, dims = 1:15)
 gg1 <- DimPlot(seuratObj, reduction = "umap", group.by = "CellType")
 gg2 <- DimPlot(seuratObj, reduction = "umap", group.by = "Type")
-pdf(file = paste0(output, "seurat_mouse_umap4wk.pdf"), height = 6, width = 10)
+pdf(file = paste0(output, "seurat_mouse_umap.pdf"), height = 6, width = 10)
 patchwork::wrap_plots(plots = list(gg1, gg2))
 dev.off()
 ```
 ```{r}
 # define reference condition and condition of interest
-condition_oi <- "4Wk-R" # this is the "case" cond
-condition_reference <- "4Wk-NR" # this is the "control"
+condition_oi <- "6Wk-R" # this is the "case" cond
+condition_reference <- "6Wk-NR" # this is the "control"
 ```
 ```{r}
 # set cell type annotation
 Idents(seuratObj) <- seuratObj$CellType
 table(Idents(seuratObj))
 # define receiver
-receivers <- c("T_Cells_and_Neutrophils") # "Fibroblasts", "T_Cells_and_Neutrophils", "Immature_Neurons","Gabaergic_Neurons","Glutamatergic_Neurons",,"Glycinergic_Neurons", "Motor_Neurons"
+receivers <- c("T_Cells_and_Neutrophils", "Fibroblasts") # , "T_Cells_and_Neutrophils", "Immature_Neurons","Gabaergic_Neurons","Glutamatergic_Neurons",,"Glycinergic_Neurons", "Motor_Neurons"
 for (i in 1:length(receivers)) {
   print(receivers[i])
 }
@@ -458,13 +458,23 @@ for (i in 1:length(receivers)) {
   ## Heatmap of ligand log-fold change across conditions
   # compute log FC
   celltype_order <- levels(Idents(seuratObj))
-  DE_table_top_ligands <- lapply(celltype_order[celltype_order %in% sender_celltypes],
-    get_lfc_celltype,
-    seurat_obj = seuratObj, condition_colname = "Type",
-    condition_oi = condition_oi, condition_reference = condition_reference,
-    celltype_col = "CellType", min.pct = 0, logfc.threshold = 0,
-    features = best_upstream_ligands
-  )
+  DE_table_top_ligands <- lapply(celltype_order[celltype_order %in% sender_celltypes], function(celltype) {
+    tryCatch(
+      {
+        get_lfc_celltype(celltype,
+          seurat_obj = seuratObj, condition_colname = "Type",
+          condition_oi = condition_oi, condition_reference = condition_reference,
+          celltype_col = "CellType", min.pct = 0, logfc.threshold = 0,
+          features = best_upstream_ligands
+        )
+      },
+      error = function(e) {
+        print(paste0("Error in get_lfc_celltype for ", celltype, ": ", e$message))
+        return(NULL)
+      }
+    )
+  })
+  DE_table_top_ligands <- DE_table_top_ligands[!sapply(DE_table_top_ligands, is.null)]
   DE_table_top_ligands <- reduce(DE_table_top_ligands, full_join)
   DE_table_top_ligands <- column_to_rownames(DE_table_top_ligands, "gene")
   # get matrix
@@ -543,22 +553,33 @@ for (i in 1:length(receivers)) {
 # Prioritizing LR pairs across multiple receiver cell types
 receiver_celltypes <- c("T_Cells_and_Neutrophils", "Fibroblasts")
 nichenet_outputs <- lapply(receiver_celltypes, function(receiver_ct) {
-  output <- nichenet_seuratobj_aggregate(
-    receiver = receiver_ct,
-    seurat_obj = seuratObj,
-    condition_colname = "Type",
-    condition_oi = condition_oi,
-    condition_reference = condition_reference,
-    sender = sender_celltypes,
-    ligand_target_matrix = ligand_target_matrix,
-    lr_network = lr_network,
-    weighted_networks = weighted_networks,
-    expression_pct = 0.05
+  tryCatch(
+    {
+      output <- nichenet_seuratobj_aggregate(
+        receiver = receiver_ct,
+        seurat_obj = seuratObj,
+        condition_colname = "Type",
+        condition_oi = condition_oi,
+        condition_reference = condition_reference,
+        sender = sender_celltypes,
+        ligand_target_matrix = ligand_target_matrix,
+        lr_network = lr_network,
+        weighted_networks = weighted_networks,
+        expression_pct = 0.05
+      )
+      # Add receiver information
+      output$ligand_activities$receiver <- receiver_ct
+      return(output)
+    },
+    error = function(e) {
+      print(paste("Error processing", receiver_ct, ":", e$message))
+      return(NULL)
+    }
   )
-  # Add receiver information
-  output$ligand_activities$receiver <- receiver_ct
-  return(output)
 })
+
+# Remove NULL results (failed runs)
+nichenet_outputs <- nichenet_outputs[!sapply(nichenet_outputs, is.null)]
 # Generate tables used for prioritization
 info_tables <- lapply(nichenet_outputs, function(output) {
   # Only use expressed LR pairs
