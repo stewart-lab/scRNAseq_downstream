@@ -462,7 +462,12 @@ for ct in unique_types:
     adata_query.obs.loc[mask_query, "predicted_cell_type_probability"] = probs
 
 # %%
-print(adata_query.obs["predicted_cell_type"].value_counts())
+print(
+    adata_query.obs[
+        "predicted_high_level_cell_type",
+        "predicted_cell_type"
+    ].value_counts()
+)
 
 # %%
 print(adata_query.obs["predicted_cell_type_probability"].describe())
@@ -474,7 +479,7 @@ print(adata_query.obs["predicted_cell_type_probability"].describe())
 # ### High-level cell types
 
 # %%
-print("Visualizing high-level cell types predictions...")
+print("Combining query and reference datasets for visualization...")
 # Set "predicted" cell types in the reference dataset to the actual reference cell types
 adata_ref.obs["predicted_high_level_cell_type"] = adata_ref.obs["high_level_cell_type"]
 adata_ref.obs["predicted_cell_type"] = adata_ref.obs["cell_type"]
@@ -488,6 +493,7 @@ adata_combined = anndata.concat([adata_query, adata_ref])
 adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
 
 # Plot the UMAP
+print("Plotting UMAP with predicted high-level cell types...")
 sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
 sc.tl.umap(adata_combined)
 with plt.rc_context():
@@ -505,6 +511,7 @@ with plt.rc_context():
 # ### Low-level cell types
 
 # %%
+print("Plotting UMAPs for low-level cell types within each high-level cell type...")
 high_level_cell_types = adata_combined.obs["predicted_high_level_cell_type"].unique()
 for hlct in high_level_cell_types:
     print(f"### High-level cell type: {hlct}")
@@ -512,16 +519,27 @@ for hlct in high_level_cell_types:
     cell_types = adata_combined.obs.loc[mask, "predicted_cell_type"].unique()
     cell_types_nonempty = [ct for ct in cell_types if pd.notna(ct)]
     print(f"  Low-level cell types: {cell_types_nonempty}")
-    sc.pl.umap(
-        adata_combined[mask, :],
-        color=["dataset_id", "predicted_cell_type", "predicted_cell_type_probability"],
-        title=[f"{hlct} - Dataset", f"{hlct} - Predicted Cell Type", f"{hlct} - Prediction Probability"]
-    )
+    with plt.rc_context():
+        sc.pl.umap(
+            adata_combined[mask, :],
+            color=[
+                "dataset_id", 
+                "predicted_cell_type",
+                "predicted_cell_type_probability"
+            ],
+            title=[
+                f"{hlct} - Dataset", 
+                f"{hlct} - Predicted Cell Type", 
+                f"{hlct} - Prediction Probability"
+            ]
+        )
+        plt.savefig(out_dir + f"{hlct}_low_level_cell_types_umap.pdf")   
 
 # %% [markdown]
 # ## Save the results
 
 # %%
+# CONTINUE HERE
 # Extract the base filename without extension from query_data_file
 query_basename = os.path.splitext(os.path.basename(query_data_file))[0]
 output_filename = f"{query_basename}_cellxgene_scvi_annotated.h5ad"
