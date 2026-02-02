@@ -170,6 +170,54 @@ Outputs:
     * sessionInfo.txt: package information
     * config.json: config settings used
 
+### CellxGene and scVI
+This tool uses an scVI model published by CellxGene to project a query dataset
+into scVI embedding. A subset of an annotated reference dataset from CellxGene 
+is then used to annotate the query.
+
+The method uses a subset of the reference dataset in order to speed up computations. The entire reference dataset, e.g., a cell atlas of an organ, could contain hundreds of thousands of cells, so using a subset is sufficient. A user can specify how many cells of each cell type to include into the sub-setted reference by setting `ref_cells_per_cell_type`.
+
+The reference dataset contains a pre-computed scVI embedding. It is important
+to make sure that the version of the scVI model used to compute the embedding
+of the query is from the same CellxGene release as the reference dataset. If
+the reference dataset and model versions do not match, it will be obvious from 
+the UMAP plots, as the query dataset is going to cluster separately from 
+the reference.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title;
+    * `METHOD`: set to `cellxgene_scvi`;
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool; 
+
+* Under the `cellxgene_scvi` section:
+    * `DATA_DIR`: the folder containing a query dataset and an scVI model file;
+    * `reference_datasets`:
+        * `census_version`: the major CellxGene Census releases are named by their dates. 2025-11-08 is the latest stable release at the time of writing. See more at https://chanzuckerberg.github.io/cellxgene-census/cellxgene_census_docsite_data_release_info.html;
+        * `organism`: your species, e.g., "homo_sapiens";
+        * `ref_dataset_ids`: a list of ids of the datasets to retrieve. For example, `29244e1d-02e6-4133-b411-516ef7474638` is the 2025-11-08 version of the Yayon et al. thymus cell atlas. One can potentially specify more than one dataset, although this has not been tested;
+    * `high_level_cell_types`: a list of the high-level cell types to map the (relatively low-level) cell types provided by CellxGene to. This must be a small list of higher-level classes from the (Obo Cell Ontology)[https://obofoundry.org/ontology/cl.html]. High-level cell types are likely to be annotated with greater confidence than the original, lower-level ones, although the method will do both;
+    * `ref_cells_per_cell_type`: how many cells of each cell type to keep in the reference dataset, e.g., 100;
+    * `query_data_file`: query dataset. This should be an `anndata` object in the `a5hd` format, e.g., `test_Yayon_subset.h5ad`;
+    * `model_file`: an scVI model file. This should be a folder containing file `model.pt`;
+    * `output_file`: the file to save the annotated query dataset to, e.g., `test_Yayon_subset_scvi_annot.h5ad`. The data are saved as an `anndata` object in the `a5hd` format;
+    * `random_seed`: a seed for the random number generator.
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The annotated dataset: <output_file> as specified in the config file;
+* UMAP plots;
+* Other:
+    * config.json: config settings used;
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis.
+
 ## Annotation via marker lists
 
 ### GPT CellType
@@ -682,6 +730,9 @@ Rscript merge_orthologs_to_cellcycle_genes.R
 ```
 ### Subset a CellxGene dataset to create a smaller dataset for testing
 This tool generates a relatively small dataset that can serve as the input for cell type annotation tools to test if they work as expected. The generated dataset contains a subset of cells from an original CellxGene dataset, including a random selection of cells from each annotated cell type. The original CellxGene cell type annotations can be used as a “gold standard” when testing an annotation method.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
 
 Modify the following variables in `config.json`:
 * At the top level:
