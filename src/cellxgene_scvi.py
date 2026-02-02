@@ -88,12 +88,16 @@ ref_cells_per_cell_type = (
 
 # Query dataset
 DATA_DIR = config_dict["cellxgene_scvi"]["DATA_DIR"]
-query_data_file = (os.path.join(
-    DATA_DIR + config_dict["cellxgene_scvi"]["query_data_file"]))
+query_data_file = os.path.join(
+    DATA_DIR, 
+    config_dict["cellxgene_scvi"]["query_data_file"]
+)
 
 # scVI model file
-model_file = (os.path.join(
-    DATA_DIR + config_dict["cellxgene_scvi"]["model_file"]))
+model_file = os.path.join(
+    DATA_DIR, 
+    config_dict["cellxgene_scvi"]["model_file"]
+)
 
 # Name of the output file that would contain the example subset
 output_file = config_dict["cellxgene_scvi"]["output_file"]
@@ -433,9 +437,11 @@ print("Predicting high-level cell types for the query dataset...")
 preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, "high_level_cell_type")
 adata_query.obs["predicted_high_level_cell_type"] = preds
 adata_query.obs["predicted_high_level_cell_type_probability"] = probs
+print("Probability distribution for predicted high-level cell types:")
 print(adata_query.obs["predicted_high_level_cell_type_probability"].describe())
 
 # %%
+print("Counts of predicted high-level cell types:")
 print(adata_query.obs["predicted_high_level_cell_type"].value_counts())
 
 # %% [markdown]
@@ -464,11 +470,12 @@ for ct in unique_types:
     adata_query.obs.loc[mask_query, "predicted_cell_type_probability"] = probs
 
 # %%
+print("Counts of predicted cell types:")
 print(
-    adata_query.obs[
+    adata_query.obs[[
         "predicted_high_level_cell_type",
         "predicted_cell_type"
-    ].value_counts()
+    ]].value_counts()
 )
 
 # %%
