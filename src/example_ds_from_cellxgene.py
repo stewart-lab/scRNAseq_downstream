@@ -34,6 +34,7 @@ import cellxgene_census.experimental
 
 # Some settings to avoid errors/warnings
 # - enable writing nullable string arrays to h5ad files
+pd.set_option("mode.string_storage", "python")
 ad.settings.allow_write_nullable_strings = True
 
 # - suppress "Transforming to str index" warnings when loading CellxGene census 

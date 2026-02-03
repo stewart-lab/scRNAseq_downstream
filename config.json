@@ -1,6 +1,6 @@
 {
-  "title": "get a Yayon subset from cellxgene to use as a reference dataset",
-  "METHOD": "example_ds_from_cellxgene",
+  "title": "annotate example query dataset using cellxgene_scvi",
+  "METHOD": "cellxgene_scvi",
   "docker": "False",
   
   "seurat_mapping": {

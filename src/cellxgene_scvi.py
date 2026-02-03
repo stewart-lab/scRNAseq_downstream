@@ -20,7 +20,7 @@ import subprocess
 import os
 
 # scVerse
-import anndata
+import anndata as ad
 import scanpy as sc
 import scvi
 
@@ -36,6 +36,10 @@ import cellxgene_census.experimental
 import warnings
 from anndata import ImplicitModificationWarning
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
+
+# - enable writing nullable string arrays to h5ad files
+pd.set_option("mode.string_storage", "python")
+ad.settings.allow_write_nullable_strings = True
 
 # %% [markdown]
 # Make sure the plots show up in the notebook
@@ -355,7 +359,7 @@ print(adata_query)
 
 # %%
 print("Combining the query and reference datasets for visualization...")
-adata_combined = anndata.concat([adata_query, adata_ref])
+adata_combined = ad.concat([adata_query, adata_ref])
 adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
 sc.pp.neighbors(
     adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation"
@@ -498,7 +502,7 @@ adata_ref.obs["predicted_high_level_cell_type_probability"] = np.nan
 adata_ref.obs["predicted_cell_type_probability"] = np.nan
 
 # Combine the datasets
-adata_combined = anndata.concat([adata_query, adata_ref])
+adata_combined = ad.concat([adata_query, adata_ref])
 adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
 
 # Plot the UMAP

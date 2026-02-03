@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import anndata as ad
 
-# %% Enable writing nullable string arrays
+# %% Enable writing nullable string arrays to h5ad files
+pd.set_option("mode.string_storage", "python")
 ad.settings.allow_write_nullable_strings = True
 
 # %% A function to create an example AnnData object
