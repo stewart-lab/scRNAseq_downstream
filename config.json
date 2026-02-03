@@ -1,6 +1,6 @@
 {
-  "title": "annotate example query dataset using cellxgene_scvi",
-  "METHOD": "cellxgene_scvi",
+  "title": "get a Yayon subset from cellxgene to use as a reference dataset",
+  "METHOD": "example_ds_from_cellxgene",
   "docker": "False",
   
   "seurat_mapping": {
@@ -232,7 +232,7 @@
     ],
     "ref_cells_per_cell_type": 100,
     "output_file": "test_Yayon_subset.h5ad",
-    "random_seed": 1037
+    "random_seed": 1105
   },
   "cellxgene_scvi":{
     "DATA_DIR": "/w5home/ybukhman/Projects/THYMUBROWN/results/68_scVI-pipeline/input_data",

@@ -11,8 +11,6 @@
 # ### Load libraries
 
 # %%
-print("loading libraries...")
-
 # Standard python libraries
 from datetime import datetime
 import json
@@ -21,22 +19,27 @@ import os
 import pandas as pd
 import shutil
 import subprocess
+import warnings
 
 # scVerse
-import anndata
+import anndata as ad
+from anndata import ImplicitModificationWarning
+
+# Ontology
+from oaklib import get_adapter
 
 # CellxGene
 import cellxgene_census
 import cellxgene_census.experimental
 
+# Some settings to avoid errors/warnings
+# - enable writing nullable string arrays to h5ad files
+ad.settings.allow_write_nullable_strings = True
+
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
 #   data into anndata
-import warnings
-from anndata import ImplicitModificationWarning
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
 
-# Ontology
-from oaklib import get_adapter
 # %% [markdown]
 # Make sure the plots show up in the notebook
 
