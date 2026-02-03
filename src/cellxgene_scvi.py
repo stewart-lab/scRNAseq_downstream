@@ -24,6 +24,9 @@ import anndata
 import scanpy as sc
 import scvi
 
+# Ontology
+from oaklib import get_adapter
+
 # CellxGene
 import cellxgene_census
 import cellxgene_census.experimental
@@ -33,9 +36,6 @@ import cellxgene_census.experimental
 import warnings
 from anndata import ImplicitModificationWarning
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
-
-# Ontology
-from oaklib import get_adapter
 
 # %% [markdown]
 # Make sure the plots show up in the notebook
