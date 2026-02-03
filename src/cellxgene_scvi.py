@@ -548,10 +548,10 @@ for hlct in high_level_cell_types:
 # ## Save the annotated query dataset
 
 # %%
-# Extract the base filename without extension from query_data_file
 print("Saving the annotated query dataset...")
 adata_query.write_h5ad(out_dir + output_file)
 
+#%%
 # save package versions
 print("Saving package versions...")
 # Check if we're in a conda environment
