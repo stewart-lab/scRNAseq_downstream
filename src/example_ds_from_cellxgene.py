@@ -11,8 +11,6 @@
 # ### Load libraries
 
 # %%
-print("loading libraries...")
-
 # Standard python libraries
 from datetime import datetime
 import json
@@ -21,22 +19,28 @@ import os
 import pandas as pd
 import shutil
 import subprocess
+import warnings
 
 # scVerse
-import anndata
+import anndata as ad
+from anndata import ImplicitModificationWarning
+
+# Ontology
+from oaklib import get_adapter
 
 # CellxGene
 import cellxgene_census
 import cellxgene_census.experimental
 
+# Some settings to avoid errors/warnings
+# - enable writing nullable string arrays to h5ad files
+pd.set_option("mode.string_storage", "python")
+ad.settings.allow_write_nullable_strings = True
+
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
 #   data into anndata
-import warnings
-from anndata import ImplicitModificationWarning
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
 
-# Ontology
-from oaklib import get_adapter
 # %% [markdown]
 # Make sure the plots show up in the notebook
 
@@ -96,9 +100,10 @@ random_seed = config_dict["example_ds_from_cellxgene"]["random_seed"]
 # ### Initialize the output directory
 
 # %%
+print("Initializing the output directory...")
 now = datetime.now()
 now = now.strftime("%Y%m%d_%H%M%S")
-out_dir = "./shared_volume/realtime_" + now +"/"
+out_dir = "./shared_volume/" + config_dict["METHOD"] + "_" + now +"/"
 print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
@@ -124,7 +129,6 @@ adata_census = cellxgene_census.get_anndata(
     measurement_name="RNA",
     organism=organism,
     obs_value_filter=f"dataset_id in {ref_dataset_ids}",
-    obs_embeddings=["scvi"],
 )
 print(adata_census)
 

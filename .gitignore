@@ -59,6 +59,7 @@ pst_env/
 data/gamm_data/
 data/example_data/
 data/input_data
+*.h5ad
 
 # output
 output*
