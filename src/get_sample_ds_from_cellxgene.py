@@ -1,8 +1,8 @@
 # %% [markdown]
-# # Make a small example dataset from CellxGene
+# # Retrieve a sample of a CellxGene dataset
 
 # %% [markdown]
-# This can serve as the input for `cellxgene_scvi` and other annotation tools to test that they work as expected. This dataset will contain a subset of cells from a reference dataset in CellxGene. Since CellxGene provides cell type annotations, we have a “gold standard” answer.
+# This script retrieves and saves a dataset containing a subset of cells from a CellxGene dataset, sampling each annotated cell type. This can serve as the input for `cellxgene_scvi` and other annotation tools to test that they work as expected. It could serve either as a test or a reference dataset. Since CellxGene provides cell type annotations, we have a “gold standard” answer.
 
 # %% [markdown]
 # ## Set up
@@ -25,27 +25,18 @@ import warnings
 import anndata as ad
 from anndata import ImplicitModificationWarning
 
-# Ontology
-from oaklib import get_adapter
-
 # CellxGene
 import cellxgene_census
 import cellxgene_census.experimental
 
 # Some settings to avoid errors/warnings
-# - enable writing nullable string arrays to h5ad files
-pd.set_option("mode.string_storage", "python")
-ad.settings.allow_write_nullable_strings = True
-
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
 #   data into anndata
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
 
-# %% [markdown]
-# Make sure the plots show up in the notebook
-
-# %%
-# %matplotlib inline
+# - enable writing nullable string arrays to h5ad files
+pd.set_option("mode.string_storage", "python")
+ad.settings.allow_write_nullable_strings = True
 
 # %% [markdown]
 # ### Parse the config file.
@@ -57,7 +48,7 @@ with open(work_dir+'/config.json') as f:
     config_dict = json.load(f)
     print(
         "loaded config file: ", 
-        config_dict["example_ds_from_cellxgene"]
+        config_dict["get_sample_ds_from_cellxgene"]
     )
 
 # docker and data directory
@@ -67,34 +58,29 @@ docker = config_dict["docker"]
 if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
     DATA_DIR = "./data/input_data/"
 else:
-    DATA_DIR = config_dict["example_ds_from_cellxgene"]["DATA_DIR"]
+    DATA_DIR = config_dict["get_sample_ds_from_cellxgene"]["DATA_DIR"]
 
 # Reference dataset(s)
 census_version = (
-    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["census_version"]
+    config_dict["get_sample_ds_from_cellxgene"]["reference_datasets"]["census_version"]
 )
 organism = (
-    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["organism"]
+    config_dict["get_sample_ds_from_cellxgene"]["reference_datasets"]["organism"]
 )
 ref_dataset_ids = (
-    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["ref_dataset_ids"]
-)
-
-# High-level cell types
-high_level_cell_types = (
-    config_dict["example_ds_from_cellxgene"]["high_level_cell_types"]
+    config_dict["get_sample_ds_from_cellxgene"]["reference_datasets"]["ref_dataset_ids"]
 )
 
 # Number of cells per cell type in a subset of the reference
 ref_cells_per_cell_type = (
-    config_dict["example_ds_from_cellxgene"]["ref_cells_per_cell_type"]
+    config_dict["get_sample_ds_from_cellxgene"]["ref_cells_per_cell_type"]
 )
 
 # Name of the output file that would contain the example subset
-output_file = config_dict["example_ds_from_cellxgene"]["output_file"]
+output_file = config_dict["get_sample_ds_from_cellxgene"]["output_file"]
 
 # Random seed
-random_seed = config_dict["example_ds_from_cellxgene"]["random_seed"]
+random_seed = config_dict["get_sample_ds_from_cellxgene"]["random_seed"]
 
 # %% [markdown]
 # ### Initialize the output directory
@@ -184,86 +170,6 @@ np.random.seed(random_seed)
 # Subsample the reference dataset
 adata_query = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)
 print(adata_query)
-
-# %% [markdown]
-# ## Assign high-level cell types
-
-# %%
-print("assigning high-level cell types...")
-
-def assign_high_level_cell_types(adata, high_level_cell_types):
-    """
-    Assign high-level cell types to cells in an AnnData object based on ontology ancestors.
-    
-    Parameters
-    ----------
-    adata : AnnData
-        The AnnData object to annotate. Modified in place.
-    high_level_cell_types : set or list
-        A collection of high-level cell type names to match against ancestors.
-    
-    Returns
-    -------
-    None
-        The function modifies adata.obs in place, adding two columns:
-        - 'high_level_cell_type_ontology_term_id'
-        - 'high_level_cell_type'
-    """
-    # Get all unique cell_type_ontology_term_id values except "unknown"
-    cell_type_ids = adata.obs["cell_type_ontology_term_id"].unique()
-    cell_type_ids = [ctid for ctid in cell_type_ids if ctid != "unknown"]
-    
-    # Map from cell_type_ontology_term_id to (high_level_id, high_level_name)
-    adapter = get_adapter("sqlite:obo:cl")
-    high_level_map = {}
-    
-    for ctid in cell_type_ids:
-        try:
-            ancestors = list(adapter.ancestors([ctid]))
-        except Exception as e:
-            print(f"Warning: Could not get ancestors for {ctid}: {e}")
-            high_level_map[ctid] = (None, None)
-            continue
-        matching_ancestors = []
-        for ancestor in ancestors:
-            if str(ancestor).startswith("CL:"):
-                name = adapter.label(ancestor)
-                if name in high_level_cell_types:
-                    matching_ancestors.append((ancestor, name))
-        if len(matching_ancestors) == 1:
-            ancestor, name = matching_ancestors[0]
-            high_level_map[ctid] = (ancestor, name)
-        elif len(matching_ancestors) == 0:
-            print(f"Warning: No matching ancestor in high_level_cell_types for {ctid} ({adapter.label(ctid)})")
-            high_level_map[ctid] = (None, None)
-        elif (
-            len(matching_ancestors) == 2 and
-            ("hematopoietic cell" in [n for _, n in matching_ancestors]) and
-            ("connective tissue cell" in [n for _, n in matching_ancestors])
-        ):
-            # Special case: show only hematopoietic cell
-            for ancestor, name in matching_ancestors:
-                if name == "hematopoietic cell":
-                    high_level_map[ctid] = (ancestor, name)
-                    break
-        else:
-            print(f"Warning: Multiple matching ancestors for {ctid} ({adapter.label(ctid)}): {matching_ancestors}")
-            high_level_map[ctid] = (None, None)
-    
-    # Now, map these to the obs DataFrame
-    def get_high_level_id(ctid):
-        return high_level_map.get(ctid, (None, None))[0]
-    
-    def get_high_level_name(ctid):
-        return high_level_map.get(ctid, (None, None))[1]
-    
-    adata.obs["high_level_cell_type_ontology_term_id"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_id)
-    adata.obs["high_level_cell_type"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_name)
-
-# Assign high-level cell types to adata_query (as per the comment in CELL INDEX 19)
-assign_high_level_cell_types(adata_query, high_level_cell_types)
-
-print(adata_query.obs[["cell_type","high_level_cell_type"]].value_counts())
 
 # %% [markdown]
 # ## Save the generated dataset and package versions
