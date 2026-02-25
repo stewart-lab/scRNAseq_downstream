@@ -1,6 +1,6 @@
 {
-  "title": "annotate example query dataset using cellxgene_scvi",
-  "METHOD": "cellxgene_scvi",
+  "title": "retrieve an example query dataset from the CellxGene Yayon thymic cell atlas",
+  "METHOD": "get_sample_ds_from_cellxgene",
   "docker": "False",
   
   "seurat_mapping": {
@@ -226,7 +226,7 @@
       "ref_dataset_ids": ["29244e1d-02e6-4133-b411-516ef7474638"]
     },
     "ref_cells_per_cell_type": 100,
-    "output_file": "test_Yayon_subset.h5ad",
+    "output_file": "Yayon_subset_1.h5ad",
     "random_seed": 1105
   },
   "assign_high_level_cell_types":{
