@@ -231,14 +231,13 @@
   },
   "assign_high_level_cell_types":{
     "DATA_DIR": "my_datadir",
-    "input_file": "my_input.h5ad",
+    "input_file": "test_Yayon_subset.h5ad",
     "high_level_cell_types": [
       "epithelial cell", "hematopoietic cell", "neural cell", 
       "connective tissue cell", "muscle cell", "absorptive cell", 
       "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
     ],
-    "output_file": "test_Yayon_subset.h5ad",
-    "random_seed": 1105
+    "output_file": "test_Yayon_subset_hlct.h5ad"
   },
   "cellxgene_scvi":{
     "DATA_DIR": "/w5home/ybukhman/Projects/THYMUBROWN/results/68_scVI-pipeline/input_data",
