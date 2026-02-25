@@ -762,7 +762,7 @@ Outputs:
     * config.json: config settings used
     * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
 
-### Assign high-level cell types based on the Cell Ontology
+### Assign high-level cell types based on existing low-level cell type annotations
 This tool takes an annotated dataset and assigns high-level cell types based on a list supplied by the user. Existing low-level cell types, such as those included in CellxGene datasets, are mapped to a smaller set of high-level types using OBO Cell Ontology (CL). Both the existing cell type annotations and the high-level cell types must match valid ontology terms. The reason one may want to assign higher-level cell types is that they can be annotated with higher confidence.
 
 Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
