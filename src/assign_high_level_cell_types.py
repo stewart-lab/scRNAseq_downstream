@@ -1,8 +1,11 @@
 # %% [markdown]
-# # Make a small example dataset from CellxGene
+# # Assign high-level cell types based on existing low-level cell type annotations
 
 # %% [markdown]
-# This can serve as the input for `cellxgene_scvi` and other annotation tools to test that they work as expected. This dataset will contain a subset of cells from a reference dataset in CellxGene. Since CellxGene provides cell type annotations, we have a “gold standard” answer.
+# This tool takes an annotated dataset and assigns high-level cell types based on a list supplied by the user. Existing low-level cell types, such as those included in CellxGene datasets, are mapped to a smaller set of high-level types using OBO Cell Ontology (CL). Both the existing cell type annotations and the high-level cell types must match valid ontology terms. The reason one may want to assign higher-level cell types is that they can be annotated with higher confidence.
+
+# Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` before attempting to run this tool.
+
 
 # %% [markdown]
 # ## Set up
@@ -14,7 +17,6 @@
 # Standard python libraries
 from datetime import datetime
 import json
-import numpy as np
 import os
 import pandas as pd
 import shutil
@@ -24,13 +26,10 @@ import warnings
 # scVerse
 import anndata as ad
 from anndata import ImplicitModificationWarning
+import scanpy as sc
 
 # Ontology
 from oaklib import get_adapter
-
-# CellxGene
-import cellxgene_census
-import cellxgene_census.experimental
 
 # Some settings to avoid errors/warnings
 # - enable writing nullable string arrays to h5ad files
@@ -42,12 +41,6 @@ ad.settings.allow_write_nullable_strings = True
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
 
 # %% [markdown]
-# Make sure the plots show up in the notebook
-
-# %%
-# %matplotlib inline
-
-# %% [markdown]
 # ### Parse the config file.
 
 # %%
@@ -57,7 +50,7 @@ with open(work_dir+'/config.json') as f:
     config_dict = json.load(f)
     print(
         "loaded config file: ", 
-        config_dict["example_ds_from_cellxgene"]
+        config_dict["assign_high_level_cell_types"]
     )
 
 # docker and data directory
@@ -67,34 +60,18 @@ docker = config_dict["docker"]
 if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
     DATA_DIR = "./data/input_data/"
 else:
-    DATA_DIR = config_dict["example_ds_from_cellxgene"]["DATA_DIR"]
+    DATA_DIR = config_dict["assign_high_level_cell_types"]["DATA_DIR"]
 
-# Reference dataset(s)
-census_version = (
-    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["census_version"]
-)
-organism = (
-    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["organism"]
-)
-ref_dataset_ids = (
-    config_dict["example_ds_from_cellxgene"]["reference_datasets"]["ref_dataset_ids"]
-)
+# Input file
+input_file = config_dict["assign_high_level_cell_types"]["input_file"]
 
 # High-level cell types
 high_level_cell_types = (
-    config_dict["example_ds_from_cellxgene"]["high_level_cell_types"]
+    config_dict["assign_high_level_cell_types"]["high_level_cell_types"]
 )
 
-# Number of cells per cell type in a subset of the reference
-ref_cells_per_cell_type = (
-    config_dict["example_ds_from_cellxgene"]["ref_cells_per_cell_type"]
-)
-
-# Name of the output file that would contain the example subset
-output_file = config_dict["example_ds_from_cellxgene"]["output_file"]
-
-# Random seed
-random_seed = config_dict["example_ds_from_cellxgene"]["random_seed"]
+# Output file
+output_file = config_dict["assign_high_level_cell_types"]["output_file"]
 
 # %% [markdown]
 # ### Initialize the output directory
@@ -110,80 +87,10 @@ os.makedirs(out_dir, mode=0o777, exist_ok=True)
 shutil.copy('./config.json', out_dir) 
 
 # %% [markdown]
-# ### Load the reference dataset from CellxGene
-
-# %% [markdown]
-# Create a census object
-
-# %%
-print("loading census version ", census_version, " ...")
-census = cellxgene_census.open_soma(census_version=census_version)
-
-# %% [markdown]
-# Load the reference dataset
-
-# %%
-print("loading reference dataset from CellxGene...")
-adata_census = cellxgene_census.get_anndata(
-    census=census,
-    measurement_name="RNA",
-    organism=organism,
-    obs_value_filter=f"dataset_id in {ref_dataset_ids}",
-)
-print(adata_census)
-
-# %% [markdown]
-# ## Sub-sample the data
-# Create a random subset having ```ref_cells_per_cell_type``` representatives of each cell type. 
-
-# %%
-print("subsampling the reference dataset...")
-
-def subsample_by_cell_type(adata, num_cells_per_cell_type):
-    """
-    Subsample an AnnData object to have a specified number of cells per cell type.
-    
-    Parameters
-    ----------
-    adata : AnnData
-        The AnnData object to subsample.
-    num_cells_per_cell_type : int
-        The target number of cells per cell type.
-    
-    Returns
-    -------
-    AnnData
-        A subsampled AnnData object.
-    """
-    # Get all unique cell types
-    cell_types = adata.obs.loc[adata.obs['cell_type'] != "unknown", 'cell_type'].dropna().unique()
-    
-    # For each cell type, sample up to num_cells_per_cell_type cells (if available)
-    indices_q = []
-    
-    for ct in cell_types:
-        idx = adata.obs[adata.obs['cell_type'] == ct].index.values
-        n = min(num_cells_per_cell_type, len(idx))
-        if n == 0:
-            continue
-        # Shuffle indices
-        idx = np.random.permutation(idx)
-        # If more than num_cells_per_cell_type, select a random set of num_cells_per_cell_type
-        if len(idx) >= num_cells_per_cell_type:
-            indices_q.extend(list(idx[:num_cells_per_cell_type]))
-        else:
-            # If less than num_cells_per_cell_type, use all cells for this cell type
-            indices_q.extend(list(idx))
-    
-    # Create the query AnnData subset
-    return adata[indices_q, :].copy()
-
-# Set random seed for reproducibility
-np.random.seed(random_seed)
-
-# Subsample the reference dataset
-adata_query = subsample_by_cell_type(adata_census, ref_cells_per_cell_type)
-print(adata_query)
+# ### Load the input dataset
+print(f"Loading input dataset from file: {input_file}")
+adata = sc.read_h5ad(input_file)
+print(adata)
 
 # %% [markdown]
 # ## Assign high-level cell types
@@ -260,10 +167,9 @@ def assign_high_level_cell_types(adata, high_level_cell_types):
     adata.obs["high_level_cell_type_ontology_term_id"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_id)
     adata.obs["high_level_cell_type"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_name)
 
-# Assign high-level cell types to adata_query (as per the comment in CELL INDEX 19)
-assign_high_level_cell_types(adata_query, high_level_cell_types)
-
-print(adata_query.obs[["cell_type","high_level_cell_type"]].value_counts())
+# Assign high-level cell types to adata and print the resulting value counts
+assign_high_level_cell_types(adata, high_level_cell_types)
+print(adata.obs[["cell_type","high_level_cell_type"]].value_counts())
 
 # %% [markdown]
 # ## Save the generated dataset and package versions
@@ -271,7 +177,7 @@ print(adata_query.obs[["cell_type","high_level_cell_type"]].value_counts())
 # %%
 # Save the generated dataset
 print(f"Saving generated dataset to {output_file} ...")
-adata_query.write_h5ad(out_dir + output_file)
+adata.write_h5ad(out_dir + output_file)
 
 # save package versions
 print("Saving package versions...")
