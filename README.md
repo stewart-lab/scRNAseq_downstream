@@ -737,10 +737,10 @@ before attempting to run this tool.
 Modify the following variables in `config.json`:
 * At the top level:
     * `title`: specify your analysis title
-    * `METHOD`: set to `example_ds_from_cellxgene`
+    * `METHOD`: set to `get_sample_ds_from_cellxgene`
     * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
 
-* Under the `example_ds_from_cellxgene` section:
+* Under the `get_sample_ds_from_cellxgene` section:
     * `DATA_DIR`: leave blank (""), as no data is loaded from disk
     * `reference_datasets`:
         * `census_version`: the major CellxGene Census releases are named by their dates. 2025-11-08 is the latest stable release at the time of writing. See more at https://chanzuckerberg.github.io/cellxgene-census/cellxgene_census_docsite_data_release_info.html
@@ -750,6 +750,35 @@ Modify the following variables in `config.json`:
     * `ref_cells_per_cell_type`: how many cells of each cell type to keep in the dataset, e.g., 100
     * `output_file`: the file to save the generated dataset to, e.g., "test_Yayon_subset.h5ad". The data are saved as an `anndata` object in the `a5hd` format.
     * `random_seed`: a seed for the random number generator
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The subsetted dataset: <output_file> as specified in the config file
+* Other:
+    * config.json: config settings used
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
+
+### Assign high-level cell types based on the Cell Ontology
+This tool takes an annotated dataset and assigns high-level cell types based on a list supplied by the user. Existing low-level cell types, such as those included in CellxGene datasets, are mapped to a smaller set of high-level types using OBO Cell Ontology (CL). Both the existing cell type annotations and the high-level cell types must match valid ontology terms. The reason one may want to assign higher-level cell types is that they can be annotated with higher confidence.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title
+    * `METHOD`: set to `assign_high_level_cell_types`
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
+
+* Under the `assign_high_level_cell_types` section:
+    * `DATA_DIR`: directory where the input file is located
+    * `input_file`: the input file, in `h5ad` format
+    * `high_level_cell_types`: an array of cell types
+    * `output_file`: the file to save the generated dataset, in the `a5hd` format.
 
 Run:
 ```
