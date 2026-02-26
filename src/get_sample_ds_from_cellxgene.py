@@ -38,7 +38,7 @@ pd.set_option("mode.string_storage", "python")
 ad.settings.allow_write_nullable_strings = True
 
 # %% [markdown]
-# ## Specialized functions for this method
+# ## Specialized functions for this module
 
 # %% Subsample an AnnData object to get a specified number of cells per cell type
 def subsample_by_cell_type(adata, num_cells_per_cell_type):
