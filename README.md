@@ -786,7 +786,7 @@ source run_downstream_toolkit.sh
 ```
 
 Outputs:
-* The subsetted dataset: <output_file> as specified in the config file
+* The modified dataset to which high-level cell types have been added: <output_file> as specified in the config file
 * Other:
     * config.json: config settings used
     * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
