@@ -1,6 +1,6 @@
 {
-  "title": "zebrafish_realtime_nonrecovered",
-  "METHOD": "realtime",
+  "title": "zebrafish_cellchat_4wkR",
+  "METHOD": "cellchat",
   "docker": "false",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -292,5 +292,13 @@
       "annot_type": "manual",
       "n_rank": 10
     }
+  },
+  "cellchat": {
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/",
+    "FILELIST": "filelist_test.txt",
+    "group_by": "CellType",
+    "source1": "Fibroblasts",
+    "source2": "Radial_glial_cells",
+    "task_id": 1
   }
 }

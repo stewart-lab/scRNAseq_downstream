@@ -9,55 +9,83 @@ library(ggalluvial)
 library(reticulate)
 options(stringsAsFactors = FALSE)
 
-# parse command line arguments
-option_list <- list(
-    make_option(c("--data_dir"),
-        type = "character", default = "./",
-        help = "Path to the data directory", metavar = "character"
-    ),
-    make_option(c("--filelist"),
-        type = "character", default = "filelist.txt",
-        help = "Path to the filelist", metavar = "character"
-    ),
-    make_option(c("--group_by"),
-        type = "character", default = "CellType",
-        help = "Group by celltype or cluster", metavar = "character"
-    ),
-    make_option(c("--source1"),
-        type = "character", default = "Fibroblasts",
-        help = "celltype or cluster for visualization", metavar = "character"
-    ),
-    make_option(c("--source2"),
-        type = "character", default = "T_Cells_and_Neutrophils",
-        help = "celltype or cluster for visualization", metavar = "character"
-    ),
-    make_option(c("--task_id"),
-        type = "integer", default = NULL,
-        help = "Task ID for parallel execution (1-based index). If specified, only the file at this index is processed.", metavar = "integer"
-    )
-)
-opt_parser <- OptionParser(option_list = option_list)
-opt <- parse_args(opt_parser)
-print(opt$group_by)
-# set working directory
-data_dir <- opt$data_dir # "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/"
-setwd(data_dir)
-data_dir <- paste0(getwd(), "/") # to get absolute path
+# # parse command line arguments
+# option_list <- list(
+#     make_option(c("--data_dir"),
+#         type = "character", default = "./",
+#         help = "Path to the data directory", metavar = "character"
+#     ),
+#     make_option(c("--filelist"),
+#         type = "character", default = "filelist.txt",
+#         help = "Path to the filelist", metavar = "character"
+#     ),
+#     make_option(c("--group_by"),
+#         type = "character", default = "CellType",
+#         help = "Group by celltype or cluster", metavar = "character"
+#     ),
+#     make_option(c("--source1"),
+#         type = "character", default = "Fibroblasts",
+#         help = "celltype or cluster for visualization", metavar = "character"
+#     ),
+#     make_option(c("--source2"),
+#         type = "character", default = "T_Cells_and_Neutrophils",
+#         help = "celltype or cluster for visualization", metavar = "character"
+#     ),
+#     make_option(c("--task_id"),
+#         type = "integer", default = NULL,
+#         help = "Task ID for parallel execution (1-based index). If specified, only the file at this index is processed.", metavar = "integer"
+#     )
+# )
+# opt_parser <- OptionParser(option_list = option_list)
+# opt <- parse_args(opt_parser)
+# print(opt$group_by)
+# # set working directory
+# data_dir <- opt$data_dir # "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/"
+# setwd(data_dir)
+# data_dir <- paste0(getwd(), "/") # to get absolute path
+
+### set variables ###
+print("set variables")
+GIT_DIR <- getwd()
+config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
+docker <- config$docker
+if (docker == "TRUE" || docker == "true" || docker == "T" || docker == "t") {
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$cellchat$DATA_DIR
+}
+filelist <- config$cellchat$FILELIST
+group_by <- config$cellchat$group_by
+source1 <- config$cellchat$source1
+source2 <- config$cellchat$source2
+task_id <- config$cellchat$task_id
+### set working directory and output ###
+setwd(GIT_DIR)
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("./shared_volume/output_cellchat_", timestamp)
+print(output)
+dir.create(output, mode = "0777", showWarnings = FALSE)
+output <- paste0(output, "/")
+GIT_DIR <- paste0(GIT_DIR, "/")
+## copy config to output
+file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
+## source config and functions
+source(paste0(GIT_DIR, "src/sc_pipeline_functions.R"))
 
 # load Seurat objects
-filename_list <- read.table(file = opt$filelist, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
+filename_list <- read.table(file = paste0(DATA_DIR, filelist), header = FALSE, sep = "\t", stringsAsFactors = FALSE)
 filename_list <- filename_list$V1
 
 # Filter filelist if task_id is provided
-if (!is.null(opt$task_id)) {
-    task_id <- opt$task_id
+if (!is.null(task_id)) {
+    task_id <- as.integer(task_id)
     if (task_id > length(filename_list) || task_id < 1) {
         stop(paste0("Error: task_id ", task_id, " is out of range. Filelist has ", length(filename_list), " entries."))
     }
     print(paste0("Running task_id: ", task_id, " -> Processing file: ", filename_list[task_id]))
     imported_objects <- list()
     filename_list <- filename_list[task_id]
-    imported_object <- readRDS(filename_list)
+    imported_object <- readRDS(paste0(DATA_DIR, filename_list))
     base_name <- tools::file_path_sans_ext(basename(filename_list))
     imported_objects[[base_name]] <- imported_object
     object_names <- names(imported_objects)
@@ -73,7 +101,7 @@ if (!is.null(opt$task_id)) {
         # Extract the base filename without extension
         base_name <- tools::file_path_sans_ext(basename(filename_list[i]))
         # Import the file
-        imported_object <- readRDS(filename_list[i])
+        imported_object <- readRDS(paste0(DATA_DIR, filename_list[i]))
         # Assign the imported object to the list with the base filename as the name
         imported_objects[[base_name]] <- imported_object
     }
@@ -572,7 +600,7 @@ run_cellchat <- function(seurat_obj, output, name, source1, source2, not_source1
 
     #### format cellchat obj ####
     # set idents
-    cellchat <- setIdent(cellchat, ident.use = opt$group_by)
+    cellchat <- setIdent(cellchat, ident.use = group_by)
     levels(cellchat@idents)
     groupSize <- as.numeric(table(cellchat@idents))
     print(groupSize)
@@ -656,22 +684,22 @@ if (length(object_names) == 1) {
     name <- object_names[1]
     #### make output dir  and read in data ####
     timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-    output <- paste0(data_dir, name, "_cellchat_", timestamp)
+    output <- paste0(DATA_DIR, name, "_cellchat_", timestamp)
     print(output)
     dir.create(output, mode = "0777", showWarnings = FALSE)
     output <- paste0(output, "/")
     seurat_obj <- seurat_vector[[name]]
     print(seurat_obj)
     print(colnames(seurat_obj@meta.data))
-    print(unique(seurat_obj@meta.data[[opt$group_by]]))
+    print(unique(seurat_obj@meta.data[[group_by]]))
     # replace clusters labeled 0 with clust0
-    if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
-        seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
+    if ("0" %in% seurat_obj@meta.data[[group_by]]) {
+        seurat_obj@meta.data[[group_by]][seurat_obj@meta.data[[group_by]] == "0"] <- "clust0"
     }
     ## get cell type list and subset out source 1 and source 2
-    cell_types <- unique(seurat_obj@meta.data[[opt$group_by]])
-    source1 <- opt$source1
-    source2 <- opt$source2
+    cell_types <- unique(seurat_obj@meta.data[[group_by]])
+    # source1 <- source1
+    # source2 <- source2
     not_source1 <- c()
     not_source2 <- c()
     for (i in 1:length(cell_types)) {
@@ -686,7 +714,6 @@ if (length(object_names) == 1) {
     }
     print(not_source1)
     print(not_source2)
-    group_by <- opt$group_by
     run_cellchat(seurat_obj, output, name, source1, source2, not_source1, not_source2, group_by)
 } else {
     for (i in 1:length(object_names)) {
@@ -695,22 +722,22 @@ if (length(object_names) == 1) {
 
         #### make output dir  and read in data ####
         timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-        output <- paste0(data_dir, name, "_cellchat_", timestamp)
+        output <- paste0(DATA_DIR, name, "_cellchat_", timestamp)
         print(output)
         dir.create(output, mode = "0777", showWarnings = FALSE)
         output <- paste0(output, "/")
         seurat_obj <- seurat_vector[[name]]
         print(seurat_obj)
         print(colnames(seurat_obj@meta.data))
-        print(unique(seurat_obj@meta.data[[opt$group_by]]))
+        print(unique(seurat_obj@meta.data[[group_by]]))
         # replace clusters labeled 0 with clust0
-        if ("0" %in% seurat_obj@meta.data[[opt$group_by]]) {
-            seurat_obj@meta.data[[opt$group_by]][seurat_obj@meta.data[[opt$group_by]] == "0"] <- "clust0"
+        if ("0" %in% seurat_obj@meta.data[[group_by]]) {
+            seurat_obj@meta.data[[group_by]][seurat_obj@meta.data[[group_by]] == "0"] <- "clust0"
         }
         ## get cell type list and subset out source 1 and source 2
-        cell_types <- unique(seurat_obj@meta.data[[opt$group_by]])
-        source1 <- opt$source1
-        source2 <- opt$source2
+        cell_types <- unique(seurat_obj@meta.data[[group_by]])
+        # source1 <- source1
+        # source2 <- source2
         not_source1 <- c()
         not_source2 <- c()
         for (i in 1:length(cell_types)) {
@@ -725,7 +752,9 @@ if (length(object_names) == 1) {
         }
         print(not_source1)
         print(not_source2)
-        group_by <- opt$group_by
         run_cellchat(seurat_obj, output, name, source1, source2, not_source1, not_source2, group_by)
     }
 }
+
+writeLines(capture.output(sessionInfo()), paste0(output, "sessionInfo.txt"))
+system(paste("chmod -R 777", output))
