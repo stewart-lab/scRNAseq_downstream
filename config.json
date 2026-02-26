@@ -1,7 +1,7 @@
 {
-  "title": "LFJ_E",
-  "METHOD": "featureplots",
-  "docker": "true",
+  "title": "zebrafish_realtime_nonrecovered",
+  "METHOD": "realtime",
+  "docker": "false",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
     "REF.SEURAT": "Reh_205/seurat_obj_labeled_Reh205.rds",
@@ -175,10 +175,10 @@
     }
   },
   "realtime": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
-    "ADATA_FILE": "merged_seurat2.h5ad",
-    "time_label": "orig.ident2",
-    "annot_label": "CellType_combined",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_seurat2ann_20260224_121120/",
+    "ADATA_FILE": "seuratobj_all_reclustered_075_nonrecovered.h5ad",
+    "time_label": "Type",
+    "annot_label": "seurat_clusters_res0.75",
     "dim_red": "umap"
   },
   "celltypeGPT": {
@@ -205,20 +205,26 @@
     }
   },
   "recluster": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/public_data/E_MTAB_11334/output_20251204_225619/Matrigel_CHIR99021_8-10/",
-    "SEURAT.FILE": "seurat_obj_clustifyr.rds",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/",
+    "SEURAT.FILE": "SCI6WK_PARSE_PG_SB_030123.rds",
     "perform_clustering": {
-      "reduction": "harmony",
-      "resolution": 0.4,
+      "reduction": "pca",
+      "resolution": [
+        0.5,
+        0.7,
+        0.75,
+        0.8,
+        1.0
+      ],
       "algorithm": "leiden",
-      "dims_snn": 10,
-      "cluster_name": "seurat_clusters2"
+      "dims_snn": 15,
+      "cluster_name": "seurat_clusters"
     },
     "score_and_plot_markers": {
       "top_n_markers": 100,
-      "known_markers": "True",
-      "known_markers_path": "./data/markers/JackChu_markers.txt",
-      "cluster_type": "seurat_clusters2",
+      "known_markers": "False",
+      "known_markers_path": "",
+      "cluster_type": "seurat_clusters",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
       "auc_thresh": 0.5,
@@ -238,22 +244,18 @@
     "reduction": "umap"
   },
   "seurat2ann": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/",
-    "SEURAT_OBJ": "GAMM_S2_clabeled-clusters_0.5.rds",
-    "METADATA": "NA",
-    "OUTPUT_name": "GAMM_S2_clabeled-clusters_0.5_2.h5Seurat",
-    "DIM.RED": "NA"
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+    "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
+    "METADATA": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/manual_annot_metadata_all_res0.75.txt",
+    "OUTPUT_name": "seuratobj_all_reclustered_075.h5Seurat",
+    "DIM.RED": "umap"
   },
   "subset_seurat": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
-    "SEURAT_OBJ": "seurat_obj_labeled_S2.rds",
-    "GENE_LIST": [
-      "SAG",
-      "GNAT2",
-      "OTX2"
-    ],
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/",
+    "SEURAT_OBJ": "SCI6WK_PARSE_PG_SB_030123.rds",
+    "GENE_LIST": [],
     "DIM.RED": "umap",
-    "ANNOT": "CellType_manual"
+    "ANNOT": "Type"
   },
   "phate": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",

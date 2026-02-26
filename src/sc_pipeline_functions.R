@@ -542,26 +542,28 @@ run_umap <- function(seurat_obj, path = output, type) {
   return(seurat_obj)
 }
 
-perform_clustering <- function(seurat_obj, path = output, type) {
+perform_clustering <- function(seurat_obj, path = output, type, name, resolution) {
   if (type == "integration") {
-    resolution <- config$seurat_integration$perform_clustering$resolution
+    # resolution <- config$seurat_integration$perform_clustering$resolution
     algorithm <- config$seurat_integration$perform_clustering$algorithm
     reduction <- config$seurat_integration$perform_clustering$reduction
     dims_snn <- 1:config$seurat_integration$perform_clustering$dims_snn
     cluster_name <- config$seurat_integration$perform_clustering$cluster_name
   } else if (type == "recluster") {
-    resolution <- config$recluster$perform_clustering$resolution
+    # resolution <- config$recluster$perform_clustering$resolution
     algorithm <- config$recluster$perform_clustering$algorithm
     reduction <- config$recluster$perform_clustering$reduction
     dims_snn <- 1:config$recluster$perform_clustering$dims_snn
     cluster_name <- config$recluster$perform_clustering$cluster_name
   } else {
-    resolution <- config$perform_clustering$resolution
+    # resolution <- config$perform_clustering$resolution
     algorithm <- config$perform_clustering$algorithm
     reduction <- config$perform_clustering$reduction
     dims_snn <- 1:config$perform_clustering$dims_snn
     cluster_name <- config$perform_clustering$cluster_name
   }
+  # add resolution to cluster_name
+  cluster_name <- paste0(cluster_name, "_res", as.character(resolution))
   # Check if Harmony embeddings exist in the Seurat object
   batch_corrected <- "harmony" %in% names(Embeddings(seurat_obj))
   # check if pca in embeddings
@@ -581,7 +583,7 @@ perform_clustering <- function(seurat_obj, path = output, type) {
   seurat_obj <- FindNeighbors(seurat_obj, dims = dims_snn, reduction = reduction)
 
   # Save UMAP lanes plot
-  pdf(paste0(path, "umap_lanes.pdf"), width = 8, height = 6)
+  pdf(paste0(path, "umap_lanes", name, "_res", resolution, ".pdf"), width = 8, height = 6)
   umap_lanes <- DimPlot(seurat_obj, reduction = "umap", group.by = "orig.ident", pt.size = .5)
   print(umap_lanes)
   dev.off()
@@ -593,7 +595,7 @@ perform_clustering <- function(seurat_obj, path = output, type) {
   )
 
   # Save UMAP clusters plot
-  pdf(paste0(path, "umap_clusters.pdf"), width = 8, height = 6)
+  pdf(paste0(path, "umap_clusters", name, "_res", resolution, ".pdf"), width = 8, height = 6)
   umap_clusters <- DimPlot(seurat_obj,
     reduction = "umap", label = TRUE,
     group.by = cluster_name, pt.size = .5
@@ -703,7 +705,7 @@ analyze_known_markers <- function(seurat_obj, de_results, output_path = output) 
   }
 }
 
-score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) {
+score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, name, resolution) {
   if (type == "integration") {
     known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
     known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
@@ -738,11 +740,12 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
     auc_thresh <- config$score_and_plot_markers$auc_thresh
   }
 
+  # add resolution to cluster_name
+  cluster_type <- paste0(cluster_type, "_res", as.character(resolution))
   sce_obj <- sce
 
   # Score markers
   marker_info <- score_markers(sce_obj, cluster_type)
-
   # Read in known markers
   known.markers.df <- if (known_markers) {
     read.csv2(known_markers_path, sep = "\t", header = TRUE, row.names = 1)
@@ -766,7 +769,7 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
 
     # Process top genes for each cluster
     clust <- as.data.frame(marker_info[[clusters[i]]])
-    annot_df <- process_top_genes(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type)
+    annot_df <- process_top_genes(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type, name, resolution)
   }
 
   return(annot_df)
@@ -774,24 +777,24 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
-    marker_field <- paste0("label.", cluster_type)
-    marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
-  } else {
-    stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
-  }
+  # if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
+  marker_field <- paste0("label.", cluster_type)
+  marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
+  # } else {
+  #   stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
+  # }
   return(marker_info)
 }
 
 get_clusters <- function(seurat_obj, cluster_type) {
-  if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
-    return(unique(seurat_obj@meta.data[[cluster_type]]))
-  } else {
-    stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
-  }
+  # if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
+  return(unique(seurat_obj@meta.data[[cluster_type]]))
+  # } else {
+  #   stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
+  # }
 }
 
-process_top_genes <- function(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type) {
+process_top_genes <- function(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type, name, resolution) {
   # Extract relevant configuration settings
   if (type == "integration") {
     top_n_markers <- config$seurat_integration$score_and_plot_markers$top_n_markers
@@ -819,7 +822,7 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
   top100 <- head(ordered, n = top_n_markers)
 
   # Create a subdirectory for Top100 DE genes
-  top100_dir <- file.path(output_path, paste0("Top", top_n_markers, "_DE_Genes"))
+  top100_dir <- file.path(output_path, paste0("Top", top_n_markers, "_DE_Genes_", name, "_res", resolution))
   if (!dir.exists(top100_dir)) {
     dir.create(top100_dir, recursive = TRUE)
   }
@@ -829,9 +832,13 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
     file = file.path(top100_dir, paste0("Top", top_n_markers, "DEgenes_clust_", clusters[i], ".txt")),
     quote = FALSE, sep = "\t", row.names = TRUE
   )
-
-  # Process known markers
-  return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df, type))
+  if (known_markers == TRUE | known_markers == "TRUE" | known_markers == "true" | known_markers == "T") {
+    # Process known markers
+    return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df, type, name, resolution))
+  } else {
+    print("No known markers")
+    return(annot_df)
+  }
 }
 
 
@@ -890,7 +897,7 @@ process_pairwise_comparisons <- function(clusters, i, marker.info, output_path, 
 }
 
 
-process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df, type) {
+process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df, type, name, resolution) {
   if (type == "integration") {
     annot_type <- config$seurat_integration$process_known_markers$annot_type
     n_rank <- config$seurat_integration$process_known_markers$n_rank
@@ -912,7 +919,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       new_row <- data.frame(Cluster = clusters[i], Celltype = "unknown")
       annot_df <- rbind(annot_df, new_row)
     } else {
-      subdirectory_path <- file.path(output_path, "Known_DE_Markers")
+      subdirectory_path <- file.path(output_path, "Known_DE_Markers_", name, "_res", resolution)
       if (!dir.exists(subdirectory_path)) {
         dir.create(subdirectory_path, recursive = TRUE)
       }

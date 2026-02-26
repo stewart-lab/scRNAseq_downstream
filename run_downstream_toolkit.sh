@@ -97,7 +97,7 @@ else
         source .venv/bin/activate
         python src/pseudotime.py
     elif [ "$METHOD" == "realtime" ]; then
-        source activate realtime
+        conda activate realtime
         python src/realtime.py
     elif [ "$METHOD" == "celltypeGPT" ]; then
         source activate scRNAseq_new

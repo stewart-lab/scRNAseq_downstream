@@ -1,0 +1,242 @@
+# load libraries
+```{r}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(scran)
+library(BiocParallel)
+library(cowplot)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(ggplot2)
+library(scater)
+library(SingleCellExperiment)
+library(tidyverse)
+```
+# setup
+```{r}
+# set variables
+GIT_DIR <- getwd()
+config <- jsonlite::fromJSON(file.path("./config.json"))
+docker <- config$docker
+if (docker == "TRUE" || docker == "true" || docker == "T" || docker == "t") {
+    DATA_DIR <- "./data/input_data/"
+} else {
+    DATA_DIR <- config$subset_seurat$DATA_DIR
+}
+SEURAT_OBJ <- config$subset_seurat$SEURAT_OBJ
+DIM.RED <- config$subset_seurat$DIM.RED
+ANNOT <- config$subset_seurat$ANNOT
+# set up environment and output
+# timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+# output <- paste0("./shared_volume/output_subset-recluster_", timestamp)
+# print(output)
+# dir.create(output, mode = "0777", showWarnings = FALSE)
+# output <- paste0(output, "/")
+output <- "/w5home/bmoore/scRNAseq_downstream/shared_volume/output_subset-recluster_20260204_094842/"
+file.copy(paste0("config.json"), file.path(output, "config.json"))
+source(paste0("src/sc_pipeline_functions.R"))
+```
+# load data
+```{r}
+print("load data")
+seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT_OBJ))
+```
+# set idents
+```{r}
+# set idents by category
+Idents(object = seurat.obj) <- ANNOT
+table(Idents(seurat.obj))
+```
+# subset
+```{r}
+seurat.obj_subset1 <- subset(x = seurat.obj, idents = "1Wk")
+seurat.obj_subset2 <- subset(x = seurat.obj, idents = c("2Wk-R", "2Wk-NR"))
+seurat.obj_subset4 <- subset(x = seurat.obj, idents = c("4Wk-R", "4Wk-NR"))
+seurat.obj_subset6 <- subset(x = seurat.obj, idents = c("6Wk-R", "6Wk-NR"))
+obj_list <- list(seurat.obj_subset1, seurat.obj_subset2, seurat.obj_subset4, seurat.obj_subset6)
+name_list <- c("1WK", "2Wk", "4Wk", "6Wk")
+```
+# recluster
+```{r}
+cluster_name <- config$recluster$perform_clustering$cluster_name
+resolution_list <- config$recluster$perform_clustering$resolution
+name_list <- c("all")
+obj_list <- list(seurat.obj)
+for (i in 1:length(name_list)) {
+    name <- name_list[i]
+    obj <- obj_list[[i]]
+    print(name)
+    print(obj)
+    print("reclustering")
+    for (resolution in resolution_list) {
+        print(resolution)
+        # obj <- RunPCA(obj, features = VariableFeatures(object = obj))
+        obj_recluster <- perform_clustering(obj, output, "recluster", name, resolution)
+        print("convert to sce")
+        counts_matrix <- obj_recluster[["RNA"]]$counts
+        data_matrix <- obj_recluster[["RNA"]]$data
+        # get clusters
+        cluster_col_name <- paste0(cluster_name, "_res", resolution)
+        clusters <- obj_recluster@meta.data[[cluster_col_name]]
+        # get embeddings
+        dim_data_pca <- Embeddings(obj_recluster, reduction = "pca")
+        dim_data_umap <- Embeddings(obj_recluster, reduction = "umap")
+        # make sce object
+        # score_markers expects a specific column name
+        sce_col_name <- paste0("label.", cluster_col_name)
+        col_data <- DataFrame(clusters)
+        colnames(col_data) <- sce_col_name
+
+        sce <- SingleCellExperiment(list(counts = counts_matrix, logcounts = data_matrix),
+            colData = col_data
+        )
+        reducedDims(sce) <- list(PCA = dim_data_pca, UMAP = dim_data_umap)
+        print(sce)
+        resolution <- as.character(resolution)
+        print("run DE analysis")
+        annot_df <- score_and_plot_markers(obj_recluster, sce, output, "recluster", name, resolution)
+
+        print("getting top 50 highest expressed genes per cluster")
+        # Fix: ensure we are getting a vector for Idents, not a dataframe
+        if (cluster_col_name %in% colnames(obj_recluster@meta.data)) {
+            Idents(obj_recluster) <- as.factor(obj_recluster@meta.data[[cluster_col_name]])
+        } else {
+            print(paste("Cluster name", cluster_col_name, "not found. Using default Idents."))
+        }
+
+        mat <- GetAssayData(obj_recluster, slot = "data")
+        # Create a subdirectory for Top100 DE genes
+        top50_dir <- file.path(output, paste0("Top50_HighExpr_Genes_", name, "_res", resolution))
+        if (!dir.exists(top50_dir)) {
+            dir.create(top50_dir, recursive = TRUE)
+        }
+        for (clust in levels(Idents(obj_recluster))) {
+            cells <- WhichCells(obj_recluster, idents = clust)
+            if (length(cells) > 0) {
+                clust_mat <- mat[, cells, drop = FALSE]
+                mean_val <- rowMeans(clust_mat)
+                top50 <- head(sort(mean_val, decreasing = TRUE), 50)
+                df_top50 <- data.frame(Gene = names(top50), Mean_Expression = top50)
+                write.table(df_top50,
+                    file = paste0(top50_dir, "/Top50_HighExpr_Genes_", name, "_Cluster_", clust, ".txt"),
+                    sep = "\t", quote = FALSE, row.names = FALSE
+                )
+            }
+        }
+        # save annotation as dataframe
+        print("write metadata and visualize")
+        seurat.obj_recluster.metadata <- as.data.frame(obj_recluster@meta.data)
+        write.table(seurat.obj_recluster.metadata,
+            file = paste0(output, "manual_annot_metadata_", name, "_res", resolution, ".txt"), sep = "\t",
+            quote = F, row.names = T
+        )
+        # print("save")
+        # saveRDS(obj_recluster, file = paste0(output, "seuratobj", name, "_recluster_res", resolution, ".rds"))
+    }
+}
+```
+# run clust tree
+# install.packages("clustree")
+# read in metadata cluster files for each timepoint
+```{r}
+library(clustree)
+library(tibble)
+meta_0.5 <- read.table(file = paste0(output, "manual_annot_metadata_all_res0.5.txt"), sep = "\t", header = TRUE)
+meta_0.7 <- read.table(file = paste0(output, "manual_annot_metadata_all_res0.7.txt"), sep = "\t", header = TRUE)
+meta_0.75 <- read.table(file = paste0(output, "manual_annot_metadata_all_res0.75.txt"), sep = "\t", header = TRUE)
+meta_0.8 <- read.table(file = paste0(output, "manual_annot_metadata_all_res0.8.txt"), sep = "\t", header = TRUE)
+meta_1 <- read.table(file = paste0(output, "manual_annot_metadata_all_res1.txt"), sep = "\t", header = TRUE)
+# convert rownames to column
+meta_0.5 <- tibble::rownames_to_column(meta_0.5, "cellnames")
+meta_0.7 <- tibble::rownames_to_column(meta_0.7, "cellnames")
+meta_0.75 <- tibble::rownames_to_column(meta_0.75, "cellnames")
+meta_0.8 <- tibble::rownames_to_column(meta_0.8, "cellnames")
+meta_1 <- tibble::rownames_to_column(meta_1, "cellnames")
+# subset columns
+meta_0.5 <- meta_0.5[, c("cellnames", "seurat_clusters_res0.5")]
+meta_0.7 <- meta_0.7[, c("cellnames", "seurat_clusters_res0.7")]
+meta_0.75 <- meta_0.75[, c("cellnames", "seurat_clusters_res0.75")]
+meta_0.8 <- meta_0.8[, c("cellnames", "seurat_clusters_res0.8")]
+meta_1 <- meta_1[, c("cellnames", "seurat_clusters_res1")]
+```
+```{r}
+# merge
+meta_all <- merge(meta_0.5, meta_0.7, by = "cellnames", all = TRUE)
+meta_all <- merge(meta_all, meta_0.75, by = "cellnames", all = TRUE)
+meta_all <- merge(meta_all, meta_0.8, by = "cellnames", all = TRUE)
+meta_all <- merge(meta_all, meta_1, by = "cellnames", all = TRUE)
+head(meta_all)
+```
+# add to metadata
+```{r}
+row.names(meta_all) <- meta_all$cellnames
+seurat.obj <- AddMetaData(
+    object = seurat.obj,
+    metadata = meta_all
+)
+colnames(seurat.obj@meta.data)
+```
+# run clust tree
+```{r}
+c1 <- clustree(seurat.obj, prefix = "seurat_clusters_res")
+pdf(file = paste0(output, "clustree_all.pdf"))
+print(c1)
+dev.off()
+```
+# save
+```{r}
+saveRDS(seurat.obj, file = paste0(output, "seuratobj_all_reclustered.rds"))
+```
+# loop 2,4,6
+```{r}
+name_list2 <- c("2Wk", "4Wk", "6Wk")
+for (i in 1:length(name_list2)) {
+    name <- name_list2[i]
+    print(name)
+    meta_0.5 <- read.table(file = paste0(output, "manual_annot_metadata_", name, "_res0.5.txt"), sep = "\t", header = TRUE)
+    meta_0.75 <- read.table(file = paste0(output, "manual_annot_metadata_", name, "_res0.75.txt"), sep = "\t", header = TRUE)
+    meta_1 <- read.table(file = paste0(output, "manual_annot_metadata_", name, "_res1.txt"), sep = "\t", header = TRUE)
+    # convert rownames to column
+    meta_0.5 <- tibble::rownames_to_column(meta_0.5, "cellnames")
+    meta_0.75 <- tibble::rownames_to_column(meta_0.75, "cellnames")
+    meta_1 <- tibble::rownames_to_column(meta_1, "cellnames")
+    # subset columns
+    meta_0.5 <- meta_0.5[, c("cellnames", "seurat_clusters_res0.5")]
+    meta_0.75 <- meta_0.75[, c("cellnames", "seurat_clusters_res0.75")]
+    meta_1 <- meta_1[, c("cellnames", "seurat_clusters_res1")]
+    # merge
+    meta <- merge(meta_0.5, meta_0.75, by = "cellnames", all = TRUE)
+    meta <- merge(meta, meta_1, by = "cellnames", all = TRUE)
+    head(meta)
+    # get object
+    if (name == "2Wk") {
+        seurat.obj_subset <- seurat.obj_subset2
+    } else if (name == "4Wk") {
+        seurat.obj_subset <- seurat.obj_subset4
+    } else if (name == "6Wk") {
+        seurat.obj_subset <- seurat.obj_subset6
+    }
+    # add to metadata
+    row.names(meta) <- meta$cellnames
+    seurat.obj_subset <- AddMetaData(
+        object = seurat.obj_subset,
+        metadata = meta
+    )
+    colnames(seurat.obj_subset@meta.data)
+    # run clust tree
+    c <- clustree(seurat.obj_subset, prefix = "seurat_clusters_res")
+    pdf(file = paste0(output, "clustree_", name, ".pdf"))
+    print(c)
+    dev.off()
+    # save
+    saveRDS(seurat.obj_subset, file = paste0(output, "seuratobj_", name, ".rds"))
+}
+```
+```{r}
+# save session info
+writeLines(capture.output(sessionInfo()), paste0(output, "sessionInfo.txt"))
+system(paste("chmod -R 777", output))
+```
