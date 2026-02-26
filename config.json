@@ -1,6 +1,6 @@
 {
-  "title": "retrieve an example query dataset from the CellxGene Yayon thymic cell atlas",
-  "METHOD": "get_sample_ds_from_cellxgene",
+  "title": "Assign high-level cell types",
+  "METHOD": "assign_high_level_cell_types",
   "docker": "False",
   
   "seurat_mapping": {
@@ -230,14 +230,14 @@
     "random_seed": 1105
   },
   "assign_high_level_cell_types":{
-    "DATA_DIR": "my_datadir",
-    "input_file": "test_Yayon_subset.h5ad",
+    "DATA_DIR": "./shared_volume/get_sample_ds_from_cellxgene_20260226_141749/",
+    "input_file": "Yayon_subset_1.h5ad",
     "high_level_cell_types": [
       "epithelial cell", "hematopoietic cell", "neural cell", 
       "connective tissue cell", "muscle cell", "absorptive cell", 
       "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
     ],
-    "output_file": "test_Yayon_subset_hlct.h5ad"
+    "output_file": "Yayon_subset_1_hlct.h5ad"
   },
   "cellxgene_scvi":{
     "DATA_DIR": "/w5home/ybukhman/Projects/THYMUBROWN/results/68_scVI-pipeline/input_data",
