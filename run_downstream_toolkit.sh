@@ -125,9 +125,12 @@ else
     elif [ "$METHOD" == "de" ]; then
         source activate scRNAseq_new
         Rscript src/get_DE_genes.R
-    elif [ "$METHOD" == "example_ds_from_cellxgene" ]; then
+    elif [ "$METHOD" == "get_sample_ds_from_cellxgene" ]; then
         source activate cellxgene_scvi
-        python src/example_ds_from_cellxgene.py
+        python src/get_sample_ds_from_cellxgene.py
+    elif [ "$METHOD" == "assign_high_level_cell_types" ]; then
+        source activate cellxgene_scvi
+        python src/assign_high_level_cell_types.py
     elif [ "$METHOD" == "cellxgene_scvi" ]; then
         source activate cellxgene_scvi
         python src/cellxgene_scvi.py
