@@ -15,12 +15,8 @@
 
 # %%
 # Standard python libraries
-from datetime import datetime
-import json
 import os
 import pandas as pd
-import shutil
-import subprocess
 import warnings
 
 # scVerse
@@ -30,6 +26,9 @@ import scanpy as sc
 
 # Ontology
 from oaklib import get_adapter
+
+# Local utilities
+from utils import load_config, get_data_dir, initialize_output_directory, save_package_versions
 
 # Some settings to avoid errors/warnings
 # - enable writing nullable string arrays to h5ad files
@@ -41,63 +40,9 @@ ad.settings.allow_write_nullable_strings = True
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
 
 # %% [markdown]
-# ### Parse the config file.
+# ## Specialized functions for this module
 
-# %%
-# Read in the config file
-work_dir = os.getcwd()
-with open(work_dir+'/config.json') as f:
-    config_dict = json.load(f)
-    print(
-        "loaded config file: ", 
-        config_dict["assign_high_level_cell_types"]
-    )
-
-# docker and data directory
-# (the data directory is not really used in this script, but we parse it for 
-# consistency with other pipeline scripts)
-docker = config_dict["docker"]
-if docker == "TRUE" or docker == "true" or docker == "T" or docker == "t":
-    DATA_DIR = "./data/input_data/"
-else:
-    DATA_DIR = config_dict["assign_high_level_cell_types"]["DATA_DIR"]
-
-# Input file
-input_file = config_dict["assign_high_level_cell_types"]["input_file"]
-
-# High-level cell types
-high_level_cell_types = (
-    config_dict["assign_high_level_cell_types"]["high_level_cell_types"]
-)
-
-# Output file
-output_file = config_dict["assign_high_level_cell_types"]["output_file"]
-
-# %% [markdown]
-# ### Initialize the output directory
-
-# %%
-print("Initializing the output directory...")
-now = datetime.now()
-now = now.strftime("%Y%m%d_%H%M%S")
-out_dir = "./shared_volume/" + config_dict["METHOD"] + "_" + now +"/"
-print("out_dir: ", out_dir)
-os.makedirs(out_dir, mode=0o777, exist_ok=True)
-# copy config file
-shutil.copy('./config.json', out_dir) 
-
-# %% [markdown]
-# ### Load the input dataset
-print(f"Loading input dataset from file: {input_file}")
-adata = sc.read_h5ad(input_file)
-print(adata)
-
-# %% [markdown]
-# ## Assign high-level cell types
-
-# %%
-print("assigning high-level cell types...")
-
+# %% Assign high-level cell types to cells in an AnnData object based on ontology ancestors.
 def assign_high_level_cell_types(adata, high_level_cell_types):
     """
     Assign high-level cell types to cells in an AnnData object based on ontology ancestors.
@@ -167,9 +112,64 @@ def assign_high_level_cell_types(adata, high_level_cell_types):
     adata.obs["high_level_cell_type_ontology_term_id"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_id)
     adata.obs["high_level_cell_type"] = adata.obs["cell_type_ontology_term_id"].map(get_high_level_name)
 
-# Assign high-level cell types to adata and print the resulting value counts
+# %% [markdown]
+# # Main script
+# %% [markdown]
+# ## Parse the config file and set parameters
+# Configuration dictionary and input and output directories
+# %%
+# Load configuration from config.json file
+config_dict = load_config()
+
+# Set input data directory
+DATA_DIR = get_data_dir(config_dict)
+
+# Initialie output directory
+out_dir = initialize_output_directory(config_dict)
+
+# %% [markdown]
+# Set custom parameters for the method
+# %%
+# Method name
+METHOD = config_dict["METHOD"]
+
+# Input file
+input_file = DATA_DIR + config_dict[METHOD]["input_file"]
+
+# High-level cell types
+high_level_cell_types = (
+    config_dict[METHOD]["high_level_cell_types"]
+)
+
+# Output file
+output_file = config_dict[METHOD]["output_file"]
+
+# %% [markdown]
+# ### Load the input dataset
+print(f"Loading input dataset from file: {input_file}")
+adata = sc.read_h5ad(input_file)
+print(adata)
+
+# %% [markdown]
+# ## Assign high-level cell types
+
+# %%
+print("assigning high-level cell types...")
+# Assign high-level cell types to adata
 assign_high_level_cell_types(adata, high_level_cell_types)
-print(adata.obs[["cell_type","high_level_cell_type"]].value_counts())
+
+# Print value counts for high and low level cell types
+counts = adata.obs[["high_level_cell_type","cell_type"]].value_counts()
+counts_sorted = (
+    counts.rename("count")
+    .reset_index()
+    .query("count > 0")
+    .sort_values(
+        ["high_level_cell_type", "count", "cell_type"],
+        ascending=[True, False, True],
+    )
+)
+print(counts_sorted)
 
 # %% [markdown]
 # ## Save the generated dataset and package versions
@@ -179,27 +179,12 @@ print(adata.obs[["cell_type","high_level_cell_type"]].value_counts())
 print(f"Saving generated dataset to {output_file} ...")
 adata.write_h5ad(out_dir + output_file)
 
-# save package versions
-print("Saving package versions...")
-# Check if we're in a conda environment
-in_conda = os.environ.get('CONDA_DEFAULT_ENV') is not None
-if in_conda:
-    # Use conda list command
-    result = subprocess.run(['conda', 'list', '--explicit'], capture_output=True, text=True)
-    packages = result.stdout
-    # Write the packages to a file
-    with open(out_dir + 'conda-requirements.txt', 'w') as f:
-        f.write(packages)
-    print("- conda package versions have been written to conda-requirements.txt")
+# %% Wrap up
+# Save package versions
+save_package_versions(out_dir)
 
-# Also save pip freeze output
-result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
-packages = result.stdout
-# Write the packages to a file
-with open(out_dir + 'pip-requirements.txt', 'w') as f:
-    f.write(packages)
-print("- pip package versions have been written to pip-requirements.txt")
-
+# Set permissions for the output directory to be readable and writable by all users
 os.chmod(out_dir, 0o777)
 
+# All done
 print("Done.")
