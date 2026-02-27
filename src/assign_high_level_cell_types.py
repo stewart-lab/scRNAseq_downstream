@@ -114,77 +114,71 @@ def assign_high_level_cell_types(adata, high_level_cell_types):
 
 # %% [markdown]
 # # Main script
-# %% [markdown]
-# ## Parse the config file and set parameters
-# Configuration dictionary and input and output directories
 # %%
-# Load configuration from config.json file
-config_dict = load_config()
+def main():
+    # ## Parse the config file and set parameters
+    # Configuration dictionary and input and output directories
+    # Load configuration from config.json file
+    config_dict = load_config()
 
-# Set input data directory
-DATA_DIR = get_data_dir(config_dict)
+    # Set input data directory
+    DATA_DIR = get_data_dir(config_dict)
 
-# Initialie output directory
-out_dir = initialize_output_directory(config_dict)
+    # Initialie output directory
+    out_dir = initialize_output_directory(config_dict)
 
-# %% [markdown]
-# Set custom parameters for the method
-# %%
-# Method name
-METHOD = config_dict["METHOD"]
+    # Set custom parameters for the method
+    # Method name
+    METHOD = config_dict["METHOD"]
 
-# Input file
-input_file = DATA_DIR + config_dict[METHOD]["input_file"]
+    # Input file
+    input_file = DATA_DIR + config_dict[METHOD]["input_file"]
 
-# High-level cell types
-high_level_cell_types = (
-    config_dict[METHOD]["high_level_cell_types"]
-)
-
-# Output file
-output_file = config_dict[METHOD]["output_file"]
-
-# %% [markdown]
-# ### Load the input dataset
-print(f"Loading input dataset from file: {input_file}")
-adata = sc.read_h5ad(input_file)
-print(adata)
-
-# %% [markdown]
-# ## Assign high-level cell types
-
-# %%
-print("assigning high-level cell types...")
-# Assign high-level cell types to adata
-assign_high_level_cell_types(adata, high_level_cell_types)
-
-# Print value counts for high and low level cell types
-counts = adata.obs[["high_level_cell_type","cell_type"]].value_counts()
-counts_sorted = (
-    counts.rename("count")
-    .reset_index()
-    .query("count > 0")
-    .sort_values(
-        ["high_level_cell_type", "count", "cell_type"],
-        ascending=[True, False, True],
+    # High-level cell types
+    high_level_cell_types = (
+        config_dict[METHOD]["high_level_cell_types"]
     )
-)
-print(counts_sorted)
 
-# %% [markdown]
-# ## Save the generated dataset and package versions
+    # Output file
+    output_file = config_dict[METHOD]["output_file"]
 
-# %%
-# Save the generated dataset
-print(f"Saving generated dataset to {output_file} ...")
-adata.write_h5ad(out_dir + output_file)
+    # ### Load the input dataset
+    print(f"Loading input dataset from file: {input_file}")
+    adata = sc.read_h5ad(input_file)
+    print(adata)
 
-# %% Wrap up
-# Save package versions
-save_package_versions(out_dir)
+    # ## Assign high-level cell types
+    print("assigning high-level cell types...")
+    # Assign high-level cell types to adata
+    assign_high_level_cell_types(adata, high_level_cell_types)
 
-# Set permissions for the output directory to be readable and writable by all users
-os.chmod(out_dir, 0o777)
+    # Print value counts for high and low level cell types
+    counts = adata.obs[["high_level_cell_type","cell_type"]].value_counts()
+    counts_sorted = (
+        counts.rename("count")
+        .reset_index()
+        .query("count > 0")
+        .sort_values(
+            ["high_level_cell_type", "count", "cell_type"],
+            ascending=[True, False, True],
+        )
+    )
+    print(counts_sorted)
 
-# All done
-print("Done.")
+    # ## Save the generated dataset and package versions
+
+    # Save the generated dataset
+    print(f"Saving generated dataset to {output_file} ...")
+    adata.write_h5ad(out_dir + output_file)
+
+    # Save package versions
+    save_package_versions(out_dir)
+
+    # Set permissions for the output directory to be readable and writable by all users
+    os.chmod(out_dir, 0o777)
+
+    # All done
+    print("Done.")
+
+if __name__ == "__main__":
+    main()
