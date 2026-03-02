@@ -52,15 +52,12 @@ def add_noise_to_counts(adata, noise_level=0.067):
         counts = adata.X
     
     # Add noise to the counts
-    noise = np.random.normal(
-        loc=0.0, 
-        scale=noise_level * np.mean(counts, axis=0, keepdims=True), 
-        size=counts.shape
-    )
-    noisy_counts = counts + np.round(noise)
-    
-    # Ensure that counts remain non-negative and convert back to sparse format if needed
+    log1p_counts = np.log1p(counts)
+    noise = np.random.normal(loc=0.0, scale=noise_level, size=counts.shape)
+    log1p_counts += noise
+    noisy_counts = np.expm1(log1p_counts)
     noisy_counts = np.clip(noisy_counts, a_min=0, a_max=None)
+    noisy_counts = np.round(noisy_counts).astype(int)
     
     if isinstance(adata.X, np.ndarray):
         adata.X = noisy_counts
