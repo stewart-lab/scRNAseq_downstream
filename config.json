@@ -1,6 +1,6 @@
 {
-  "title": "Assign high-level cell types",
-  "METHOD": "assign_high_level_cell_types",
+  "title": "Add noise and modify cell ids",
+  "METHOD": "prep_test_ds",
   "docker": "False",
   
   "seurat_mapping": {
@@ -226,18 +226,25 @@
       "ref_dataset_ids": ["29244e1d-02e6-4133-b411-516ef7474638"]
     },
     "ref_cells_per_cell_type": 100,
-    "output_file": "Yayon_subset_1.h5ad",
-    "random_seed": 1105
+    "output_file": "Yayon_subset_2.h5ad",
+    "random_seed": 455
   },
   "assign_high_level_cell_types":{
-    "DATA_DIR": "./shared_volume/get_sample_ds_from_cellxgene_20260226_141749/",
-    "input_file": "Yayon_subset_1.h5ad",
+    "DATA_DIR": "./shared_volume/get_sample_ds_from_cellxgene_20260227_165632/",
+    "input_file": "Yayon_subset_2.h5ad",
     "high_level_cell_types": [
       "epithelial cell", "hematopoietic cell", "neural cell", 
       "connective tissue cell", "muscle cell", "absorptive cell", 
       "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
     ],
-    "output_file": "Yayon_subset_1_hlct.h5ad"
+    "output_file": "Yayon_subset_2_hlct.h5ad"
+  },
+  "prep_test_ds":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/227_Yayon-subsampled-ds/Yayon_subset_2/assign_high_level_cell_types_20260227_173028/",
+    "input_file": "Yayon_subset_2_hlct.h5ad",
+    "output_file": "Yayon_subset_2_hlct_rand.h5ad",
+    "random_seed": 1151,
+    "noise_level": 0.067
   },
   "cellxgene_scvi":{
     "DATA_DIR": "/w5home/ybukhman/Projects/THYMUBROWN/results/68_scVI-pipeline/input_data",

@@ -131,6 +131,9 @@ else
     elif [ "$METHOD" == "assign_high_level_cell_types" ]; then
         source activate cellxgene_scvi
         python src/assign_high_level_cell_types.py
+    elif [ "$METHOD" == "prep_test_ds" ]; then
+        source activate cellxgene_scvi
+        python src/prep_test_ds.py
     elif [ "$METHOD" == "cellxgene_scvi" ]; then
         source activate cellxgene_scvi
         python src/cellxgene_scvi.py
