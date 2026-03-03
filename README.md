@@ -791,6 +791,41 @@ Outputs:
     * config.json: config settings used
     * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
 
+### Add noise and modify cell ids in a test dataset
+This tool adds noise to a test dataset and modifies its cell ids. 
+
+Noise values are sampled from a normal distribution with the mean of 0 and the scale (standard deviation) of `noise_level`. Noise values are added to log(x+1)-transformed counts (`np.log1p`). The modified counts are then transformed back to the original scale (`np.expm1`) and rounded to the nearest integer.
+
+Cell ids are modified by adding a user-specified prefix to them. This is necessary to avoid warnings when concatenating the test dataset with a reference that may contain some of the same cells, e.g., for joint potting.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title
+    * `METHOD`: set to `prep_test_ds`
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
+
+* In the `prep_test_ds` section:
+    * `DATA_DIR`: directory where the input file is located
+    * `input_file`: the input file, in `h5ad` format
+    * `output_file`: the file to save the generated dataset, in the `a5hd` format
+    * `random_seed`: an integer to set the seed of the random number generator
+    * `noise_level`: the scale of the noise distribution (float)
+    * `cell_id_prefix`: a prefix to add to the original cell ids
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The modified dataset to which high-level cell types have been added: <output_file> as specified in the config file
+* Other:
+    * config.json: config settings used
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
+
 # References: 
 
 scPred paper: https://doi.org/10.1186/s13059-019-1862-5
