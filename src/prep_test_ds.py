@@ -112,6 +112,9 @@ def main():
     # Random seed
     random_seed = config_dict[METHOD]["random_seed"]
 
+    # Cell id prefix    
+    cell_id_prefix = config_dict[METHOD]["cell_id_prefix"]
+
     # ### Load the input dataset
     print(f"Loading input dataset from file: {input_file}")
     adata = sc.read_h5ad(input_file)
@@ -130,7 +133,7 @@ def main():
 
     # ## Modify cell ids by adding a prefix
     print("modifying cell ids by adding a prefix...")
-    adata2 = modify_cell_ids(adata2, prefix="test_ds")
+    adata2 = modify_cell_ids(adata2, prefix=cell_id_prefix)
     print(adata2)
 
     # ## Visualize the modified dataset compared to the original using UMAP

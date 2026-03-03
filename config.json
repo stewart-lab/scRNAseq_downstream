@@ -244,7 +244,8 @@
     "input_file": "Yayon_subset_2_hlct.h5ad",
     "output_file": "Yayon_subset_2_hlct_rand.h5ad",
     "random_seed": 1151,
-    "noise_level": 0.067
+    "noise_level": 0.067,
+    "cell_id_prefix": "test"
   },
   "cellxgene_scvi":{
     "DATA_DIR": "/w5home/ybukhman/Projects/THYMUBROWN/results/68_scVI-pipeline/input_data",
