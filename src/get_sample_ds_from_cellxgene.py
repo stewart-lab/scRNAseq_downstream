@@ -26,7 +26,7 @@ import cellxgene_census
 import cellxgene_census.experimental
 
 # Local utilities
-from utils import load_config, get_data_dir, initialize_output_directory, save_package_versions
+from utils import load_config, initialize_output_directory, save_package_versions
 
 # Some settings to avoid errors/warnings
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
@@ -82,7 +82,7 @@ def subsample_by_cell_type(adata, num_cells_per_cell_type):
 
 # %% [markdown]
 # # Main script
-# %% [markdown]
+# %% Define the main function
 def main():
     # ## Parse the config file and set parameters
     # Load configuration from config.json file
@@ -159,5 +159,6 @@ def main():
     # All done
     print("Done.")
 
+# %% Run the main function
 if __name__ == "__main__":
     main()
