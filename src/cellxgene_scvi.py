@@ -236,62 +236,53 @@ def main():
     print("Counts of predicted high-level cell types:")
     print(adata_query.obs["predicted_" + high_level_cell_type_column].value_counts())
 
-    # CONTINUE HERE
     # ### Predict low-level cell types for each high-level cell type
-
-    # %%
     # For each high-level cell type, annotate within that group
     print("Predicting low-level cell types for each high-level cell type...")
-    col_prev_pred = "predicted_high_level_cell_type"
+    col_prev_pred = "predicted_" + high_level_cell_type_column
     unique_types = adata_query.obs[col_prev_pred].dropna().unique()
     for ct in unique_types:
         print(f"  Annotating {ct}...")
         # Mask for query and reference cells of this type at previous level
         mask_query = adata_query.obs[col_prev_pred] == ct
-        mask_ref = adata_ref.obs["high_level_cell_type"] == ct
+        mask_ref = adata_ref.obs[high_level_cell_type_column] == ct
         if mask_ref.sum() == 0 or mask_query.sum() == 0:
             print(f"    Skipping {ct}: no cells in reference or query.")
             continue
         else:
             print(f"    Reference cells: {mask_ref.sum()}, Query cells: {mask_query.sum()}")
         preds, probs = predict_cell_types_with_rf(
-            adata_query, adata_ref, "cell_type", mask_query=mask_query, mask_ref=mask_ref
+            adata_query, adata_ref, cell_type_column, mask_query=mask_query, mask_ref=mask_ref
         )
         # Assign only to the relevant subset
-        adata_query.obs.loc[mask_query, "predicted_cell_type"] = preds
-        adata_query.obs.loc[mask_query, "predicted_cell_type_probability"] = probs
-
-    # %%
+        adata_query.obs.loc[mask_query, "predicted_" + cell_type_column] = preds
+        adata_query.obs.loc[mask_query, "predicted_" + cell_type_column + "_probability"] = probs
+    
+    # Print counts of predicted cell types
     print("Counts of predicted cell types:")
     print(
         adata_query.obs[[
-            "predicted_high_level_cell_type",
-            "predicted_cell_type"
+            "predicted_" + high_level_cell_type_column,
+            "predicted_" + cell_type_column
         ]].value_counts()
     )
 
-    # %%
-    print(adata_query.obs["predicted_cell_type_probability"].describe())
+    # Print the distribution of prediction probabilities for the low-level cell types
+    print(adata_query.obs["predicted_" + cell_type_column + "_probability"].describe())
 
-    # %% [markdown]
     # ## Visualize the results
-
-    # %% [markdown]
     # ### High-level cell types
-
-    # %%
     print("Combining query and reference datasets for visualization...")
     # Set "predicted" cell types in the reference dataset to the actual reference cell types
-    adata_ref.obs["predicted_high_level_cell_type"] = adata_ref.obs["high_level_cell_type"]
-    adata_ref.obs["predicted_cell_type"] = adata_ref.obs["cell_type"]
+    adata_ref.obs["predicted_" + high_level_cell_type_column] = adata_ref.obs[high_level_cell_type_column]
+    adata_ref.obs["predicted_" + cell_type_column] = adata_ref.obs[cell_type_column]
 
     # Set the reference prediction scores to nan
-    adata_ref.obs["predicted_high_level_cell_type_probability"] = np.nan
-    adata_ref.obs["predicted_cell_type_probability"] = np.nan
+    adata_ref.obs["predicted_" + high_level_cell_type_column + "_probability"] = np.nan
+    adata_ref.obs["predicted_" + cell_type_column + "_probability"] = np.nan
 
     # Combine the datasets
     adata_combined = ad.concat([adata_query, adata_ref])
-    adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
 
     # Plot the UMAP
     print("Plotting UMAP with predicted high-level cell types...")
@@ -302,22 +293,19 @@ def main():
             adata_combined, 
             color=[
                 "dataset_id", 
-                "predicted_high_level_cell_type",
-                "predicted_high_level_cell_type_probability"
+                "predicted_" + high_level_cell_type_column,
+                "predicted_" + high_level_cell_type_column + "_probability"
             ]
         )
         plt.savefig(out_dir + "high_level_cell_types_umap.pdf")
 
-    # %% [markdown]
     # ### Low-level cell types
-
-    # %%
     print("Plotting UMAPs for low-level cell types within each high-level cell type...")
-    high_level_cell_types = adata_combined.obs["predicted_high_level_cell_type"].unique()
+    high_level_cell_types = adata_combined.obs["predicted_" + high_level_cell_type_column].unique()
     for hlct in high_level_cell_types:
         print(f"### High-level cell type: {hlct}")
-        mask = adata_combined.obs["predicted_high_level_cell_type"] == hlct
-        cell_types = adata_combined.obs.loc[mask, "predicted_cell_type"].unique()
+        mask = adata_combined.obs["predicted_" + high_level_cell_type_column] == hlct
+        cell_types = adata_combined.obs.loc[mask, "predicted_" + cell_type_column].unique()
         cell_types_nonempty = [ct for ct in cell_types if pd.notna(ct)]
         print(f"  Low-level cell types: {cell_types_nonempty}")
         with plt.rc_context():
@@ -325,8 +313,8 @@ def main():
                 adata_combined[mask, :],
                 color=[
                     "dataset_id", 
-                    "predicted_cell_type",
-                    "predicted_cell_type_probability"
+                    "predicted_" + cell_type_column,
+                    "predicted_" + cell_type_column + "_probability"
                 ],
                 title=[
                     f"{hlct} - Dataset", 
@@ -336,44 +324,11 @@ def main():
             )
             plt.savefig(out_dir + f"{hlct}_low_level_cell_types_umap.pdf")   
 
-    # %% [markdown]
-    # ## Save the annotated query dataset
-
-    # %%
-    print("Saving the annotated query dataset...")
-    adata_query.write_h5ad(out_dir + output_file)
-
-    #%%
-    # save package versions
-    print("Saving package versions...")
-    # Check if we're in a conda environment
-    in_conda = os.environ.get('CONDA_DEFAULT_ENV') is not None
-    if in_conda:
-        # Use conda list command
-        result = subprocess.run(['conda', 'list', '--explicit'], capture_output=True, text=True)
-        packages = result.stdout
-        # Write the packages to a file
-        with open(out_dir + 'conda-requirements.txt', 'w') as f:
-            f.write(packages)
-        print("- conda package versions have been written to conda-requirements.txt")
-
-    # Also save pip freeze output
-    result = subprocess.run(['pip', 'freeze'], capture_output=True, text=True)
-    packages = result.stdout
-    # Write the packages to a file
-    with open(out_dir + 'pip-requirements.txt', 'w') as f:
-        f.write(packages)
-    print("- pip package versions have been written to pip-requirements.txt")
-
-    os.chmod(out_dir, 0o777)
-
-    print("Done.")
-
     # ## Save the generated dataset and package versions
 
-    # Save the generated dataset
-    print(f"Saving generated dataset to {output_file} ...")
-    adata2.write_h5ad(out_dir + output_file)
+    # Save the annotated query dataset
+    print("Saving the annotated query dataset...")
+    adata_query.write_h5ad(out_dir + output_file)
 
     # Save package versions
     save_package_versions(out_dir)
