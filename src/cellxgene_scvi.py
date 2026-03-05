@@ -38,6 +38,113 @@ pd.set_option("mode.string_storage", "python")
 ad.settings.allow_write_nullable_strings = True
 
 # %% [markdown]
+# ### Specialized functions for this module
+
+# Project a dataset to the scVI embedding
+def project_adata_to_scvi(adata, model_folder):
+    """
+    Project query dataset into scVI embedding space using a pre-trained model.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        Query AnnData object to project.
+    model_folder : str
+        Path to the pre-trained scVI model folder. The folder must contain file "model.pt".
+        
+    Returns
+    -------
+    adata : AnnData
+        Query AnnData object with scVI latent representation in obsm["scvi"].
+    """
+    # Copy the query dataset so as to preserve it. When the scVI model is 
+    # loaded, all but 8,000 genes will be dropped.
+    adata_scvi = adata.copy()
+
+    # Load the scVI model and prepare the query data
+    print("Preparing the query data for scVI model...")
+    scvi.model.SCVI.prepare_query_anndata(adata_scvi, model_folder)
+    print(adata_scvi)
+
+    # Load the query data into the model, set "is_trained" to True to trick the 
+    # model into thinking it was already trained, and do a forward pass through 
+    # the model to get the latent representation of the query data.
+    print("Projecting the query data to SCVI embedding...")
+    vae_q = scvi.model.SCVI.load_query_data(
+        adata_scvi,
+        model_folder,
+    )
+
+    # This allows for a simple forward pass
+    vae_q.is_trained = True
+    latent = vae_q.get_latent_representation()
+    adata.obsm["scvi"] = latent
+    print(adata)
+    
+    return adata
+
+# Predict cell types using a random forest classifier
+def predict_cell_types_with_rf(
+    adata_query,
+    adata_ref,
+    cell_type_col,
+    mask_query=None,
+    mask_ref=None
+):
+    """
+    Fit a Random Forest Classifier on the reference dataset's embedding and use it to predict cell type labels
+    for the query dataset, for the specified cell type column.
+    Also computes and plots the prediction confidence probabilities.
+
+    Parameters
+    ----------
+    adata_query : AnnData
+        Query AnnData object to annotate.
+    adata_ref : AnnData
+        Reference AnnData object with cell type annotations.
+    cell_type_col : str
+        The name of the cell type column to use for training and prediction.
+    mask_query : pd.Series, np.ndarray, or None
+        Boolean mask for adata_query.obs to select cells to annotate. If None, use all.
+    mask_ref : pd.Series, np.ndarray, or None
+        Boolean mask for adata_ref.obs to select reference cells for training. If None, use all.
+
+    Returns
+    -------
+    preds : np.ndarray
+        Predicted cell type labels for the selected query cells.
+    probs : np.ndarray
+        Prediction confidence probabilities for the selected query cells.
+    """
+
+    # Select reference cells
+    if mask_ref is not None:
+        X_ref = adata_ref.obsm["scvi"][mask_ref]
+        y_ref = adata_ref.obs[cell_type_col][mask_ref].values
+    else:
+        X_ref = adata_ref.obsm["scvi"]
+        y_ref = adata_ref.obs[cell_type_col].values
+
+    # Select query cells
+    if mask_query is not None:
+        X_query = adata_query.obsm["scvi"][mask_query]
+    else:
+        X_query = adata_query.obsm["scvi"]
+
+    # Fit classifier
+    rfc = RandomForestClassifier()
+    rfc.fit(X_ref, y_ref)
+    preds = rfc.predict(X_query)
+
+    # Compute confidence scores
+    probabilities = rfc.predict_proba(X_query)
+    confidence = np.zeros(len(preds))
+    for i in range(len(preds)):
+        confidence[i] = probabilities[i][rfc.classes_ == preds[i]].item()
+
+    return preds, confidence
+
+# %% [markdown]
 # # Main script
 # %% Define the main function
 def main():
@@ -53,17 +160,16 @@ def main():
     DATA_DIR = get_data_dir(config_dict)
     ref_data_file = DATA_DIR + config_dict[METHOD]["ref_data_file"]
     query_data_file = DATA_DIR + config_dict[METHOD]["query_data_file"]
-    model_file = DATA_DIR + config_dict[METHOD]["model_file"]
+    model_folder = DATA_DIR + config_dict[METHOD]["model_folder"]
+
+    # Metadata column names
+    gene_id_column = config_dict[METHOD]["gene_id_column"]
+    cell_type_column = config_dict[METHOD]["cell_type_column"]
+    high_level_cell_type_column = config_dict[METHOD]["high_level_cell_type_column"]
 
     # Output file
     out_dir = initialize_output_directory(config_dict)
     output_file = config_dict[METHOD]["output_file"]
-
-    # Gene id column
-    gene_id_col = config_dict[METHOD]["gene_id_col"]
-    # CONTINUE HERE
-    # add gene_id_col to the config file and use it to set the var index for both the query and reference datasets
-    # modify ids in the query dataset (use query dataset without added noise)
 
     # ### Load data from files
     # Query dataset
@@ -89,54 +195,19 @@ def main():
     adata_ref.obs["batch"] = "unassigned"
     adata_ref.obs["dataset_id"] = "reference"
 
-    # %% [markdown]
     # Index genes by Ensembl ids
-
-    # %%
-    adata_query.var.index = adata_query.var["feature_id"]
-    adata_ref.var.index = adata_ref.var["feature_id"]
+    adata_query.var.index = adata_query.var[gene_id_column]
+    adata_ref.var.index = adata_ref.var[gene_id_column]
     print(adata_query.var)
 
-    # %% [markdown]
-    # ### Project the query dataset into the scVI embedding
+    # ### Project the query and reference datasets into the scVI embedding
+    # Project the query dataset into the scVI embedding
+    adata_query = project_adata_to_scvi(adata_query, model_folder)
+    adata_ref = project_adata_to_scvi(adata_ref, model_folder)
 
-    # %% [markdown]
-    # Copy the query dataset so as to preserve it. When the scVI model is loaded, all but 8,000 genes will be dropped.
-
-    # %%
-    adata_query_scvi = adata_query.copy()
-
-    # %% [markdown]
-    # Load the scVI model and prepare the query data
-
-    # %%
-    print("Preparing the query data for scVI model...")
-    scvi.model.SCVI.prepare_query_anndata(adata_query_scvi, model_file)
-    print(adata_query_scvi)
-
-    # %% [markdown]
-    # Load the query data into the model, set “is_trained” to True to trick the model into thinking it was already trained, and do a forward pass through the model to get the latent representation of the query data.
-
-    # %%
-    print("Projecting the query data to SCVI embedding...")
-    vae_q = scvi.model.SCVI.load_query_data(
-        adata_query_scvi,
-        model_file,
-    )
-
-    # This allows for a simple forward pass
-    vae_q.is_trained = True
-    latent = vae_q.get_latent_representation()
-    adata_query.obsm["scvi"] = latent
-    print(adata_query)
-
-    # %% [markdown]
     # Combine and plot the two datasets
-
-    # %%
     print("Combining the query and reference datasets for visualization...")
     adata_combined = ad.concat([adata_query, adata_ref])
-    adata_combined.obs_names_make_unique() # this is necessary when the query and the reference have been sampled from the same parent dataset
     sc.pp.neighbors(
         adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation"
     )
@@ -145,86 +216,27 @@ def main():
         sc.pl.umap(adata_combined, color=["dataset_id"])
         plt.savefig(out_dir + "query_and_reference_umap.pdf")
 
-    # %% [markdown]
     # ### Predict high-level cell types
-
-    # %%
-    def predict_cell_types_with_rf(
-        adata_query,
-        adata_ref,
-        cell_type_col,
-        mask_query=None,
-        mask_ref=None
-    ):
-        """
-        Fit a Random Forest Classifier on the reference dataset's embedding and use it to predict cell type labels
-        for the query dataset, for the specified cell type column.
-        Also computes and plots the prediction confidence probabilities.
-
-        Parameters
-        ----------
-        adata_query : AnnData
-            Query AnnData object to annotate.
-        adata_ref : AnnData
-            Reference AnnData object with cell type annotations.
-        cell_type_col : str
-            The name of the cell type column to use for training and prediction.
-        mask_query : pd.Series, np.ndarray, or None
-            Boolean mask for adata_query.obs to select cells to annotate. If None, use all.
-        mask_ref : pd.Series, np.ndarray, or None
-            Boolean mask for adata_ref.obs to select reference cells for training. If None, use all.
-
-        Returns
-        -------
-        preds : np.ndarray
-            Predicted cell type labels for the selected query cells.
-        probs : np.ndarray
-            Prediction confidence probabilities for the selected query cells.
-        """
-
-        # Select reference cells
-        if mask_ref is not None:
-            X_ref = adata_ref.obsm["scvi"][mask_ref]
-            y_ref = adata_ref.obs[cell_type_col][mask_ref].values
-        else:
-            X_ref = adata_ref.obsm["scvi"]
-            y_ref = adata_ref.obs[cell_type_col].values
-
-        # Select query cells
-        if mask_query is not None:
-            X_query = adata_query.obsm["scvi"][mask_query]
-        else:
-            X_query = adata_query.obsm["scvi"]
-
-        # Fit classifier
-        rfc = RandomForestClassifier()
-        rfc.fit(X_ref, y_ref)
-        preds = rfc.predict(X_query)
-
-        # Compute confidence scores
-        probabilities = rfc.predict_proba(X_query)
-        confidence = np.zeros(len(preds))
-        for i in range(len(preds)):
-            confidence[i] = probabilities[i][rfc.classes_ == preds[i]].item()
-
-        return preds, confidence
-
-    # %% [markdown]
     # Predict high-level cell types in the query dataset
-
-    # %%
     print("Predicting high-level cell types for the query dataset...")
-    preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, "high_level_cell_type")
-    adata_query.obs["predicted_high_level_cell_type"] = preds
-    adata_query.obs["predicted_high_level_cell_type_probability"] = probs
+    preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, high_level_cell_type_column)
+    adata_query.obs["predicted_" + high_level_cell_type_column] = preds
+    adata_query.obs[
+        "predicted_" + high_level_cell_type_column + "_probability"
+    ] = probs
     print("Probability distribution for predicted high-level cell types:")
-    print(adata_query.obs["predicted_high_level_cell_type_probability"].describe())
+    print(
+        adata_query.obs[
+            "predicted_" + high_level_cell_type_column + "_probability"
+        ].
+        describe()
+    )
 
-    # %%
+    # Print the counts of predicted high-level cell types in the query dataset
     print("Counts of predicted high-level cell types:")
-    print(adata_query.obs["predicted_high_level_cell_type"].value_counts())
+    print(adata_query.obs["predicted_" + high_level_cell_type_column].value_counts())
 
-    # %% [markdown]
+    # CONTINUE HERE
     # ### Predict low-level cell types for each high-level cell type
 
     # %%
