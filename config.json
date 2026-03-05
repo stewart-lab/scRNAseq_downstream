@@ -1,5 +1,5 @@
 {
-  "title": "Add noise and modify cell ids",
+  "title": "Modify cell ids for testing",
   "METHOD": "prep_test_ds",
   "docker": "False",
   
@@ -242,14 +242,15 @@
   "prep_test_ds":{
     "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/227_Yayon-subsampled-ds/Yayon_subset_2/assign_high_level_cell_types_20260227_173028/",
     "input_file": "Yayon_subset_2_hlct.h5ad",
-    "output_file": "Yayon_subset_2_hlct_rand.h5ad",
+    "output_file": "Yayon_subset_2_hlct_nonoise_modid.h5ad",
     "random_seed": 1151,
-    "noise_level": 0.067,
+    "noise_level": 0,
     "cell_id_prefix": "test"
   },
   "cellxgene_scvi":{
     "DATA_DIR": "/w5home/ybukhman/Projects/THYMUBROWN/results/68_scVI-pipeline/input_data",
     "query_data_file": "test_Yayon_subset.h5ad",
+    "gene_id_col": "gene_id",
     "model_file": "2025-11-08-scvi-homo-sapiens",
     "output_file": "test_Yayon_subset_scvi_annot.h5ad",
     "reference_datasets":{
