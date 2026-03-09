@@ -140,7 +140,7 @@ def predict_cell_types_with_rf(
 
     return preds, confidence
 
-# Compute fraction of correct correct predictions compared to gold standard annotations, excluding "unknown" annotations
+# Compute fraction of correct predictions compared to gold standard annotations, excluding "unknown" annotations
 def compute_frac_correct(
     adata,
     predicted_cell_type_column,
@@ -168,7 +168,7 @@ def compute_frac_correct(
     if mask.sum() == 0:
         return np.nan
     frac_correct = (
-    predicted_cell_types[mask] == gold_standard_cell_types[mask]
+        predicted_cell_types[mask] == gold_standard_cell_types[mask]
     ).mean()
     return frac_correct
 
@@ -265,8 +265,7 @@ def main():
     print(
         adata_query.obs[
             "predicted_" + high_level_cell_type_column + "_probability"
-        ].
-        describe()
+        ].describe()
     )
 
     # Print the counts of predicted high-level cell types in the query dataset
