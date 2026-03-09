@@ -9,14 +9,10 @@
 
 # %%
 # Standard python libraries
-from datetime import datetime
-import json
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import shutil
 from sklearn.ensemble import RandomForestClassifier
-import subprocess
 import os
 
 # scVerse
