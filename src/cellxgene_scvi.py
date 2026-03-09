@@ -167,6 +167,10 @@ def main():
     out_dir = initialize_output_directory(config_dict)
     output_file = config_dict[METHOD]["output_file"]
 
+    # Random seed for reproducibility
+    random_seed = config_dict[METHOD].get("random_seed", 67)
+    np.random.seed(random_seed)
+
     # ### Load data from files
     # Query dataset
     print(f"Loading query dataset from file: {query_data_file}")
