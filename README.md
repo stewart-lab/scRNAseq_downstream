@@ -171,18 +171,17 @@ Outputs:
     * config.json: config settings used
 
 ### CellxGene and scVI
-This tool uses an scVI model published by CellxGene to project a query dataset
-into scVI embedding. A subset of an annotated reference dataset from CellxGene 
-is then used to annotate the query.
+This tool predicts cell types using an scVI model published by CellxGene. It takes a query and a reference datasets as its inputs. Both datasets are projected into the scVI embedding, then the query dataset is annotated based on the reference.
 
-The method uses a subset of the reference dataset in order to speed up computations. The entire reference dataset, e.g., a cell atlas of an organ, could contain hundreds of thousands of cells, so using a subset is sufficient. A user can specify how many cells of each cell type to include into the sub-setted reference by setting `ref_cells_per_cell_type`.
-
-The reference dataset contains a pre-computed scVI embedding. It is important
-to make sure that the version of the scVI model used to compute the embedding
-of the query is from the same CellxGene release as the reference dataset. If
-the reference dataset and model versions do not match, it will be obvious from 
-the UMAP plots, as the query dataset is going to cluster separately from 
-the reference.
+Suggested workflow:
+* Prepare the query dataset:
+    * Make sure the dataset is in the AnnData format (`*.h5ad`)
+    * Map gene ids to Ensembl ENSG numbers
+* Prepare the reference dataset:
+    * Use `get_sample_ds_from_cellxgene` to download a subset of an appropriate dataset from CellxGene (using a subset representative of all cell types speeds up computations)
+        * Example: use `29244e1d-02e6-4133-b411-516ef7474638` for the 2025-11-08 version of the Yayon et al. thymus cell atlas
+    * Use `assign_high_level_cell_types` to map the low-level cell types annotated by CellxGene to a smaller set of high-level cell types from the [OBO Cell Ontology (CL)](http://www.obofoundry.org/ontology/cl.html) 
+* Use `cellxgene_scvi` to annotate the query dataset
 
 Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
 before attempting to run this tool.
@@ -194,17 +193,18 @@ Modify the following variables in `config.json`:
     * `docker`: set to `FALSE`, as docker is not currently supported for this tool; 
 
 * Under the `cellxgene_scvi` section:
-    * `DATA_DIR`: the folder containing a query dataset and an scVI model file;
-    * `reference_datasets`:
-        * `census_version`: the major CellxGene Census releases are named by their dates. 2025-11-08 is the latest stable release at the time of writing. See more at https://chanzuckerberg.github.io/cellxgene-census/cellxgene_census_docsite_data_release_info.html;
-        * `organism`: your species, e.g., "homo_sapiens";
-        * `ref_dataset_ids`: a list of ids of the datasets to retrieve. For example, `29244e1d-02e6-4133-b411-516ef7474638` is the 2025-11-08 version of the Yayon et al. thymus cell atlas. One can potentially specify more than one dataset, although this has not been tested;
-    * `high_level_cell_types`: a list of the high-level cell types to map the (relatively low-level) cell types provided by CellxGene to. This must be a small list of higher-level classes from the [Obo Cell Ontology](https://obofoundry.org/ontology/cl.html). High-level cell types are likely to be annotated with greater confidence than the original, lower-level ones, although the method will do both;
-    * `ref_cells_per_cell_type`: how many cells of each cell type to keep in the reference dataset, e.g., 100;
-    * `query_data_file`: query dataset. This should be an `anndata` object in the `a5hd` format, e.g., `test_Yayon_subset.h5ad`;
-    * `model_file`: an scVI model file. This should be a folder containing file `model.pt`;
-    * `output_file`: the file to save the annotated query dataset to, e.g., `test_Yayon_subset_scvi_annot.h5ad`. The data are saved as an `anndata` object in the `a5hd` format;
-    * `random_seed`: a seed for the random number generator.
+    * `DATA_DIR`: the folder containing the input data;
+    * `ref_data_file`: reference dataset file;
+    * `query_data_file`: query dataset file;
+    * `gene_id_column`: column name for gene IDs;
+    * `cell_type_column`: column name for cell types in the reference dataset;
+    * `high_level_cell_type_column`: column name for high-level cell types in the reference dataset;
+    * `model_folder`: folder containing the scVI model;
+    * `output_file`: file to save the annotated query dataset;
+    * `random_seed`: a seed for the random number generator;
+    * `compare_to_gold_standard`: whether to compare the results to a gold standard (used for testing purposes);
+    * `gold_standard_cell_type_column`: column name for gold standard cell type annotations in the query dataset;
+    * `gold_standard_high_level_cell_type_column`: column name for gold standard high-level cell type annotations in the query dataset.
 
 Run:
 ```
@@ -763,7 +763,7 @@ Outputs:
     * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
 
 ### Assign high-level cell types based on existing low-level cell type annotations
-This tool takes an annotated dataset and assigns high-level cell types based on a list supplied by the user. Existing low-level cell types, such as those included in CellxGene datasets, are mapped to a smaller set of high-level types using OBO Cell Ontology (CL). Both the existing cell type annotations and the high-level cell types must match valid ontology terms. The reason one may want to assign higher-level cell types is that they can be annotated with higher confidence.
+This tool takes an annotated dataset and assigns high-level cell types based on a list supplied by the user. Existing low-level cell types, such as those included in CellxGene datasets, are mapped to a smaller set of high-level types using [OBO Cell Ontology (CL)](http://www.obofoundry.org/ontology/cl.html). Both the existing cell type annotations and the high-level cell types must match valid ontology terms. The reason one may want to assign higher-level cell types is that they can be annotated with higher confidence.
 
 Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
 before attempting to run this tool.
