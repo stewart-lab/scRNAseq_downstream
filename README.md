@@ -175,12 +175,12 @@ This tool predicts cell types using an scVI model published by CellxGene. It tak
 
 Suggested workflow:
 * Prepare the query dataset:
-* * Make sure the dataset is in the AnnData format (`*.h5ad`)
-* * Map gene ids to Ensembl ENSG numbers
+    * Make sure the dataset is in the AnnData format (`*.h5ad`)
+    * Map gene ids to Ensembl ENSG numbers
 * Prepare the reference dataset:
-* * Use `get_sample_ds_from_cellxgene` to download a subset of an appropriate dataset from CellxGene (using a subset representative of all cell types speeds up computations)
-* * * Example: use `29244e1d-02e6-4133-b411-516ef7474638` for the 2025-11-08 version of the Yayon et al. thymus cell atlas
-* * Use `assign_high_level_cell_types` to map the low-level cell types annotated by CellxGene to a smaller set of high-level cell types from the [OBO Cell Ontology (CL)](http://www.obofoundry.org/ontology/cl.html) 
+    * Use `get_sample_ds_from_cellxgene` to download a subset of an appropriate dataset from CellxGene (using a subset representative of all cell types speeds up computations)
+        * Example: use `29244e1d-02e6-4133-b411-516ef7474638` for the 2025-11-08 version of the Yayon et al. thymus cell atlas
+    * Use `assign_high_level_cell_types` to map the low-level cell types annotated by CellxGene to a smaller set of high-level cell types from the [OBO Cell Ontology (CL)](http://www.obofoundry.org/ontology/cl.html) 
 * Use `cellxgene_scvi` to annotate the query dataset
 
 Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
