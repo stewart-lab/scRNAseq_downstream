@@ -1,6 +1,6 @@
 {
-  "title": "Modify cell ids for testing",
-  "METHOD": "prep_test_ds",
+  "title": "Annotate a test dataset",
+  "METHOD": "cellxgene_scvi",
   "docker": "False",
   
   "seurat_mapping": {
@@ -256,6 +256,9 @@
     "high_level_cell_type_column": "high_level_cell_type",
     "model_folder": "2025-11-08-scvi-homo-sapiens",
     "output_file": "Yayon_subset_2_scvi_annot.h5ad",
-    "random_seed": 428
+    "random_seed": 428,
+    "compare_to_gold_standard": true,
+    "gold_standard_cell_type_column": "cell_type",
+    "gold_standard_high_level_cell_type_column": "high_level_cell_type"
   }
 }

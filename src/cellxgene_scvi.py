@@ -140,6 +140,38 @@ def predict_cell_types_with_rf(
 
     return preds, confidence
 
+# Compute fraction of correct correct predictions compared to gold standard annotations, excluding "unknown" annotations
+def compute_frac_correct(
+    adata,
+    predicted_cell_type_column,
+    gold_standard_cell_type_column,
+):
+    """
+    Compute the fraction of correct predictions compared to gold standard annotations, excluding "unknown" annotations.
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object containing the predicted and gold standard cell type annotations in adata.obs.
+    predicted_cell_type_column : str
+        The name of the column in adata.obs containing the predicted cell type labels.
+    gold_standard_cell_type_column : str
+        The name of the column in adata.obs containing the gold standard cell type labels.
+
+    Returns
+    -------
+    frac_correct : float
+        The fraction of correct predictions compared to gold standard annotations, excluding "unknown" annotations.
+    """
+    predicted_cell_types = adata.obs[predicted_cell_type_column]
+    gold_standard_cell_types = adata.obs[gold_standard_cell_type_column]
+    mask = gold_standard_cell_types != "unknown"
+    if mask.sum() == 0:
+        return np.nan
+    frac_correct = (
+    predicted_cell_types[mask] == gold_standard_cell_types[mask]
+    ).mean()
+    return frac_correct
+
 # %% [markdown]
 # # Main script
 # %% Define the main function
@@ -170,6 +202,11 @@ def main():
     # Random seed for reproducibility
     random_seed = config_dict[METHOD].get("random_seed", 67)
     np.random.seed(random_seed)
+
+    # Compare predicted cell types to gold standard annotations in the query dataset, if available
+    compare_to_gold_standard = config_dict[METHOD].get("compare_to_gold_standard", False)
+    gold_standard_cell_type_column = config_dict[METHOD].get("gold_standard_cell_type_column", None)
+    gold_standard_high_level_cell_type_column = config_dict[METHOD].get("gold_standard_high_level_cell_type_column", None)
 
     # ### Load data from files
     # Query dataset
@@ -236,6 +273,17 @@ def main():
     print("Counts of predicted high-level cell types:")
     print(adata_query.obs["predicted_" + high_level_cell_type_column].value_counts())
 
+    # Compare predicted high-level cell types to gold standard annotations, if available
+    if compare_to_gold_standard and gold_standard_high_level_cell_type_column in adata_query.obs:
+        print("Comparing predicted high-level cell types to gold standard annotations...")
+        frac_correct = compute_frac_correct(
+            adata_query,
+            "predicted_" + high_level_cell_type_column,
+            gold_standard_high_level_cell_type_column,
+        )
+        print(f"Fraction of correctly predicted high-level cell types (excluding 'unknown'): {frac_correct:.3f}")
+
+
     # ### Predict low-level cell types for each high-level cell type
     # For each high-level cell type, annotate within that group
     print("Predicting low-level cell types for each high-level cell type...")
@@ -269,6 +317,16 @@ def main():
 
     # Print the distribution of prediction probabilities for the low-level cell types
     print(adata_query.obs["predicted_" + cell_type_column + "_probability"].describe())
+
+    # Compare predicted low-level cell types to gold standard annotations, if available
+    if compare_to_gold_standard and gold_standard_cell_type_column in adata_query.obs:
+        print("Comparing predicted low-level cell types to gold standard annotations...")
+        frac_correct = compute_frac_correct(
+            adata_query,
+            "predicted_" + cell_type_column,
+            gold_standard_cell_type_column,
+        )
+        print(f"Fraction of correctly predicted low-level cell types (excluding 'unknown'): {frac_correct:.3f}")
 
     # ## Visualize the results
     # ### High-level cell types
