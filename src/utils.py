@@ -158,9 +158,12 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
     plt.title(f'Contingency Table: {metadata_col1} vs {metadata_col2}\nARI: {ari:.4f}, NMI: {nmi:.4f}')
     plt.xlabel(metadata_col2)
     plt.ylabel(metadata_col1)
+    plt.xticks(rotation=45, ha='right')
+    plt.yticks(rotation=0)
+    plt.tight_layout()
     
     # Save the plot
-    plt.savefig(out_dir + f'{metadata_col1}_vs_{metadata_col2}_contingency.png')
+    plt.savefig(out_dir + f'{metadata_col1}_vs_{metadata_col2}_contingency.png', bbox_inches='tight')
     plt.close()
 
     return ari, nmi
