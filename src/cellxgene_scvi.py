@@ -388,17 +388,52 @@ def main():
             "Prediction Probability",
         ),
     ]
+    fixed_dpi = 300
+
+    # Keep UMAP plot area identical across outputs (in inches)
+    plot_area_in = 5.2
+    left_margin_in = 0.55
+    bottom_margin_in = 0.55
+    top_margin_in = 0.35
+
+    # Allow wider right margin for categorical legends
+    right_margin_continuous_in = 0.8
+    right_margin_categorical_in = 2.6
+
     for color_col, filename, title in plot_specs:
+        series = adata_combined.obs[color_col]
+        is_continuous = pd.api.types.is_numeric_dtype(series)
+
+        right_margin_in = (
+            right_margin_continuous_in if is_continuous else right_margin_categorical_in
+        )
+
+        fig_w = left_margin_in + plot_area_in + right_margin_in
+        fig_h = bottom_margin_in + plot_area_in + top_margin_in
+        fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fixed_dpi)
+
+        # Position axis explicitly so the plotting area is always the same size
+        ax_left = left_margin_in / fig_w
+        ax_bottom = bottom_margin_in / fig_h
+        ax_width = plot_area_in / fig_w
+        ax_height = plot_area_in / fig_h
+
         with plt.rc_context():
             sc.pl.umap(
                 adata_combined,
                 color=color_col,
                 title=title,
+                ax=ax,
                 show=False,
+                legend_loc="right margin",
+                colorbar_loc="right",
             )
-            plt.tight_layout()
-            plt.savefig(out_dir + filename, bbox_inches="tight")
-            plt.close()
+
+            ax.set_position([ax_left, ax_bottom, ax_width, ax_height])
+            ax.set_box_aspect(1)
+
+            fig.savefig(out_dir + filename, dpi=fixed_dpi, bbox_inches="tight", pad_inches=0.02)
+            plt.close(fig)
 
     # ### Low-level cell types
     print()
