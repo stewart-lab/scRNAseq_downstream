@@ -291,7 +291,12 @@ def main():
             gold_standard_high_level_cell_type_column,
         )
         print(f"Fraction of correctly predicted high-level cell types (excluding 'unknown'): {frac_correct:.3f}")
-
+        compare_cell_metadata_cols(
+            "predicted_" + high_level_cell_type_column,
+            gold_standard_high_level_cell_type_column,
+            adata_query,
+            out_dir
+        )
 
     # ### Predict low-level cell types for each high-level cell type
     # For each high-level cell type, annotate within that group
@@ -342,6 +347,12 @@ def main():
             gold_standard_cell_type_column,
         )
         print(f"Fraction of correctly predicted low-level cell types (excluding 'unknown'): {frac_correct:.3f}")
+        compare_cell_metadata_cols(
+            "predicted_" + cell_type_column,
+            gold_standard_cell_type_column,
+            adata_query,
+            out_dir
+        )
 
     # ## Visualize the results
     # ### High-level cell types
