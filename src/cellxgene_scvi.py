@@ -21,7 +21,7 @@ import scanpy as sc
 import scvi
 
 # Local utilities
-from utils import load_config, get_data_dir, initialize_output_directory, save_package_versions
+from utils import load_config, get_data_dir, initialize_output_directory, save_package_versions, compare_cell_metadata_cols
 
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
 #   data into anndata
@@ -58,6 +58,7 @@ def project_adata_to_scvi(adata, model_folder):
     adata_scvi = adata.copy()
 
     # Load the scVI model and prepare the query data
+    print()
     print("Preparing the query data for scVI model...")
     scvi.model.SCVI.prepare_query_anndata(adata_scvi, model_folder)
     print(adata_scvi)
@@ -65,6 +66,7 @@ def project_adata_to_scvi(adata, model_folder):
     # Load the query data into the model, set "is_trained" to True to trick the 
     # model into thinking it was already trained, and do a forward pass through 
     # the model to get the latent representation of the query data.
+    print()
     print("Projecting the query data to SCVI embedding...")
     vae_q = scvi.model.SCVI.load_query_data(
         adata_scvi,
@@ -210,17 +212,20 @@ def main():
 
     # ### Load data from files
     # Query dataset
+    print()
     print(f"Loading query dataset from file: {query_data_file}")
     adata_query = sc.read_h5ad(query_data_file)
     print(adata_query)
 
     # Reference dataset
+    print()
     print(f"Loading reference dataset from file: {ref_data_file}")
     adata_ref = sc.read_h5ad(ref_data_file)
     print(adata_ref)
 
     # ## Annotate the query dataset
     # Add necessary cell metadata columns
+    print()
     print("Formatting the data...")
     adata_query.obs["n_counts"] = adata_query.X.sum(axis=1)
     adata_query.obs["joinid"] = list(range(adata_query.n_obs))
@@ -243,6 +248,7 @@ def main():
     adata_ref = project_adata_to_scvi(adata_ref, model_folder)
 
     # Combine and plot the two datasets
+    print()
     print("Combining the query and reference datasets for visualization...")
     adata_combined = ad.concat([adata_query, adata_ref])
     sc.pp.neighbors(
@@ -255,12 +261,14 @@ def main():
 
     # ### Predict high-level cell types
     # Predict high-level cell types in the query dataset
+    print()
     print("Predicting high-level cell types for the query dataset...")
     preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, high_level_cell_type_column)
     adata_query.obs["predicted_" + high_level_cell_type_column] = preds
     adata_query.obs[
         "predicted_" + high_level_cell_type_column + "_probability"
     ] = probs
+    print()
     print("Probability distribution for predicted high-level cell types:")
     print(
         adata_query.obs[
@@ -269,11 +277,13 @@ def main():
     )
 
     # Print the counts of predicted high-level cell types in the query dataset
+    print()
     print("Counts of predicted high-level cell types:")
     print(adata_query.obs["predicted_" + high_level_cell_type_column].value_counts())
 
     # Compare predicted high-level cell types to gold standard annotations, if available
     if compare_to_gold_standard and gold_standard_high_level_cell_type_column in adata_query.obs:
+        print()
         print("Comparing predicted high-level cell types to gold standard annotations...")
         frac_correct = compute_frac_correct(
             adata_query,
@@ -285,10 +295,12 @@ def main():
 
     # ### Predict low-level cell types for each high-level cell type
     # For each high-level cell type, annotate within that group
+    print()
     print("Predicting low-level cell types for each high-level cell type...")
     col_prev_pred = "predicted_" + high_level_cell_type_column
     unique_types = adata_query.obs[col_prev_pred].dropna().unique()
     for ct in unique_types:
+        print()
         print(f"  Annotating {ct}...")
         # Mask for query and reference cells of this type at previous level
         mask_query = adata_query.obs[col_prev_pred] == ct
@@ -306,6 +318,7 @@ def main():
         adata_query.obs.loc[mask_query, "predicted_" + cell_type_column + "_probability"] = probs
     
     # Print counts of predicted cell types
+    print()
     print("Counts of predicted cell types:")
     print(
         adata_query.obs[[
@@ -315,10 +328,13 @@ def main():
     )
 
     # Print the distribution of prediction probabilities for the low-level cell types
+    print()
+    print("Probability distribution for predicted low-level cell types:")
     print(adata_query.obs["predicted_" + cell_type_column + "_probability"].describe())
 
     # Compare predicted low-level cell types to gold standard annotations, if available
     if compare_to_gold_standard and gold_standard_cell_type_column in adata_query.obs:
+        print()
         print("Comparing predicted low-level cell types to gold standard annotations...")
         frac_correct = compute_frac_correct(
             adata_query,
@@ -329,6 +345,7 @@ def main():
 
     # ## Visualize the results
     # ### High-level cell types
+    print()
     print("Combining query and reference datasets for visualization...")
     # Set "predicted" cell types in the reference dataset to the actual reference cell types
     adata_ref.obs["predicted_" + high_level_cell_type_column] = adata_ref.obs[high_level_cell_type_column]
@@ -357,6 +374,7 @@ def main():
         plt.savefig(out_dir + "high_level_cell_types_umap.pdf")
 
     # ### Low-level cell types
+    print()
     print("Plotting UMAPs for low-level cell types within each high-level cell type...")
     high_level_cell_types = adata_combined.obs["predicted_" + high_level_cell_type_column].unique()
     for hlct in high_level_cell_types:
@@ -384,6 +402,7 @@ def main():
     # ## Save the generated dataset and package versions
 
     # Save the annotated query dataset
+    print()
     print("Saving the annotated query dataset...")
     adata_query.write_h5ad(out_dir + output_file)
 
@@ -394,6 +413,7 @@ def main():
     os.chmod(out_dir, 0o777)
 
     # All done
+    print()
     print("Done.")
 
 # %% Run the main function
