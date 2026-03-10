@@ -257,7 +257,9 @@ def main():
     sc.tl.umap(adata_combined)
     with plt.rc_context():
         sc.pl.umap(adata_combined, color=["dataset_id"])
-        plt.savefig(out_dir + "query_and_reference_umap.pdf")
+        plt.tight_layout()
+        plt.savefig(out_dir + "query_and_reference_umap.pdf", bbox_inches="tight")
+
 
     # ### Predict high-level cell types
     # Predict high-level cell types in the query dataset
@@ -373,16 +375,30 @@ def main():
     print("Plotting UMAP with predicted high-level cell types...")
     sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
     sc.tl.umap(adata_combined)
-    with plt.rc_context():
-        sc.pl.umap(
-            adata_combined, 
-            color=[
-                "dataset_id", 
-                "predicted_" + high_level_cell_type_column,
-                "predicted_" + high_level_cell_type_column + "_probability"
-            ]
-        )
-        plt.savefig(out_dir + "high_level_cell_types_umap.pdf")
+    plot_specs = [
+        ("dataset_id", "dataset_id_umap.pdf", "Dataset"),
+        (
+            "predicted_" + high_level_cell_type_column,
+            "predicted_high_level_cell_type_umap.pdf",
+            "Predicted High-Level Cell Type",
+        ),
+        (
+            "predicted_" + high_level_cell_type_column + "_probability",
+            "predicted_high_level_cell_type_probability_umap.pdf",
+            "Prediction Probability",
+        ),
+    ]
+    for color_col, filename, title in plot_specs:
+        with plt.rc_context():
+            sc.pl.umap(
+                adata_combined,
+                color=color_col,
+                title=title,
+                show=False,
+            )
+            plt.tight_layout()
+            plt.savefig(out_dir + filename, bbox_inches="tight")
+            plt.close()
 
     # ### Low-level cell types
     print()
@@ -394,21 +410,33 @@ def main():
         cell_types = adata_combined.obs.loc[mask, "predicted_" + cell_type_column].unique()
         cell_types_nonempty = [ct for ct in cell_types if pd.notna(ct)]
         print(f"  Low-level cell types: {cell_types_nonempty}")
-        with plt.rc_context():
-            sc.pl.umap(
-                adata_combined[mask, :],
-                color=[
-                    "dataset_id", 
-                    "predicted_" + cell_type_column,
-                    "predicted_" + cell_type_column + "_probability"
-                ],
-                title=[
-                    f"{hlct} - Dataset", 
-                    f"{hlct} - Predicted Cell Type", 
-                    f"{hlct} - Prediction Probability"
-                ]
-            )
-            plt.savefig(out_dir + f"{hlct}_low_level_cell_types_umap.pdf")   
+        safe_hlct = str(hlct).replace("/", "_").replace(" ", "_")
+        subset = adata_combined[mask, :]
+
+        low_level_plot_specs = [
+            ("dataset_id", f"{safe_hlct}_dataset_umap.pdf", f"{hlct} - Dataset"),
+            (
+            "predicted_" + cell_type_column,
+            f"{safe_hlct}_predicted_cell_type_umap.pdf",
+            f"{hlct} - Predicted Cell Type",
+            ),
+            (
+            "predicted_" + cell_type_column + "_probability",
+            f"{safe_hlct}_prediction_probability_umap.pdf",
+            f"{hlct} - Prediction Probability",
+            ),
+        ]
+        for color_col, filename, title in low_level_plot_specs:
+            with plt.rc_context():
+                sc.pl.umap(
+                    subset,
+                    color=color_col,
+                    title=title,
+                    show=False,
+                )
+                plt.tight_layout()
+                plt.savefig(out_dir + filename, bbox_inches="tight")
+                plt.close()
 
     # ## Save the generated dataset and package versions
 
