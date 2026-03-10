@@ -108,3 +108,59 @@ def save_package_versions(out_dir):
     with open(out_dir + 'pip-requirements.txt', 'w') as f:
         f.write(packages)
     print("- pip package versions have been written to pip-requirements.txt")
+
+# %% Compare two cell metadata columns
+def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
+    """
+    Compare two cell metadata columns: compute similarity metrics and plot the contingency table.
+    
+    Parameters
+    ----------
+    metadata_col1 : string
+        The name of the first cell metadata column to compare.
+    metadata_col2 : string
+        The name of the second cell metadata column to compare.
+    adata : AnnData
+        Annotated data matrix.
+    out_dir : str
+        Output directory to save the contingency table plot.
+    
+    Returns
+    -------
+    tuple[float, float]
+        A tuple containing:
+        - ari: Adjusted Rand Index
+        - nmi: Normalized Mutual Information
+    """
+    from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import pandas as pd
+
+    # Extract the two metadata columns
+    col1 = adata.obs[metadata_col1]
+    col2 = adata.obs[metadata_col2]
+
+    # Compute and print similarity metrics
+    ari = adjusted_rand_score(col1, col2)
+    nmi = normalized_mutual_info_score(col1, col2)
+    print()
+    print(f"Comparing '{metadata_col1}' and '{metadata_col2}':")
+    print(f"Adjusted Rand Index (ARI): {ari:.4f}")
+    print(f"Normalized Mutual Information (NMI): {nmi:.4f}")
+
+    # Create a contingency table
+    contingency_table = pd.crosstab(col1, col2)
+
+    # Plot the contingency table
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(contingency_table, annot=True, fmt='d', cmap='viridis')
+    plt.title(f'Contingency Table: {metadata_col1} vs {metadata_col2}\nARI: {ari:.4f}, NMI: {nmi:.4f}')
+    plt.xlabel(metadata_col2)
+    plt.ylabel(metadata_col1)
+    
+    # Save the plot
+    plt.savefig(out_dir + f'{metadata_col1}_vs_{metadata_col2}_contingency.png')
+    plt.close()
+
+    return ari, nmi
