@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import scanpy as sc
+import seaborn as sns
 import shutil
+from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 import subprocess
 
 # %% 
@@ -135,10 +137,6 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
         - ari: Adjusted Rand Index
         - nmi: Normalized Mutual Information
     """
-    from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import pandas as pd
 
     # Extract the two metadata columns
     col1 = adata.obs[metadata_col1]
@@ -171,52 +169,58 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
 
     return ari, nmi
 
-# Plot a set of UMAPs with consistent figure dimensions and spacing.
-def plot_umaps(adata, out_dir, plot_specs, fixed_dpi=300, plot_area_in=5.2, left_margin_in=0.55, bottom_margin_in=0.55, top_margin_in=0.35, right_margin_continuous_in=2, right_margin_categorical_in=4):
+# %% Plot UMAPs with consistent figure dimensions and spacing
+
+# Default layout parameters for UMAP plots (in inches and dpi)
+UMAP_LAYOUT_DEFAULTS = {
+    "fixed_dpi": 300,
+    "plot_area_in": 5.2,
+    "left_margin_in": 0.55,
+    "bottom_margin_in": 0.55,
+    "top_margin_in": 0.35,
+    "right_margin_continuous_in": 1.5,
+    "right_margin_categorical_in": 4.0,
+}
+
+# The UMAP plotting function
+# Example call: override one default layout value, keep all others at default
+# plot_umaps(adata, out_dir, plot_specs, layout={"right_margin_categorical_in": 3.0})
+def plot_umaps(adata, out_dir, plot_specs, layout=None):
     """
     Plot UMAPs with consistent figure dimensions and spacing.
-    
+
     Parameters
     ----------
     adata : AnnData
         AnnData object containing the data to plot.
     out_dir : str
         Directory to save the output plots.
-    plot_specs : list of tuples
+    plot_specs : list[tuple[str, str, str]]
         List of (color_col, filename, title) tuples specifying what to plot.
-    fixed_dpi : int, default 300
-        DPI for saved figures.
-    plot_area_in : float, default 5.2
-        Width and height of the plot area in inches.
-    left_margin_in : float, default 0.55
-        Left margin in inches.
-    bottom_margin_in : float, default 0.55
-        Bottom margin in inches.
-    top_margin_in : float, default 0.35
-        Top margin in inches.
-    right_margin_continuous_in : float, default 2
-        Right margin in inches for continuous data legends.
-    right_margin_categorical_in : float, default 4
-        Right margin in inches for categorical legends.
+    layout : dict | None, default None
+        Optional overrides for UMAP_LAYOUT_DEFAULTS.
+        Example: {"right_margin_categorical_in": 3.0}
     """
+    cfg = UMAP_LAYOUT_DEFAULTS | (layout or {})
 
     for color_col, filename, title in plot_specs:
         series = adata.obs[color_col]
         is_continuous = pd.api.types.is_numeric_dtype(series)
 
         right_margin_in = (
-            right_margin_continuous_in if is_continuous else right_margin_categorical_in
+            cfg["right_margin_continuous_in"]
+            if is_continuous
+            else cfg["right_margin_categorical_in"]
         )
 
-        fig_w = left_margin_in + plot_area_in + right_margin_in
-        fig_h = bottom_margin_in + plot_area_in + top_margin_in
-        fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fixed_dpi)
+        fig_w = cfg["left_margin_in"] + cfg["plot_area_in"] + right_margin_in
+        fig_h = cfg["bottom_margin_in"] + cfg["plot_area_in"] + cfg["top_margin_in"]
+        fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=cfg["fixed_dpi"])
 
-        # Position axis explicitly so the plotting area is always the same size
-        ax_left = left_margin_in / fig_w
-        ax_bottom = bottom_margin_in / fig_h
-        ax_width = plot_area_in / fig_w
-        ax_height = plot_area_in / fig_h
+        ax_left = cfg["left_margin_in"] / fig_w
+        ax_bottom = cfg["bottom_margin_in"] / fig_h
+        ax_width = cfg["plot_area_in"] / fig_w
+        ax_height = cfg["plot_area_in"] / fig_h
 
         with plt.rc_context():
             sc.pl.umap(
@@ -232,5 +236,10 @@ def plot_umaps(adata, out_dir, plot_specs, fixed_dpi=300, plot_area_in=5.2, left
             ax.set_position([ax_left, ax_bottom, ax_width, ax_height])
             ax.set_box_aspect(1)
 
-            fig.savefig(os.path.join(out_dir, filename), dpi=fixed_dpi, bbox_inches="tight", pad_inches=0.02)
+            fig.savefig(
+                os.path.join(out_dir, filename),
+                dpi=cfg["fixed_dpi"],
+                bbox_inches="tight",
+                pad_inches=0.02,
+            )
             plt.close(fig)
