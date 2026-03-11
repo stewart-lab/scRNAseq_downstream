@@ -9,7 +9,6 @@
 
 # %%
 # Standard python libraries
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -21,7 +20,7 @@ import scanpy as sc
 import scvi
 
 # Local utilities
-from utils import load_config, get_data_dir, initialize_output_directory, save_package_versions
+from utils import load_config, get_data_dir, initialize_output_directory, save_package_versions, compare_cell_metadata_cols, plot_umaps
 
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
 #   data into anndata
@@ -58,6 +57,7 @@ def project_adata_to_scvi(adata, model_folder):
     adata_scvi = adata.copy()
 
     # Load the scVI model and prepare the query data
+    print()
     print("Preparing the query data for scVI model...")
     scvi.model.SCVI.prepare_query_anndata(adata_scvi, model_folder)
     print(adata_scvi)
@@ -65,6 +65,7 @@ def project_adata_to_scvi(adata, model_folder):
     # Load the query data into the model, set "is_trained" to True to trick the 
     # model into thinking it was already trained, and do a forward pass through 
     # the model to get the latent representation of the query data.
+    print()
     print("Projecting the query data to SCVI embedding...")
     vae_q = scvi.model.SCVI.load_query_data(
         adata_scvi,
@@ -210,17 +211,20 @@ def main():
 
     # ### Load data from files
     # Query dataset
+    print()
     print(f"Loading query dataset from file: {query_data_file}")
     adata_query = sc.read_h5ad(query_data_file)
     print(adata_query)
 
     # Reference dataset
+    print()
     print(f"Loading reference dataset from file: {ref_data_file}")
     adata_ref = sc.read_h5ad(ref_data_file)
     print(adata_ref)
 
     # ## Annotate the query dataset
     # Add necessary cell metadata columns
+    print()
     print("Formatting the data...")
     adata_query.obs["n_counts"] = adata_query.X.sum(axis=1)
     adata_query.obs["joinid"] = list(range(adata_query.n_obs))
@@ -242,25 +246,16 @@ def main():
     adata_query = project_adata_to_scvi(adata_query, model_folder)
     adata_ref = project_adata_to_scvi(adata_ref, model_folder)
 
-    # Combine and plot the two datasets
-    print("Combining the query and reference datasets for visualization...")
-    adata_combined = ad.concat([adata_query, adata_ref])
-    sc.pp.neighbors(
-        adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation"
-    )
-    sc.tl.umap(adata_combined)
-    with plt.rc_context():
-        sc.pl.umap(adata_combined, color=["dataset_id"])
-        plt.savefig(out_dir + "query_and_reference_umap.pdf")
-
     # ### Predict high-level cell types
     # Predict high-level cell types in the query dataset
+    print()
     print("Predicting high-level cell types for the query dataset...")
     preds, probs = predict_cell_types_with_rf(adata_query, adata_ref, high_level_cell_type_column)
     adata_query.obs["predicted_" + high_level_cell_type_column] = preds
     adata_query.obs[
         "predicted_" + high_level_cell_type_column + "_probability"
     ] = probs
+    print()
     print("Probability distribution for predicted high-level cell types:")
     print(
         adata_query.obs[
@@ -269,11 +264,13 @@ def main():
     )
 
     # Print the counts of predicted high-level cell types in the query dataset
+    print()
     print("Counts of predicted high-level cell types:")
     print(adata_query.obs["predicted_" + high_level_cell_type_column].value_counts())
 
     # Compare predicted high-level cell types to gold standard annotations, if available
     if compare_to_gold_standard and gold_standard_high_level_cell_type_column in adata_query.obs:
+        print()
         print("Comparing predicted high-level cell types to gold standard annotations...")
         frac_correct = compute_frac_correct(
             adata_query,
@@ -281,14 +278,21 @@ def main():
             gold_standard_high_level_cell_type_column,
         )
         print(f"Fraction of correctly predicted high-level cell types (excluding 'unknown'): {frac_correct:.3f}")
-
+        compare_cell_metadata_cols(
+            "predicted_" + high_level_cell_type_column,
+            gold_standard_high_level_cell_type_column,
+            adata_query,
+            out_dir
+        )
 
     # ### Predict low-level cell types for each high-level cell type
     # For each high-level cell type, annotate within that group
+    print()
     print("Predicting low-level cell types for each high-level cell type...")
     col_prev_pred = "predicted_" + high_level_cell_type_column
     unique_types = adata_query.obs[col_prev_pred].dropna().unique()
     for ct in unique_types:
+        print()
         print(f"  Annotating {ct}...")
         # Mask for query and reference cells of this type at previous level
         mask_query = adata_query.obs[col_prev_pred] == ct
@@ -306,6 +310,7 @@ def main():
         adata_query.obs.loc[mask_query, "predicted_" + cell_type_column + "_probability"] = probs
     
     # Print counts of predicted cell types
+    print()
     print("Counts of predicted cell types:")
     print(
         adata_query.obs[[
@@ -315,10 +320,13 @@ def main():
     )
 
     # Print the distribution of prediction probabilities for the low-level cell types
+    print()
+    print("Probability distribution for predicted low-level cell types:")
     print(adata_query.obs["predicted_" + cell_type_column + "_probability"].describe())
 
     # Compare predicted low-level cell types to gold standard annotations, if available
     if compare_to_gold_standard and gold_standard_cell_type_column in adata_query.obs:
+        print()
         print("Comparing predicted low-level cell types to gold standard annotations...")
         frac_correct = compute_frac_correct(
             adata_query,
@@ -326,9 +334,16 @@ def main():
             gold_standard_cell_type_column,
         )
         print(f"Fraction of correctly predicted low-level cell types (excluding 'unknown'): {frac_correct:.3f}")
+        compare_cell_metadata_cols(
+            "predicted_" + cell_type_column,
+            gold_standard_cell_type_column,
+            adata_query,
+            out_dir
+        )
 
     # ## Visualize the results
     # ### High-level cell types
+    print()
     print("Combining query and reference datasets for visualization...")
     # Set "predicted" cell types in the reference dataset to the actual reference cell types
     adata_ref.obs["predicted_" + high_level_cell_type_column] = adata_ref.obs[high_level_cell_type_column]
@@ -341,51 +356,73 @@ def main():
     # Combine the datasets
     adata_combined = ad.concat([adata_query, adata_ref])
 
-    # Plot the UMAP
-    print("Plotting UMAP with predicted high-level cell types...")
+    # Plot the UMAPs
+    print("Plotting UMAPs with predicted high-level cell types...")
     sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
     sc.tl.umap(adata_combined)
-    with plt.rc_context():
-        sc.pl.umap(
-            adata_combined, 
-            color=[
-                "dataset_id", 
-                "predicted_" + high_level_cell_type_column,
-                "predicted_" + high_level_cell_type_column + "_probability"
-            ]
-        )
-        plt.savefig(out_dir + "high_level_cell_types_umap.pdf")
+    plot_specs = [
+        (
+            "dataset_id", 
+            "dataset_id_umap.pdf", 
+            "Dataset"
+        ),
+        (
+            "predicted_" + high_level_cell_type_column,
+            "predicted_high_level_cell_type_umap.pdf",
+            "Predicted High-Level Cell Type",
+        ),
+        (
+            "predicted_" + high_level_cell_type_column + "_probability",
+            "predicted_high_level_cell_type_probability_umap.pdf",
+            "Prediction Probability",
+        ),
+    ]
+    plot_umaps(adata_combined, out_dir, plot_specs)
 
     # ### Low-level cell types
+    print()
     print("Plotting UMAPs for low-level cell types within each high-level cell type...")
     high_level_cell_types = adata_combined.obs["predicted_" + high_level_cell_type_column].unique()
     for hlct in high_level_cell_types:
+        # Print the low-level cell types present in this high-level cell type
         print(f"### High-level cell type: {hlct}")
         mask = adata_combined.obs["predicted_" + high_level_cell_type_column] == hlct
         cell_types = adata_combined.obs.loc[mask, "predicted_" + cell_type_column].unique()
         cell_types_nonempty = [ct for ct in cell_types if pd.notna(ct)]
         print(f"  Low-level cell types: {cell_types_nonempty}")
-        with plt.rc_context():
-            sc.pl.umap(
-                adata_combined[mask, :],
-                color=[
-                    "dataset_id", 
-                    "predicted_" + cell_type_column,
-                    "predicted_" + cell_type_column + "_probability"
-                ],
-                title=[
-                    f"{hlct} - Dataset", 
-                    f"{hlct} - Predicted Cell Type", 
-                    f"{hlct} - Prediction Probability"
-                ]
-            )
-            plt.savefig(out_dir + f"{hlct}_low_level_cell_types_umap.pdf")   
+
+        # Create a "safe" version of the high-level cell type name for use in file names.
+        safe_hlct = str(hlct).replace("/", "_").replace(" ", "_")
+
+        # Subset the data to just this high-level cell type for plotting.
+        subset = adata_combined[mask, :]
+
+        # Plot the UMAPs colored by dataset, low-level cell type and prediction probability
+        low_level_plot_specs = [
+            (
+                "dataset_id", 
+                f"{safe_hlct}_dataset_umap.pdf", 
+                f"{hlct} - Dataset"
+            ),
+            (
+                "predicted_" + cell_type_column,
+                f"{safe_hlct}_predicted_cell_type_umap.pdf",
+                f"{hlct} - Predicted Cell Type",
+            ),
+            (
+                "predicted_" + cell_type_column + "_probability",
+                f"{safe_hlct}_prediction_probability_umap.pdf",
+                f"{hlct} - Prediction Probability",
+            ),
+        ]
+        plot_umaps(subset, out_dir, low_level_plot_specs)
 
     # ## Save the generated dataset and package versions
 
     # Save the annotated query dataset
+    print()
     print("Saving the annotated query dataset...")
-    adata_query.write_h5ad(out_dir + output_file)
+    adata_query.write_h5ad(os.path.join(out_dir, output_file))
 
     # Save package versions
     save_package_versions(out_dir)
@@ -394,6 +431,7 @@ def main():
     os.chmod(out_dir, 0o777)
 
     # All done
+    print()
     print("Done.")
 
 # %% Run the main function
