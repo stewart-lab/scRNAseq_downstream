@@ -197,9 +197,9 @@ def plot_umaps(adata, out_dir, plot_specs, fixed_dpi=300, plot_area_in=5.2, left
         Bottom margin in inches.
     top_margin_in : float, default 0.35
         Top margin in inches.
-    right_margin_continuous_in : float, default 0.8
+    right_margin_continuous_in : float, default 2
         Right margin in inches for continuous data legends.
-    right_margin_categorical_in : float, default 2.6
+    right_margin_categorical_in : float, default 4
         Right margin in inches for categorical legends.
     """
 
@@ -235,7 +235,7 @@ def plot_umaps(adata, out_dir, plot_specs, fixed_dpi=300, plot_area_in=5.2, left
             ax.set_position([ax_left, ax_bottom, ax_width, ax_height])
             ax.set_box_aspect(1)
 
-            fig.savefig(out_dir + filename, dpi=fixed_dpi, bbox_inches="tight", pad_inches=0.02)
+            fig.savefig(os.path.join(out_dir, filename), dpi=fixed_dpi, bbox_inches="tight", pad_inches=0.02)
             plt.close(fig)
 
 # %% [markdown]
@@ -426,7 +426,11 @@ def main():
     sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
     sc.tl.umap(adata_combined)
     plot_specs = [
-        ("dataset_id", "dataset_id_umap.pdf", "Dataset"),
+        (
+            "dataset_id", 
+            "dataset_id_umap.pdf", 
+            "Dataset"
+        ),
         (
             "predicted_" + high_level_cell_type_column,
             "predicted_high_level_cell_type_umap.pdf",
@@ -460,16 +464,20 @@ def main():
 
         # Plot the UMAPs colored by dataset, low-level cell type and prediction probability
         low_level_plot_specs = [
-            ("dataset_id", f"{safe_hlct}_dataset_umap.pdf", f"{hlct} - Dataset"),
             (
-            "predicted_" + cell_type_column,
-            f"{safe_hlct}_predicted_cell_type_umap.pdf",
-            f"{hlct} - Predicted Cell Type",
+                "dataset_id", 
+                f"{safe_hlct}_dataset_umap.pdf", 
+                f"{hlct} - Dataset"
             ),
             (
-            "predicted_" + cell_type_column + "_probability",
-            f"{safe_hlct}_prediction_probability_umap.pdf",
-            f"{hlct} - Prediction Probability",
+                "predicted_" + cell_type_column,
+                f"{safe_hlct}_predicted_cell_type_umap.pdf",
+                f"{hlct} - Predicted Cell Type",
+            ),
+            (
+                "predicted_" + cell_type_column + "_probability",
+                f"{safe_hlct}_prediction_probability_umap.pdf",
+                f"{hlct} - Prediction Probability",
             ),
         ]
         plot_umaps(subset, out_dir, low_level_plot_specs)
@@ -479,7 +487,7 @@ def main():
     # Save the annotated query dataset
     print()
     print("Saving the annotated query dataset...")
-    adata_query.write_h5ad(out_dir + output_file)
+    adata_query.write_h5ad(os.path.join(out_dir, output_file))
 
     # Save package versions
     save_package_versions(out_dir)

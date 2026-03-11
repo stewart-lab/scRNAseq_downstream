@@ -163,7 +163,7 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
     plt.tight_layout()
     
     # Save the plot
-    plt.savefig(out_dir + f'{metadata_col1}_vs_{metadata_col2}_contingency.png', bbox_inches='tight')
+    plt.savefig(os.path.join(out_dir, f'{metadata_col1}_vs_{metadata_col2}_contingency.png'), bbox_inches='tight')
     plt.close()
 
     return ari, nmi
