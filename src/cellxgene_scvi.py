@@ -174,6 +174,70 @@ def compute_frac_correct(
     ).mean()
     return frac_correct
 
+# Plot a set of UMAPs with consistent figure dimensions and spacing.
+def plot_umaps(adata, out_dir, plot_specs, fixed_dpi=300, plot_area_in=5.2, left_margin_in=0.55, bottom_margin_in=0.55, top_margin_in=0.35, right_margin_continuous_in=2, right_margin_categorical_in=4):
+    """
+    Plot UMAPs with consistent figure dimensions and spacing.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object containing the data to plot.
+    out_dir : str
+        Directory to save the output plots.
+    plot_specs : list of tuples
+        List of (color_col, filename, title) tuples specifying what to plot.
+    fixed_dpi : int, default 300
+        DPI for saved figures.
+    plot_area_in : float, default 5.2
+        Width and height of the plot area in inches.
+    left_margin_in : float, default 0.55
+        Left margin in inches.
+    bottom_margin_in : float, default 0.55
+        Bottom margin in inches.
+    top_margin_in : float, default 0.35
+        Top margin in inches.
+    right_margin_continuous_in : float, default 0.8
+        Right margin in inches for continuous data legends.
+    right_margin_categorical_in : float, default 2.6
+        Right margin in inches for categorical legends.
+    """
+
+    for color_col, filename, title in plot_specs:
+        series = adata.obs[color_col]
+        is_continuous = pd.api.types.is_numeric_dtype(series)
+
+        right_margin_in = (
+            right_margin_continuous_in if is_continuous else right_margin_categorical_in
+        )
+
+        fig_w = left_margin_in + plot_area_in + right_margin_in
+        fig_h = bottom_margin_in + plot_area_in + top_margin_in
+        fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fixed_dpi)
+
+        # Position axis explicitly so the plotting area is always the same size
+        ax_left = left_margin_in / fig_w
+        ax_bottom = bottom_margin_in / fig_h
+        ax_width = plot_area_in / fig_w
+        ax_height = plot_area_in / fig_h
+
+        with plt.rc_context():
+            sc.pl.umap(
+                adata,
+                color=color_col,
+                title=title,
+                ax=ax,
+                show=False,
+                legend_loc="right margin",
+                colorbar_loc="right",
+            )
+
+            ax.set_position([ax_left, ax_bottom, ax_width, ax_height])
+            ax.set_box_aspect(1)
+
+            fig.savefig(out_dir + filename, dpi=fixed_dpi, bbox_inches="tight", pad_inches=0.02)
+            plt.close(fig)
+
 # %% [markdown]
 # # Main script
 # %% Define the main function
@@ -246,20 +310,6 @@ def main():
     # Project the query dataset into the scVI embedding
     adata_query = project_adata_to_scvi(adata_query, model_folder)
     adata_ref = project_adata_to_scvi(adata_ref, model_folder)
-
-    # Combine and plot the two datasets
-    print()
-    print("Combining the query and reference datasets for visualization...")
-    adata_combined = ad.concat([adata_query, adata_ref])
-    sc.pp.neighbors(
-        adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation"
-    )
-    sc.tl.umap(adata_combined)
-    with plt.rc_context():
-        sc.pl.umap(adata_combined, color=["dataset_id"])
-        plt.tight_layout()
-        plt.savefig(out_dir + "query_and_reference_umap.pdf", bbox_inches="tight")
-
 
     # ### Predict high-level cell types
     # Predict high-level cell types in the query dataset
@@ -371,8 +421,8 @@ def main():
     # Combine the datasets
     adata_combined = ad.concat([adata_query, adata_ref])
 
-    # Plot the UMAP
-    print("Plotting UMAP with predicted high-level cell types...")
+    # Plot the UMAPs
+    print("Plotting UMAPs with predicted high-level cell types...")
     sc.pp.neighbors(adata_combined, n_neighbors=15, use_rep="scvi", metric="correlation")
     sc.tl.umap(adata_combined)
     plot_specs = [
@@ -388,66 +438,27 @@ def main():
             "Prediction Probability",
         ),
     ]
-    fixed_dpi = 300
-
-    # Keep UMAP plot area identical across outputs (in inches)
-    plot_area_in = 5.2
-    left_margin_in = 0.55
-    bottom_margin_in = 0.55
-    top_margin_in = 0.35
-
-    # Allow wider right margin for categorical legends
-    right_margin_continuous_in = 0.8
-    right_margin_categorical_in = 2.6
-
-    for color_col, filename, title in plot_specs:
-        series = adata_combined.obs[color_col]
-        is_continuous = pd.api.types.is_numeric_dtype(series)
-
-        right_margin_in = (
-            right_margin_continuous_in if is_continuous else right_margin_categorical_in
-        )
-
-        fig_w = left_margin_in + plot_area_in + right_margin_in
-        fig_h = bottom_margin_in + plot_area_in + top_margin_in
-        fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=fixed_dpi)
-
-        # Position axis explicitly so the plotting area is always the same size
-        ax_left = left_margin_in / fig_w
-        ax_bottom = bottom_margin_in / fig_h
-        ax_width = plot_area_in / fig_w
-        ax_height = plot_area_in / fig_h
-
-        with plt.rc_context():
-            sc.pl.umap(
-                adata_combined,
-                color=color_col,
-                title=title,
-                ax=ax,
-                show=False,
-                legend_loc="right margin",
-                colorbar_loc="right",
-            )
-
-            ax.set_position([ax_left, ax_bottom, ax_width, ax_height])
-            ax.set_box_aspect(1)
-
-            fig.savefig(out_dir + filename, dpi=fixed_dpi, bbox_inches="tight", pad_inches=0.02)
-            plt.close(fig)
+    plot_umaps(adata_combined, out_dir, plot_specs)
 
     # ### Low-level cell types
     print()
     print("Plotting UMAPs for low-level cell types within each high-level cell type...")
     high_level_cell_types = adata_combined.obs["predicted_" + high_level_cell_type_column].unique()
     for hlct in high_level_cell_types:
+        # Print the low-level cell types present in this high-level cell type
         print(f"### High-level cell type: {hlct}")
         mask = adata_combined.obs["predicted_" + high_level_cell_type_column] == hlct
         cell_types = adata_combined.obs.loc[mask, "predicted_" + cell_type_column].unique()
         cell_types_nonempty = [ct for ct in cell_types if pd.notna(ct)]
         print(f"  Low-level cell types: {cell_types_nonempty}")
+
+        # Create a "safe" version of the high-level cell type name for use in file names.
         safe_hlct = str(hlct).replace("/", "_").replace(" ", "_")
+
+        # Subset the data to just this high-level cell type for plotting.
         subset = adata_combined[mask, :]
 
+        # Plot the UMAPs colored by dataset, low-level cell type and prediction probability
         low_level_plot_specs = [
             ("dataset_id", f"{safe_hlct}_dataset_umap.pdf", f"{hlct} - Dataset"),
             (
@@ -461,17 +472,7 @@ def main():
             f"{hlct} - Prediction Probability",
             ),
         ]
-        for color_col, filename, title in low_level_plot_specs:
-            with plt.rc_context():
-                sc.pl.umap(
-                    subset,
-                    color=color_col,
-                    title=title,
-                    show=False,
-                )
-                plt.tight_layout()
-                plt.savefig(out_dir + filename, bbox_inches="tight")
-                plt.close()
+        plot_umaps(subset, out_dir, low_level_plot_specs)
 
     # ## Save the generated dataset and package versions
 
