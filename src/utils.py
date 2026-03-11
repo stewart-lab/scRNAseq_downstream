@@ -121,9 +121,9 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
     
     Parameters
     ----------
-    metadata_col1 : string
+    metadata_col1 : str
         The name of the first cell metadata column to compare.
-    metadata_col2 : string
+    metadata_col2 : str
         The name of the second cell metadata column to compare.
     adata : AnnData
         Annotated data matrix.
@@ -153,9 +153,33 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
     # Create a contingency table
     contingency_table = pd.crosstab(col1, col2)
 
+    # Decide how to annotate the heatmap based on table size to avoid clutter
+    n_rows, n_cols = contingency_table.shape
+    max_dim = max(n_rows, n_cols)
+    n_cells = n_rows * n_cols
+
+    # Default: annotate with a readable font size for small tables
+    annot = True
+    heatmap_kwargs = {}
+
+    # For very large tables, disable annotations entirely
+    if max_dim > 50 or n_cells > 1000:
+        annot = False
+    # For moderately large tables, keep annotations but shrink font size
+    elif max_dim > 20 or n_cells > 400:
+        heatmap_kwargs["annot_kws"] = {"size": 6}
+    else:
+        heatmap_kwargs["annot_kws"] = {"size": 8}
+
     # Plot the contingency table
     plt.figure(figsize=(10, 8))
-    sns.heatmap(contingency_table, annot=True, fmt='d', cmap='viridis')
+    sns.heatmap(
+        contingency_table,
+        annot=annot,
+        fmt='d' if annot else '',
+        cmap='viridis',
+        **heatmap_kwargs,
+    )
     plt.title(f'Contingency Table: {metadata_col1} vs {metadata_col2}\nARI: {ari:.4f}, NMI: {nmi:.4f}')
     plt.xlabel(metadata_col2)
     plt.ylabel(metadata_col1)
