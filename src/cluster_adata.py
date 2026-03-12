@@ -27,7 +27,66 @@ ad.settings.allow_write_nullable_strings = True
 
 # %% [markdown]
 # ### Specialized functions for this module
-# <!-- Add any specialized functions for this module here. -->
+# Compute and save DE genes
+def compute_and_save_cluster_de(
+    adata: ad.AnnData,
+    cluster_column: str,
+    de_method: str,
+    key_added: str,
+    gene_symbol_column: str,
+    out_dir: str,
+    output_file_dotplot: str,
+    output_file_de: str,
+) -> pd.DataFrame:
+    """
+    Compute and save cluster-specific differentially expressed genes.
+    
+    Parameters    ----------
+    adata: anndata.AnnData
+        The annotated dataset containing the clusters for which to compute DE genes.
+    cluster_column: str
+        The name of the column in adata.obs containing the cluster labels.
+    de_method: str
+        The method to use for computing DE genes (e.g., "wilcoxon", "t-test", etc.).
+    key_added: str
+        The key to add to adata.uns to store the DE results.
+    gene_symbol_column: str
+        The name of the column in adata.var containing gene symbols.
+    out_dir: str
+        The directory in which to save the DE results.
+    output_file_dotplot: str
+        The name of the file in which to save the DE dotplot.
+    output_file_de: str
+        The name of the file in which to save the DE results as a CSV file.
+
+    Returns    -------
+    None
+    """
+    sc.tl.rank_genes_groups(
+        adata,
+        groupby=cluster_column,
+        method=de_method,
+        key_added=key_added,
+    )
+
+    sc.pl.rank_genes_groups_dotplot(
+        adata,
+        groupby=cluster_column,
+        standard_scale="var",
+        n_genes=5,
+        gene_symbols=gene_symbol_column,
+        show=False,
+        save=os.path.join(out_dir, output_file_dotplot),
+    )
+
+    de_clusters_df = sc.get.rank_genes_groups_df(
+        adata,
+        group=None,
+        key=key_added,
+    )
+    de_clusters_df.to_csv(os.path.join(out_dir, output_file_de), index=False)
+    print(de_clusters_df)
+
 # %% [markdown]
 # # Main script
 # %% Define the main function
@@ -44,12 +103,14 @@ def main():
     DATA_DIR = get_data_dir(config_dict)
     input_data_file = DATA_DIR + config_dict[METHOD]["input_data_file"]
 
-    # Gene ids (Ensembl)
+    # Gene ids (Ensembl) and symbols
     gene_id_column = config_dict[METHOD]["gene_id_column"]
+    gene_symbol_column = config_dict[METHOD]["gene_symbol_column"]
 
     # Output file
     out_dir = initialize_output_directory(config_dict)
-    output_file = config_dict[METHOD]["output_file"]
+    output_file_adata = config_dict[METHOD]["output_file_adata"]
+    output_file_de = config_dict[METHOD].get("output_file_de", None)
 
     # Random seed for reproducibility
     random_seed = config_dict[METHOD].get("random_seed", 67)
@@ -75,6 +136,9 @@ def main():
     # Metadata column names for computed clusters and subclusters
     cluster_column = config_dict[METHOD]["cluster_column"]
     subcluster_column = config_dict[METHOD]["subcluster_column"]
+
+    # Differential expression parameters
+    de_method = config_dict[METHOD].get("de_method", "wilcoxon")
 
     # ## Load data from file
     print()
@@ -156,12 +220,42 @@ def main():
             print(f"Comparing sub-clusters to gold standard cell type annotations (column: {gold_standard_cell_type_column})...")
             compare_cell_metadata_cols(adata, subcluster_column, gold_standard_cell_type_column)
 
+    # ## Compute differential expression between clusters, if specified
+    if output_file_de is not None:
+        # Normalize the data before computing differential expression
+        print()
+        print("Normalizing the data before computing differential expression...")
+
+        # Save count data
+        adata.layers["counts"] = adata.X.copy()
+
+        # Normalize to median total counts
+        sc.pp.normalize_total(adata)
+
+        # Logarithmize the data
+        sc.pp.log1p(adata)
+        adata
+
+        # Compute cluster-specific differentially expressed genes
+        print()
+        print("Computing differential expression between clusters...")
+        compute_and_save_cluster_de(
+            adata=adata,
+            cluster_column=cluster_column,
+            de_method=de_method,
+            key_added="de_clusters",
+            gene_symbol_column=gene_symbol_column,
+            out_dir=out_dir,
+            output_file_dotplot="cluster_de_dotplot.png",
+            output_file_de=output_file_de,
+        )
+
     # ## Save the generated dataset and package versions
 
     # Save the clustered dataset
     print()
     print("Saving the clustered dataset...")
-    adata.write_h5ad(os.path.join(out_dir, output_file))
+    adata.write_h5ad(os.path.join(out_dir, output_file_adata))
 
     # Save package versions
     save_package_versions(out_dir)
