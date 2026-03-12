@@ -4,7 +4,6 @@
 # %%
 # ### Load libraries
 # Standard python libraries
-from sklearn.metrics._scorer import metric
 import numpy as np
 import pandas as pd
 import os
@@ -94,7 +93,7 @@ def main():
     sc.pp.neighbors(adata, n_neighbors=n_neighbors, use_rep=embedding, metric=distance_metric)
 
     # Cluster the dataset using Leiden clustering
-    sc.tl.leiden(adata, resolution=clustering_resolution, key_added=cluster_column, flavor=leiden_flavor)
+    sc.tl.leiden(adata, resolution=clustering_resolution, key_added=cluster_column, flavor=leiden_flavor, n_iterations=num_iterations, random_state=random_seed)
     print()
     print(f"Clustering results (column: {cluster_column}):")
     print(adata.obs[cluster_column].value_counts())
@@ -133,6 +132,7 @@ def main():
             key_added="_subcluster",
             flavor=leiden_flavor,
             n_iterations=num_iterations,
+            random_state=random_seed,
         )
 
         adata.obs.loc[adata_cluster.obs_names, subcluster_column] = (
