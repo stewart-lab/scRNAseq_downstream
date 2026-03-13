@@ -94,7 +94,9 @@ def compute_and_save_cluster_de(
         key=key_added,
         show=False,
     )
-    plt.gcf().savefig(os.path.join(out_dir, output_file_dotplot))
+    fig = plt.gcf()
+    fig.subplots_adjust(bottom=0.3)
+    fig.savefig(os.path.join(out_dir, output_file_dotplot))
     plt.close()
 
     de_clusters_df = sc.get.rank_genes_groups_df(
@@ -270,7 +272,12 @@ def main():
         output_file_de=output_file_prefix + "_cluster_de.csv",
     )
 
+    # Compute subcluster-specific differentially expressed genes
+    print()
+    print("Computing differential expression between subclusters...")
     for cluster_id in cluster_ids:
+        print()
+        print(f"Cluster {cluster_id}:")
         cluster_mask = (
             (adata.obs[cluster_column].astype("string") == cluster_id)
             .fillna(False)
