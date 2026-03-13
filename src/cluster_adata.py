@@ -172,10 +172,13 @@ def main():
     print(adata.var)
 
     # ## Cluster the dataset
+    print()
     # Compute neighborhood graph
+    print("Computing neighborhood graph...")
     sc.pp.neighbors(adata, n_neighbors=n_neighbors, use_rep=embedding, metric=distance_metric)
 
     # Cluster the dataset using Leiden clustering
+    print("Clustering the dataset...")
     sc.tl.leiden(adata, resolution=clustering_resolution, key_added=cluster_column, flavor=leiden_flavor, n_iterations=num_iterations, random_state=random_seed)
     print()
     print(f"Clustering results (column: {cluster_column}):")
@@ -229,6 +232,7 @@ def main():
     adata.obs[subcluster_column] = adata.obs[subcluster_column].astype("category")
 
     # ## Compare clusters to gold standard annotations, if available
+    # High-level clusters vs. high-level cell types
     if compare_to_gold_standard:
         print()
         print("Comparing clusters to gold standard annotations...")
@@ -238,10 +242,47 @@ def main():
             print(f"Comparing clusters to gold standard high-level cell type annotations (column: {gold_standard_high_level_cell_type_column})...")
             compare_cell_metadata_cols(cluster_column, gold_standard_high_level_cell_type_column, adata, out_dir)
 
+        # Sub-clusters vs. low-level cell types
         if gold_standard_cell_type_column is not None:
             print()
             print(f"Comparing sub-clusters to gold standard cell type annotations (column: {gold_standard_cell_type_column})...")
-            compare_cell_metadata_cols(subcluster_column, gold_standard_cell_type_column, adata, out_dir)
+            for cluster_id in cluster_ids:
+                print()
+                print(f"Cluster {cluster_id}:")
+                # Subset the data to the current cluster
+                cluster_mask = (
+                    (adata.obs[cluster_column].astype("string") == cluster_id)
+                    .fillna(False)
+                    .to_numpy(dtype=bool)
+                )
+                adata_cluster = adata[cluster_mask].copy()
+
+                # Skip if <2 subclusters or cell types are present to avoid errors in comparison metrics and plotting
+                n_subclusters = (
+                    adata_cluster.obs[subcluster_column]
+                    .astype("string")
+                    .dropna()
+                    .nunique()
+                )
+                cell_types = (
+                    adata_cluster.obs[gold_standard_cell_type_column]
+                    .astype("string")
+                    .dropna()
+                    .unique()
+                )
+                n_cell_types = len(cell_types)
+                print(f"Cluster {cluster_id} has {n_subclusters} subclusters and {n_cell_types} cell types")
+                
+                if n_subclusters < 2 or n_cell_types < 2:
+                    if n_cell_types < 2:
+                        print(f"Cell type: {cell_types}")
+                    continue
+
+                # Make a safe file name for the cluster id by replacing any os.sep characters with underscores
+                safe_cluster_id = str(cluster_id).replace(os.sep, "_")
+
+                # Compare the subclusters to the gold standard cell type annotations
+                compare_cell_metadata_cols(subcluster_column, gold_standard_cell_type_column, adata_cluster, out_dir, f"contingency_cluster_{safe_cluster_id}")
 
     # ## Compute differential expression between clusters
     # Normalize the data before computing differential expression
