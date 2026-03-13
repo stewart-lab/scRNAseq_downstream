@@ -115,7 +115,7 @@ def save_package_versions(out_dir):
     print("- pip package versions have been written to pip-requirements.txt")
 
 # %% Compare two cell metadata columns
-def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
+def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir, output_file_prefix="contingency"):
     """
     Compare two cell metadata columns: compute similarity metrics and plot the contingency table.
     
@@ -129,6 +129,8 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
         Annotated data matrix.
     out_dir : str
         Output directory to save the contingency table plot.
+    output_file_prefix : str, optional
+        Prefix for the output file name, by default "contingency"
     
     Returns
     -------
@@ -189,7 +191,7 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
     g.fig.suptitle(f'Contingency Table: {metadata_col1} vs {metadata_col2}\nARI: {ari:.4f}, NMI: {nmi:.4f}', y=1.02)
     
     # Save the plot
-    plt.savefig(os.path.join(out_dir, f'{metadata_col1}_vs_{metadata_col2}_contingency.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(out_dir, f'{output_file_prefix}_{metadata_col1}_vs_{metadata_col2}.png'), bbox_inches='tight')
     plt.close()
 
     return ari, nmi
