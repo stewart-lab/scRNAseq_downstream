@@ -109,9 +109,8 @@ def main():
 
     # Output file
     out_dir = initialize_output_directory(config_dict)
-    output_file_adata = config_dict[METHOD]["output_file_adata"]
-    output_file_de = config_dict[METHOD].get("output_file_de", None)
-
+    output_file_prefix = config_dict[METHOD]["output_file_prefix"]
+    
     # Random seed for reproducibility
     random_seed = config_dict[METHOD].get("random_seed", 67)
     np.random.seed(random_seed)
@@ -220,34 +219,60 @@ def main():
             print(f"Comparing sub-clusters to gold standard cell type annotations (column: {gold_standard_cell_type_column})...")
             compare_cell_metadata_cols(adata, subcluster_column, gold_standard_cell_type_column)
 
-    # ## Compute differential expression between clusters, if specified
-    if output_file_de is not None:
-        # Normalize the data before computing differential expression
-        print()
-        print("Normalizing the data before computing differential expression...")
+    # ## Compute differential expression between clusters
+    # Normalize the data before computing differential expression
+    print()
+    print("Normalizing the data before computing differential expression...")
 
-        # Save count data
-        adata.layers["counts"] = adata.X.copy()
+    # Save count data
+    adata.layers["counts"] = adata.X.copy()
 
-        # Normalize to median total counts
-        sc.pp.normalize_total(adata)
+    # Normalize to median total counts
+    sc.pp.normalize_total(adata)
 
-        # Logarithmize the data
-        sc.pp.log1p(adata)
-        adata
+    # Logarithmize the data
+    sc.pp.log1p(adata)
+    adata
 
-        # Compute cluster-specific differentially expressed genes
-        print()
-        print("Computing differential expression between clusters...")
+    # Compute cluster-specific differentially expressed genes
+    print()
+    print("Computing differential expression between clusters...")
+    compute_and_save_cluster_de(
+        adata=adata,
+        cluster_column=cluster_column,
+        de_method=de_method,
+        key_added="de_clusters",
+        gene_symbol_column=gene_symbol_column,
+        out_dir=out_dir,
+        output_file_dotplot=output_file_prefix + "_cluster_de_dotplot.png",
+        output_file_de=output_file_prefix + "_cluster_de.csv",
+    )
+
+    for cluster_id in cluster_ids:
+        cluster_mask = adata.obs[cluster_column].astype("string") == cluster_id
+        adata_cluster = adata[cluster_mask].copy()
+
+        n_subclusters = (
+            adata_cluster.obs[subcluster_column]
+            .astype("string")
+            .dropna()
+            .nunique()
+        )
+
+        if n_subclusters < 2:
+            continue
+
+        safe_cluster_id = str(cluster_id).replace(os.sep, "_")
+
         compute_and_save_cluster_de(
-            adata=adata,
-            cluster_column=cluster_column,
+            adata=adata_cluster,
+            cluster_column=subcluster_column,
             de_method=de_method,
-            key_added="de_clusters",
+            key_added=f"de_subclusters_{safe_cluster_id}",
             gene_symbol_column=gene_symbol_column,
             out_dir=out_dir,
-            output_file_dotplot="cluster_de_dotplot.png",
-            output_file_de=output_file_de,
+            output_file_dotplot=f"{output_file_prefix}_{safe_cluster_id}_subcluster_de_dotplot.png",
+            output_file_de=f"{output_file_prefix}_{safe_cluster_id}_subcluster_de.csv",
         )
 
     # ## Save the generated dataset and package versions
@@ -255,7 +280,7 @@ def main():
     # Save the clustered dataset
     print()
     print("Saving the clustered dataset...")
-    adata.write_h5ad(os.path.join(out_dir, output_file_adata))
+    adata.write_h5ad(os.path.join(out_dir, output_file_prefix + ".h5ad"))
 
     # Save package versions
     save_package_versions(out_dir)
