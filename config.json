@@ -263,8 +263,9 @@
   },
   "cluster_adata":{
     "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/cellxgene_scvi_20260311_145341/",
-    "input_file": "Yayon_subset_2_scvi_annot.h5ad",
+    "input_data_file": "Yayon_subset_2_scvi_annot.h5ad",
     "gene_id_column": "feature_id",
+    "gene_symbol_column": "feature_name",
     "output_file_prefix": "Yayon_subset_2_clustered",
     "random_seed": 318,
     "embedding": "scvi",

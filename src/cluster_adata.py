@@ -7,6 +7,7 @@
 import numpy as np
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
 
 # scVerse
 import anndata as ad
@@ -37,7 +38,7 @@ def compute_and_save_cluster_de(
     out_dir: str,
     output_file_dotplot: str,
     output_file_de: str,
-) -> pd.DataFrame:
+):
     """
     Compute and save cluster-specific differentially expressed genes.
     
@@ -69,15 +70,32 @@ def compute_and_save_cluster_de(
         key_added=key_added,
     )
 
+    sc.tl.dendrogram(adata, groupby=cluster_column, use_rep="scvi")
+
+    plot_gene_symbol_column = gene_symbol_column
+    if gene_symbol_column in adata.var.columns:
+        duplicate_symbol_mask = adata.var[gene_symbol_column].astype("string").duplicated(keep=False)
+        if duplicate_symbol_mask.any():
+            plot_gene_symbol_column = f"{gene_symbol_column}_unique_for_plot"
+            adata.var[plot_gene_symbol_column] = adata.var[gene_symbol_column].astype("string")
+            adata.var.loc[duplicate_symbol_mask, plot_gene_symbol_column] = (
+                adata.var.loc[duplicate_symbol_mask, gene_symbol_column].astype("string")
+                + " ("
+                + adata.var.loc[duplicate_symbol_mask].index.astype("string")
+                + ")"
+            )
+
     sc.pl.rank_genes_groups_dotplot(
         adata,
         groupby=cluster_column,
         standard_scale="var",
         n_genes=5,
-        gene_symbols=gene_symbol_column,
+        gene_symbols=plot_gene_symbol_column,
+        key=key_added,
         show=False,
-        save=os.path.join(out_dir, output_file_dotplot),
     )
+    plt.gcf().savefig(os.path.join(out_dir, output_file_dotplot))
+    plt.close()
 
     de_clusters_df = sc.get.rank_genes_groups_df(
         adata,
@@ -173,7 +191,11 @@ def main():
     )
 
     for cluster_id in cluster_ids:
-        cluster_mask = adata.obs[cluster_column].astype("string") == cluster_id
+        cluster_mask = (
+            (adata.obs[cluster_column].astype("string") == cluster_id)
+            .fillna(False)
+            .to_numpy(dtype=bool)
+        )
         adata_cluster = adata[cluster_mask].copy()
 
         if adata_cluster.n_obs < 2:
@@ -212,12 +234,12 @@ def main():
         if gold_standard_high_level_cell_type_column is not None:
             print()
             print(f"Comparing clusters to gold standard high-level cell type annotations (column: {gold_standard_high_level_cell_type_column})...")
-            compare_cell_metadata_cols(adata, cluster_column, gold_standard_high_level_cell_type_column)
+            compare_cell_metadata_cols(cluster_column, gold_standard_high_level_cell_type_column, adata, out_dir)
 
         if gold_standard_cell_type_column is not None:
             print()
             print(f"Comparing sub-clusters to gold standard cell type annotations (column: {gold_standard_cell_type_column})...")
-            compare_cell_metadata_cols(adata, subcluster_column, gold_standard_cell_type_column)
+            compare_cell_metadata_cols(subcluster_column, gold_standard_cell_type_column, adata, out_dir)
 
     # ## Compute differential expression between clusters
     # Normalize the data before computing differential expression
@@ -249,7 +271,11 @@ def main():
     )
 
     for cluster_id in cluster_ids:
-        cluster_mask = adata.obs[cluster_column].astype("string") == cluster_id
+        cluster_mask = (
+            (adata.obs[cluster_column].astype("string") == cluster_id)
+            .fillna(False)
+            .to_numpy(dtype=bool)
+        )
         adata_cluster = adata[cluster_mask].copy()
 
         n_subclusters = (
