@@ -137,6 +137,9 @@ else
     elif [ "$METHOD" == "cellxgene_scvi" ]; then
         source activate cellxgene_scvi
         python src/cellxgene_scvi.py
+    elif [ "$METHOD" == "cluster_adata" ]; then
+        source activate cellxgene_scvi
+        python src/cluster_adata.py
     else
         echo "Unknown method: $METHOD"
         exit 1
