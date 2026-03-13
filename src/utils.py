@@ -171,21 +171,22 @@ def compare_cell_metadata_cols(metadata_col1, metadata_col2, adata, out_dir):
     else:
         heatmap_kwargs["annot_kws"] = {"size": 8}
 
-    # Plot the contingency table
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(
+    # Cluster the contingency table before plotting
+    g = sns.clustermap(
         contingency_table,
         annot=annot,
         fmt='d' if annot else '',
         cmap='viridis',
+        figsize=(10, 8),
+        row_cluster=True,
+        col_cluster=True,
         **heatmap_kwargs,
     )
-    plt.title(f'Contingency Table: {metadata_col1} vs {metadata_col2}\nARI: {ari:.4f}, NMI: {nmi:.4f}')
-    plt.xlabel(metadata_col2)
-    plt.ylabel(metadata_col1)
-    plt.xticks(rotation=45, ha='right')
-    plt.yticks(rotation=0)
-    plt.tight_layout()
+    g.ax_heatmap.set_xlabel(metadata_col2)
+    g.ax_heatmap.set_ylabel(metadata_col1)
+    g.ax_heatmap.set_xticklabels(g.ax_heatmap.get_xticklabels(), rotation=45, ha='right')
+    g.ax_heatmap.set_yticklabels(g.ax_heatmap.get_yticklabels(), rotation=0)
+    g.fig.suptitle(f'Contingency Table: {metadata_col1} vs {metadata_col2}\nARI: {ari:.4f}, NMI: {nmi:.4f}', y=1.02)
     
     # Save the plot
     plt.savefig(os.path.join(out_dir, f'{metadata_col1}_vs_{metadata_col2}_contingency.png'), bbox_inches='tight')
