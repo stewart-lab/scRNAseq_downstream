@@ -568,6 +568,57 @@ Outputs:
 
 ## Other processes
 
+### Two-level clustering of an AnnData object
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"cluster_adata"
+"docker": "FALSE" # Not implemented in docker, use conda environments.
+
+"cluster_adata":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/cellxgene_scvi_20260311_145341/", # Directory containing input data
+    "input_data_file": "Yayon_subset_2_scvi_annot.h5ad", # File that contains the AnnData object to be clustered
+    "gene_id_column": "feature_id", # Usually Ensembl ID
+    "gene_symbol_column": "feature_name", # Usually gene symbol
+    "output_file_prefix": "Yayon_subset_2_clustered", # Output file names will start with this string
+    "random_seed": 318, # A seed for the random number generator
+    "embedding": "scvi", # Compute the neighbor graph in this embedding
+    "n_neighbors": 15, # Number of neighbors for neighbor graph computation
+    "distance_metric": "correlation", # Distance metric for neighbor graph computation
+    "clustering_resolution": 0.1, # Resolution for clustering
+    "subclustering_resolution": 1.0, # Resolution for subclustering
+    "leiden_flavor": "igraph", # Leiden algorithm flavor
+    "num_iterations": 2, # Number of iterations for clustering
+    "cluster_column": "cluster", # Metadata column name for clusters
+    "subcluster_column": "subcluster", # Metadata column name for subclusters
+    "compare_to_gold_standard": true, # Whether to compare to gold standard annotations
+    "gold_standard_high_level_cell_type_column": "high_level_cell_type", # Metadata column name for high-level cell types in gold standard
+    "gold_standard_cell_type_column": "cell_type" # Metadata column name for low-level cell types in gold standard
+}
+```
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* Object:
+    * <output_file_prefix>.h5ad - AnndData object, same as the input, with clustering and differential expression results added
+* Cluster markers (differential expression results)
+    * <output_file_prefix>_cluster_de.csv - tables of differentially expressed genes in top-level clusters
+    * <output_file_prefix>_cluster_de_dotplot.png - dotplots of top differentially expressed genes in top-level clusters    
+    * <output_file_prefix>_[0-9]+_subcluster_de.csv - tables of differentially expressed genes in subclusters
+    * <output_file_prefix>_[0-9]+_subcluster_de_dotplot.png - dotplots of top differentially expressed genes in subclusters
+* Visualizations of contingency tables comparing current clustering to gold standard annotations
+    * contingency_cluster_vs_high_level_cell_type.png - top-level clusters vs high-level cell types
+    * contingency_cluster_[0-9]+_subcluster_vs_cell_type.png - subclusters vs low-level cell types
+* Session info:
+    * conda-requirements.txt - conda package versions
+    * config.json - configuration settings used
+    * pip-requirements.txt - pip package versions
+
+
 ### Recluster
 To re-cluster and re-annotate with updated cell types, use recluster-and-annotate.R:
 

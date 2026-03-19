@@ -1,6 +1,6 @@
 {
-  "title": "Annotate a test dataset",
-  "METHOD": "cellxgene_scvi",
+  "title": "Cluster a test dataset",
+  "METHOD": "cluster_adata",
   "docker": "False",
   
   "seurat_mapping": {
@@ -260,5 +260,25 @@
     "compare_to_gold_standard": true,
     "gold_standard_cell_type_column": "cell_type",
     "gold_standard_high_level_cell_type_column": "high_level_cell_type"
+  },
+  "cluster_adata":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/cellxgene_scvi_20260311_145341/",
+    "input_data_file": "Yayon_subset_2_scvi_annot.h5ad",
+    "gene_id_column": "feature_id",
+    "gene_symbol_column": "feature_name",
+    "output_file_prefix": "Yayon_subset_2_clustered",
+    "random_seed": 318,
+    "embedding": "scvi",
+    "n_neighbors": 15,
+    "distance_metric": "correlation",
+    "clustering_resolution": 0.1,
+    "subclustering_resolution": 1.0,
+    "leiden_flavor": "igraph",
+    "num_iterations": 2,
+    "cluster_column": "cluster",
+    "subcluster_column": "subcluster",
+    "compare_to_gold_standard": true,
+    "gold_standard_high_level_cell_type_column": "high_level_cell_type",
+    "gold_standard_cell_type_column": "cell_type"
   }
 }
