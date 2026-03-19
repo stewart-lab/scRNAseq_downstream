@@ -42,7 +42,8 @@ def compute_and_save_cluster_de(
     """
     Compute and save cluster-specific differentially expressed genes.
     
-    Parameters    ----------
+    Parameters    
+    ----------
     adata: anndata.AnnData
         The annotated dataset containing the clusters for which to compute DE genes.
     cluster_column: str
@@ -60,7 +61,8 @@ def compute_and_save_cluster_de(
     output_file_de: str
         The name of the file in which to save the DE results as a CSV file.
 
-    Returns    -------
+    Returns    
+    -------
     None
     """
     sc.tl.rank_genes_groups(
