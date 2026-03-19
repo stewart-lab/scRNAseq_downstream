@@ -603,9 +603,8 @@ source run_downstream_toolkit.sh
 ```
 
 Outputs:
-* Objects:
-    * seuratobj_recluster_resX.rds: reclustered Seurat object at resolution X
-    * seurat_obj_labeled.rds: reclustered and reannotated Seurat object of marker list provided
+* Object:
+    * <output_file_prefix>.h5ad - AnndData object, same as the input, with clustering and differential expression results added
 * Cluster markers (differential expression results)
     * <output_file_prefix>_cluster_de.csv - tables of differentially expressed genes in top-level clusters
     * <output_file_prefix>_cluster_de_dotplot.png - dotplots of top differentially expressed genes in top-level clusters    
