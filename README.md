@@ -582,9 +582,9 @@ Modify config variables:
     "gene_symbol_column": "feature_name", # Usually gene symbol
     "output_file_prefix": "Yayon_subset_2_clustered", # Output file names will start with this string
     "random_seed": 318, # A seed for the random number generator
-    "embedding": "scvi", # Cluster the cells in this embedding
-    "n_neighbors": 15, # Number of neighbors for the clustering algorithm
-    "distance_metric": "correlation", # Distance metric for clustering
+    "embedding": "scvi", # Compute the neighbor graph in this embedding
+    "n_neighbors": 15, # Number of neighbors for neighbor graph computation
+    "distance_metric": "correlation", # Distance metric for neighbor graph computation
     "clustering_resolution": 0.1, # Resolution for clustering
     "subclustering_resolution": 1.0, # Resolution for subclustering
     "leiden_flavor": "igraph", # Leiden algorithm flavor
