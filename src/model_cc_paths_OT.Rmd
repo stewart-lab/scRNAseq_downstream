@@ -1,0 +1,319 @@
+# load packages
+```{r}
+# "/w5home/bmoore/miniconda3/lib/R"
+# load packages
+library(ggplot2)
+library(data.table)
+library(gridExtra)
+library(stringr)
+library(dplyr)
+library(emmeans)
+# library(statmod)
+library(glmmTMB)
+library(RColorBrewer)
+# View the PuRd palette
+display.brewer.pal(9, "PuRd")
+
+# set working dir
+wkdir <- "/w5home/bmoore/Pierre_sc_zebrafish/cellchat_allsamples_allpaths/"
+setwd(wkdir)
+```
+# loop through dirs and read in files
+```{r}
+# loop through files to get weights
+dirs <- list.dirs(
+    path = wkdir,
+    full.names = TRUE, recursive = FALSE
+)
+dirs
+# create empty list for recovered/ nonrecovered
+data_listR <- list()
+data_listNR <- list()
+# loop
+for (d in dirs) {
+    if (str_detect(d, "seurat_mouse_annot_")) {
+        file <- list.files(path = d, pattern = "\\_df_net_signal_paths.txt$", full.names = TRUE)
+        data <- read.table(file, header = TRUE)
+        filename <- basename(file)
+        name <- str_extract(filename, "\\d+WkN?R_+\\d+\\d")
+        if (is.na(name)) {
+            name <- str_extract(filename, "\\d+WkN?R_+\\d")
+        }
+        print(name)
+        if (str_detect(name, "NR")) {
+            data_listNR[[name]] <- data
+        } else {
+            data_listR[[name]] <- data
+        }
+
+        file2 <- list.files(path = d, pattern = "cellchat_df_net_signal_paths_all.txt$", full.names = TRUE)
+        data2 <- read.table(file2, header = TRUE)
+        # filename2 <- basename(file2)
+        # name2 <- str_extract(filename2, "\\d+WkN?R_+\\d+\\d")
+        # if (is.na(name2)) {
+        #     name2 <- str_extract(filename2, "\\d+WkN?R_+\\d")
+        # }
+        name2 <- paste0(name, "_all")
+        print(name2)
+        if (str_detect(name2, "NR")) {
+            data_listNR[[name2]] <- data2
+        } else {
+            data_listR[[name2]] <- data2
+        }
+    }
+}
+names(data_listNR)
+names(data_listR)
+```
+# get data for tcells and fibroblasts as senders
+```{r}
+## loop to get all targets of a sender
+# create empty dataframe
+target_list <- c("7", "5")
+df_T <- data.frame(matrix(ncol = 7, nrow = 0))
+x <- c("source", "target", "treatment", "timepoint", "rep", "value", "pathway_name")
+colnames(df_T) <- x
+df_sig <- data.frame(matrix(ncol = 8, nrow = 0))
+x <- c("source", "target", "treatment", "timepoint", "rep", "value", "pval", "pathway_name")
+colnames(df_sig) <- x
+# loop through NR datalist to get all NR values
+for (j in 1:length(target_list)) {
+    target <- target_list[[j]]
+    for (i in 1:length(data_listNR)) {
+        # get name (timepoint)
+        name <- names(data_listNR)[i]
+        n2 <- str_split_i(name, "_", 1)
+        if (n2 == "sham") {
+            timepoint <- "0Wk"
+        } else {
+            timepoint <- str_extract(name, "\\d+Wk") # Extracts "1wk", "2wk", etc.
+        }
+        rep <- str_split_i(name, "_", 2)
+        if (str_detect(names(data_listNR)[i], "all")) {
+            data <- data_listNR[[i]]
+            # subset data
+            data_subset <- data[data$target == target, ]
+            # add source and timepoint data
+            data_subset$target <- target
+            data_subset$treatment <- "nonrecovered"
+            data_subset$timepoint <- timepoint
+            data_subset$rep <- rep
+            df_T <- rbind(df_T, data_subset)
+        } else {
+            print("all paths not detected")
+            # sig_data <- data_listNR[[i]]
+            # # subset data
+            # data_subset <- sig_data[sig_data$source == sender, ]
+            # # add source and timepoint data
+            # data_subset$source <- sender
+            # data_subset$treatment <- "nonrecovered"
+            # data_subset$timepoint <- timepoint
+            # data_subset$rep <- rep
+            # df_sig <- rbind(df_sig, data_subset)
+        }
+    }
+    # loop through R dataset get all R values
+    for (i in 1:length(data_listR)) {
+        # get name (timepoint)
+        name <- names(data_listR)[i]
+        n2 <- str_split_i(name, "_", 1)
+        if (n2 == "sham") {
+            timepoint <- "0Wk"
+        } else {
+            timepoint <- str_extract(name, "\\d+Wk") # Extracts "1wk", "2wk", etc.
+        }
+        rep <- str_split_i(name, "_", 2)
+        if (str_detect(names(data_listR)[i], "all")) {
+            data <- data_listR[[i]]
+            # subset data
+            data_subset <- data[data$target == target, ]
+            data_subset$target <- target
+            data_subset$treatment <- "recovered"
+            data_subset$timepoint <- timepoint
+            data_subset$rep <- rep
+            df_T <- rbind(df_T, data_subset)
+        } else {
+            print("all paths not detected")
+            # sig_data <- data_listR[[i]]
+            # # subset data
+            # data_subset <- sig_data[sig_data$source == sender, ]
+            # data_subset$source <- sender
+            # data_subset$treatment <- "recovered"
+            # data_subset$timepoint <- timepoint
+            # data_subset$rep <- rep
+            # df_sig <- rbind(df_sig, data_subset)
+        }
+    }
+}
+head(df_T)
+df_T$prob <- as.numeric(df_T$prob)
+
+write.table(df_T,
+    file = "Tcell-Fibroblast_target_pathway_reps_OT.txt", sep = "\t",
+    quote = F, row.names = F
+)
+```
+# model each pathway
+```{r}
+senders <- unique(df_T$source)
+paths <- unique(df_T$pathway_name)
+outdir1 <- "Tcell_path_interactions/"
+outdir2 <- "Fibroblast_path_interactions/"
+
+for (j in 1:length(target_list)) {
+    target <- target_list[[j]]
+    print(target)
+    # target <- "7"
+    df_Tsub <- df_T[df_T$target == target, ]
+    if (nrow(df_Tsub) != 0) {
+        for (k in 1:length(senders)) {
+            sender <- as.character(senders[[k]])
+            print(sender)
+            # sender <- "13"
+            df_Tsub2 <- df_Tsub[df_Tsub$source == sender, ]
+            if (nrow(df_Tsub2) != 0) {
+                if (target == "7") {
+                    outdir <- paste0(outdir1)
+                } else if (target == "5") {
+                    outdir <- paste0(outdir2)
+                } else {
+                    print("target not detected")
+                    next
+                }
+                paths <- unique(df_Tsub$pathway_name)
+                for (l in 1:length(paths)) {
+                    path1 <- as.character(paths[[l]])
+                    print(path1)
+                    df_Tsub3 <- df_Tsub2[df_Tsub2$pathway_name == path1, ]
+                    my_title <- paste0(
+                        "Celltype communication source: ", sender,
+                        " target: ", target, " pathway: ", path1
+                    )
+                    if (nrow(df_Tsub3) == 0) {
+                        next
+                    } else if (sum(df_Tsub3$prob) == 0) {
+                        next
+                    } else if (length(unique(df_Tsub3$treatment)) == 1) {
+                        next
+                    } else if (length(unique(df_Tsub3$timepoint)) == 1) {
+                        next
+                    } else {
+                        # Initialize model type tracker
+                        model_type <- "tweedie"
+                        model_converged <- FALSE
+
+                        # Check for all-zero groups
+                        zero_check <- df_Tsub3 %>%
+                            group_by(treatment, timepoint) %>%
+                            summarize(all_zero = all(prob == 0), .groups = "drop") %>%
+                            filter(all_zero) %>%
+                            nrow()
+
+                        # Attempt Tweedie first (unless all-zero groups exist)
+                        # Tweedie model at 1.5 is a GLM that models zeros as Poisson and positive values as Gamma
+                        if (zero_check == 0) {
+                            model <- tryCatch(
+                                {
+                                    glmmTMB(prob ~ treatment * timepoint,
+                                        family = tweedie(link = "log"),
+                                        data = df_Tsub3
+                                    )
+                                },
+                                error = function(e) NULL
+                            )
+
+                            if (!is.null(model)) model_converged <- (model$fit$convergence == 0)
+                        }
+
+                        # Fallback to zero-inflated Gamma with offset if:
+                        # 1) Tweedie failed, or 2) all-zero groups exist
+                        if (zero_check > 0 || !model_converged) {
+                            df_fixed <- df_Tsub3 %>%
+                                mutate(value_adj = ifelse(prob == 0, 1e-10, prob))
+
+                            model <- glmmTMB(value_adj ~ treatment * timepoint,
+                                ziformula = ~1,
+                                family = Gamma(link = "log"),
+                                data = df_fixed
+                            )
+                            model_type <- "gamma_zi_offset"
+                            model_converged <- (model$fit$convergence == 0)
+                        }
+                        summary(model)
+                        model_type
+                        model_converged
+                        # Add model type to output for reference
+                        model_summary <- capture.output({
+                            cat(
+                                "MODEL TYPE:", model_type, "\n\n", "MODEL Convergence: ", model_converged,
+                                "\n\n"
+                            )
+                            summary(model)
+                        })
+                        # Save outputs with model type in filename
+                        writeLines(
+                            model_summary,
+                            paste0(outdir, sender, "-", target, "_", path1, "_", model_type, "_model_out.txt")
+                        )
+
+                        # Get estimated marginal means
+                        emm <- emmeans(model, ~ treatment * timepoint, type = "response")
+                        # Convert to dataframe for plotting
+                        emm_df <- as.data.frame(emm)
+                        # write
+                        write.csv(emm_df,
+                            file = paste0(outdir, sender, "-", target, "_", path1, "_emm.csv"),
+                            row.names = F
+                        )
+                        # get contrast means
+                        # Get the interaction contrasts
+                        contrasts <- emmeans(model, ~ treatment * timepoint)
+                        pairwise <- contrast(contrasts, interaction = "pairwise", adjust = "none")
+                        pw_df <- as.data.frame(pairwise)
+                        # write df
+                        write.csv(pw_df,
+                            file = paste0(outdir, sender, "-", target, "_", path1, "_interactions_con.csv"),
+                            row.names = F
+                        )
+                        # Test the treatment effect at each timepoint
+                        simple_effects <- emmeans(model, pairwise ~ treatment | timepoint)
+                        em_df <- as.data.frame(simple_effects$emmeans)
+                        # look at contrasts for recovered-nonrecovered at each timepoint
+                        con_df <- as.data.frame(simple_effects$contrasts)
+                        # write df
+                        write.csv(con_df,
+                            file = paste0(outdir, sender, "-", target, "_", path1, "_contrasts_R-NR.csv"),
+                            row.names = F
+                        )
+                        # line plot
+                        # Plot the difference between treatments across timepoints
+                        # plot with CI and SE
+                        p1 <- ggplot(emm_df, aes(x = timepoint, y = response, color = treatment, group = treatment)) +
+                            geom_line() +
+                            geom_point() +
+                            geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0.1) +
+                            ggplot2::theme_minimal() +
+                            labs(
+                                title = str_wrap(my_title, 40), x = "Time point",
+                                y = "Predicted interaction strength"
+                            ) +
+                            scale_color_brewer(palette = "Paired")
+                        # scale_color_manual(values = brewer.pal(9, "PuRd")[4:6])
+
+                        # make pdf
+                        pdf(
+                            file = paste0(
+                                outdir, "cc_interaction_strength_emmeans_", sender,
+                                "-", target, "_", path1, ".pdf"
+                            ),
+                            height = 4, width = 5
+                        )
+                        print(p1)
+                        dev.off()
+                    }
+                }
+            }
+        }
+    }
+}
+```

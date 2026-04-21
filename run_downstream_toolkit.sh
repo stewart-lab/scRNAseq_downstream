@@ -20,15 +20,16 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
   mkdir -p "$SHARED_VOLUME"
   chmod 777 "$SHARED_VOLUME"
 
-  echo "Step 2.2: Building Docker container for downstream processing"
-  # Build the Docker image from the pre_pipeline directory
-  docker build -t stewartlab/scrnaseq_downstream3:v1 ./
+  echo "Step 2.2: Skipping Docker build to avoid layer limit issues"
+  #docker build -t stewartlab/scrnaseq_downstream3:v1 ./
 
   echo "Step 3: Running Docker container for downstream processing scripts"
   docker run --userns=host -it --rm \
     -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json" \
+    -v "$(realpath "./src"):/src" \
+    -v "$(realpath "./data"):/data" \
     stewartlab/scrnaseq_downstream3:v1 /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
@@ -84,47 +85,50 @@ else
     chmod 777 "$SHARED_VOLUME"
     echo "Step 3: Running the script with conda environments"
     if [ "$METHOD" == "seurat_mapping" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/seurat_mapping.R
     elif [ "$METHOD" == "seurat_integration" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/seurat_integrate_v5.R
     elif [ "$METHOD" == "sccomp" ]; then
-        source activate sccomp
+        conda activate sccomp
         Rscript src/sccomp.R
     elif [ "$METHOD" == "pseudotime" ]; then
         source .venv/bin/activate
         python src/pseudotime.py
     elif [ "$METHOD" == "realtime" ]; then
-        source activate realtime
+        conda activate realtime
         python src/realtime.py
     elif [ "$METHOD" == "celltypeGPT" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/CellTypeGPT.R
     elif [ "$METHOD" == "clustifyr" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/clustifyr.R
     elif [ "$METHOD" == "recluster" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/recluster-and-annotate.R
     elif [ "$METHOD" == "featureplots" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/featureplots.R
     elif [ "$METHOD" == "seurat2ann" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/convert_seurat2anndata.R
     elif [ "$METHOD" == "subset_seurat" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/subset_seurat.R
     elif [ "$METHOD" == "phate" ]; then
-        source activate phate_env
+        conda activate phate_env
         Rscript src/phate.R
     elif [ "$METHOD" == "sctype" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/scType.R
     elif [ "$METHOD" == "de" ]; then
-        source activate scRNAseq_new
+        conda activate scRNAseq_new
         Rscript src/get_DE_genes.R
+    elif [ "$METHOD" == "cellchat" ]; then
+        conda activate cellchat
+        Rscript src/cellchat.R
     elif [ "$METHOD" == "get_sample_ds_from_cellxgene" ]; then
         source activate cellxgene_scvi
         python src/get_sample_ds_from_cellxgene.py

@@ -16,13 +16,18 @@ library(scater)
 library(SingleCellExperiment)
 library(tidyverse)
 library(DESeq2)
+library(dplyr)
 ```
 # set dir and filenames
 ```{r dir_file}
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/src/" #getwd()
 DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/"
 setwd(DATA_DIR)
-#filename_list <- c("seurat_mouse_annot_2wkNR.rds","seurat_mouse_annot_2wkR.rds")
+#### make output dir  and read in data ####
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0(DATA_DIR, "DEseq2_",timestamp)
+print(output)
+dir.create(output, mode = "0777", showWarnings = FALSE)
 ```
 # read in 2 seurat objects as a list (one control, one condition)
 ```{r read_in}
@@ -79,24 +84,76 @@ colnames(merged_seurat@meta.data)
 ```
 # get metadata for cell types
 ```{r metadata}
-clusterids <- read.csv(paste0(DATA_DIR, "celltype_annot_df.csv"), header = TRUE)
-print(clusterids)
-new_df_ordered <- clusterids[order(as.numeric(clusterids$Cluster)), ]
-new_cluster_ids <- new_df_ordered$Celltype
-print(new_cluster_ids)
-# make sure that idents are the clusters you want annotated
+# clusterids <- read.csv(paste0(DATA_DIR, "celltype_annot_df.csv"), header = TRUE)
+# print(clusterids)
+# new_df_ordered <- clusterids[order(as.numeric(clusterids$Cluster)), ]
+# new_cluster_ids <- new_df_ordered$Celltype
+# print(new_cluster_ids)
+# # make sure that idents are the clusters you want annotated
+# merged_seurat <- SetIdent(merged_seurat, value = "seurat_clusters")
+# # Rename the clusters based on the new IDs
+# names(new_cluster_ids) <- levels(merged_seurat)
+# merged_seurat <- RenameIdents(merged_seurat, new_cluster_ids)
+# # put in CellType metadata
+# merged_seurat$CellType <- Idents(merged_seurat)
+
+# # Generate and plot the UMAP plot
+# pdf(paste0(DATA_DIR, "labeled-clusters.pdf"), bg = "white")
+# print(DimPlot(merged_seurat, reduction = "umap", label = TRUE, 
+#         pt.size = 0.5, group.by = "CellType"))
+# dev.off()
+
+# set idents to cluster value
 merged_seurat <- SetIdent(merged_seurat, value = "seurat_clusters")
-# Rename the clusters based on the new IDs
-names(new_cluster_ids) <- levels(merged_seurat)
-merged_seurat <- RenameIdents(merged_seurat, new_cluster_ids)
+# rename by hand
+merged_seurat <-RenameIdents(merged_seurat, `0` = "Radial_Glial_Cells")
+merged_seurat <-RenameIdents(merged_seurat, `1` = "Schwann_Cells")
+merged_seurat <-RenameIdents(merged_seurat, `2` = "Gabaergic_Neurons")
+merged_seurat <-RenameIdents(merged_seurat, `3` = "Microglial_Cells")
+merged_seurat <-RenameIdents(merged_seurat, `4` = "Immature_Neurons")
+merged_seurat <-RenameIdents(merged_seurat, `5` = "T_Cells_and_Neutrophils")
+merged_seurat <-RenameIdents(merged_seurat, `6` = "Glutamatergic_Neurons")
+merged_seurat <-RenameIdents(merged_seurat, `7` = "Fibroblasts")
+merged_seurat <-RenameIdents(merged_seurat, `8` = "Oligodendrocytes_maybe")
+merged_seurat <-RenameIdents(merged_seurat, `9` = "Oligodendrocytes_progenitor_cells")
+merged_seurat <-RenameIdents(merged_seurat, `10` = "Unknown1")
+merged_seurat <-RenameIdents(merged_seurat, `11` = "Macrophages")
+merged_seurat <-RenameIdents(merged_seurat, `12` = "Glycinergic_Neurons")
+merged_seurat <-RenameIdents(merged_seurat, `13` = "Motor_Neurons")
+merged_seurat <-RenameIdents(merged_seurat, `14` = "Unknown2")
+merged_seurat <-RenameIdents(merged_seurat, `15` = "Endothelial_Cells")
+merged_seurat <-RenameIdents(merged_seurat, `16` = "Keratinocytes")
+merged_seurat <-RenameIdents(merged_seurat, `17` = "Unknown3")
+
 # put in CellType metadata
 merged_seurat$CellType <- Idents(merged_seurat)
-
+```
+```{r plot}
 # Generate and plot the UMAP plot
-pdf(paste0(DATA_DIR, "labeled-clusters.pdf"), bg = "white")
-print(DimPlot(merged_seurat, reduction = "umap", label = TRUE, 
+pdf(paste0(output, "/seurat-clusters_zfish_umap.pdf"), bg = "white", width=10, height=6)
+print(DimPlot(merged_seurat, reduction = "umap", label = TRUE,
+        pt.size = 0.5, group.by = "seurat_clusters"))
+dev.off()
+
+pdf(paste0(output, "/CellType_zfish_umap.pdf"), bg = "white", width=10, height=6)
+print(DimPlot(merged_seurat, reduction = "umap", label = TRUE,
         pt.size = 0.5, group.by = "CellType"))
 dev.off()
+```
+```{r}
+# save
+library(qs2)
+print("saving object")
+# sham
+qs_save(merged_seurat, "seurat_zfish_annot_all.qs2")
+# convert to rds
+qs_to_rds(input_file = "seurat_zfish_annot_all.qs2", output_file = "seurat_zfish_annot_all.rds")
+```
+```{r readin}
+# read in already processed
+merged_seurat <- readRDS(file = "/w5home/bmoore/Pierre_sc_zebrafish/seurat_zfish_annot_all.rds")
+print(merged_seurat)
+colnames(merged_seurat@meta.data)
 ```
 # Pseudobulk analysis
 ```{r pseudobulk}
@@ -112,15 +169,23 @@ Idents(bulk_seurat) <- "celltype.comp"
 # De analysis across conditions
 ```{r de}
 bulk.F.de <- FindMarkers(object = bulk_seurat, 
-                         ident.1 = "Fibroblasts_g2Wk-R", 
-                         ident.2 = "Fibroblasts_g2Wk-NR",
-                         logfc.threshold = 2,
-                         test.use = "DESeq2") # DESeq2 requires counts
+                         ident.1 = "Fibroblasts_g4Wk-R", 
+                         ident.2 = "Fibroblasts_g4Wk-NR",
+                         logfc.threshold = 0.5,
+                         test.use = "DESeq2") # DESeq2 requires counts, DESeq2 or MAST
 head(bulk.F.de, n = 15)
 dim(bulk.F.de)
-bulk.F.de <- subset(bulk.F.de, p_val_adj < 0.05)
-dim(bulk.F.de)
-top.10.genes <- rownames(bulk.F.de)[1:10]
+#bulk.F.de <- subset(bulk.F.de, p_val_adj < 0.05)
+```
+# write table
+```{r}
+# order
+bulk.F.de <- bulk.F.de[with(bulk.F.de, order(p_val_adj, -avg_log2FC)), ]
+
+write.table(bulk.F.de, file = paste0(output, "/", "Fibroblasts_4Wk", 
+                "_R-NR_DE_genes_lfc_0.5_DESeq2.txt"), sep="\t")
+top.10.genes <- rownames(bulk.F.de)[1:15]
+print(top.10.genes)
 ```
 # violin plot
 ```{r vplot}
@@ -128,15 +193,78 @@ top.10.genes <- rownames(bulk.F.de)[1:10]
 merged_seurat$celltype.comp <- paste(merged_seurat$CellType, merged_seurat$Type, sep = "_")
 Idents(merged_seurat) <- "celltype.comp"
 # violin plot
-pdf(paste0(DATA_DIR, "violinplot_fiborblast_2wk_DE.pdf"), bg = "white")
+pdf(paste0(output,"/","violinplot_fibroblast_4wk_DE_mast.pdf"), bg = "white")
 print(VlnPlot(merged_seurat, features = top.10.genes, 
-      idents = c("Fibroblasts_2Wk-NR", "Fibroblasts_2Wk-R"), 
+      idents = c("Fibroblasts_4Wk-NR", "Fibroblasts_4Wk-R"),
       group.by = "Type"))
 dev.off()
 ```
+# all collagen/ connective genes
+```{r vplot2}
+col.genes1 <- c("TIGIT","CD226","TGFB1A","TGFB2","TGFB3","TGFB5","TGFBR1A","TGFBR2B","TGFBR3",
+              "COL1A2","COL1A1A","COL1A1B")
+col.genes2 <- c("COL4A1","COL4A2","COL4A4","COL4A5","COL4A6",
+              "COL5A1","COL5A2A","COL5A2B","COL5A3A","PDGFAB","PDGFBB")
+pdf(paste0(output,"/","violinplot_fibroblast_4wk_col.genes1.pdf"), bg = "white")
+print(VlnPlot(merged_seurat, features = col.genes1, 
+      idents = c("Fibroblasts_4Wk-NR", "Fibroblasts_4Wk-R"),
+      group.by = "Type"))
+dev.off()
+pdf(paste0(output,"/","violinplot_fibroblast_4wk_col.genes2.pdf"), bg = "white")
+print(VlnPlot(merged_seurat, features = col.genes2, 
+      idents = c("Fibroblasts_4Wk-NR", "Fibroblasts_4Wk-R"),
+      group.by = "Type"))
+dev.off()
+```
+```{r bubbleplot}
+pdf(paste0(output,"/","bubbleplot_fibroblast_4wk_col.genes1.pdf"), bg = "white")
+print(DotPlot(merged_seurat, features = col.genes1,
+        idents = c("Fibroblasts_4Wk-NR", "Fibroblasts_4Wk-R"),
+        group.by = "Type") + RotatedAxis())
+dev.off()
+
+pdf(paste0(output,"/","bubbleplot_fibroblast_4wk_col.genes2.pdf"), bg = "white")
+print(DotPlot(merged_seurat, features = col.genes2,
+        idents = c("Fibroblasts_4Wk-NR", "Fibroblasts_4Wk-R"),
+        group.by = "Type") + RotatedAxis())
+dev.off()
+```
+# axon guidance genes
+```{r axon_genes}
+axon_df <- read.csv("/w5home/bmoore/Pierre_sc_zebrafish/zfin_search_results_axonguidegenes.csv", header= TRUE)
+axon_df = as.data.frame(sapply(axon_df, toupper))
+print(axon_df)
+axon.genes <- axon_df$name
+print(axon.genes)
+```
+# plot axon genes
+```{r vplot}
+x=1
+for(i in seq(from=1, to=395, by=12)){
+  print(i)
+  j = i+11
+  if(j > 395){
+    j = 395
+  }
+  print(j)
+  pdf(paste0(output,"/","violinplot_fibroblast_4wk_axon.genes",x,".pdf"), bg = "white")
+  print(VlnPlot(merged_seurat, features = axon.genes[i:j], 
+      idents = c("Fibroblasts_4Wk-NR", "Fibroblasts_4Wk-R"),
+      group.by = "Type"))
+  dev.off()
+  x=x+1
+}
+```
+# add in if axon gene
+```{r}
+bulk.F.de <- bulk.F.de %>%
+  mutate(axon_gene = ifelse(row.names(bulk.F.de) %in% axon.genes, 1, 0))
+```
+
 # Loop
 ```{r loop}
-comparisons <- c("2Wk","4Wk","6Wk")
+merged_seurat$celltype.comp <- paste(merged_seurat$CellType, merged_seurat$Type, sep = "_")
+comparisons <- c("2Wk","4Wk","6Wk") #
 celltypes <- as.vector(unique(merged_seurat$CellType))
 for(i in 1:length(celltypes)){
   celltype <- celltypes[i]
@@ -155,14 +283,20 @@ for(i in 1:length(celltypes)){
     bulk.de <- FindMarkers(object = bulk_seurat, 
                           ident.1 = paste0(celltype1,"_g",week,"-R"), 
                           ident.2 = paste0(celltype1,"_g",week,"-NR"),
-                          test.use = "DESeq2", logfc.threshold = 2) # DESeq2 requires counts
+                          test.use = "DESeq2", logfc.threshold = 0.5) # DESeq2 requires counts
     # subset for significance
-    bulk.de <- subset(bulk.de, p_val_adj < 0.05)
-    bulk.de <- subset(bulk.de, avg_log2FC >= 2 | avg_log2FC <= -2)
-    # write out
     bulk.de <- as.data.frame(bulk.de)
-    write.table(bulk.de, file = paste0(DATA_DIR, "DE_genes/",celltype1, week, 
-                "_R-NR_DE_genes_lfc2.txt"), sep="\t")
+    bulk.de <- subset(bulk.de, p_val_adj < 0.05)
+    bulk.de <- subset(bulk.de, avg_log2FC >= 0.5 | avg_log2FC <= -0.5)
+    print(head(bulk.de))
+    # order
+    bulk.de <- bulk.de[with(bulk.de, order(p_val_adj, -avg_log2FC)), ]
+    # add axon gene
+    bulk.de <- bulk.de %>%
+      mutate(axon_gene = ifelse(row.names(bulk.de) %in% axon.genes, 1, 0))
+    # write out
+    write.table(bulk.de, file = paste0(output, "/", celltype1, week, 
+                "_R-NR_DEseq2_genes_lfc0.5.txt"), sep="\t")
     },
     error = function(cond) {
       message(conditionMessage(cond))
@@ -172,13 +306,24 @@ for(i in 1:length(celltypes)){
     # check if dataframe is not empty
     if (dim(bulk.de)[1] != 0) {
       # get top 10 genes
-      top.10.genes <- rownames(bulk.de)[1:10]
+      if (dim(bulk.de)[1] < 10){
+        n <- dim(bulk.de)[1]
+        top.10.genes <- rownames(bulk.de)[1:n]
+      } else {
+        top.10.genes <- rownames(bulk.de)[1:10]
+      }
       top.10.genes <- unique(top.10.genes)
       top.10.genes <- top.10.genes[!is.na(top.10.genes)]
       # make violin plot with top10
-      pdf(paste0(DATA_DIR, "violinplot_",celltype1, week,"_DE_lfc2.pdf"), bg = "white")
-      print(VlnPlot(merged_seurat, features = top.10.genes, 
+      pdf(paste0(output, "/violinplot_",celltype, week,"_DEseq2_lfc0.5.pdf"), bg = "white")
+      print(VlnPlot(merged_seurat, features = top.10.genes,
           idents = c(paste0(celltype,"_",week,"-NR"), paste0(celltype,"_",week,"-R")), 
+          group.by = "Type"))
+      dev.off()
+      # with bulk
+      pdf(paste0(output, "/violinplot_",celltype1, week,"_DEseq2_lfc0.5_bulk.pdf"), bg = "white")
+      print(VlnPlot(bulk_seurat, features = top.10.genes,
+          idents = c(paste0(celltype1,"_g",week,"-NR"), paste0(celltype1,"_g",week,"-R")), 
           group.by = "Type"))
       dev.off()
     } else {
@@ -203,14 +348,19 @@ for(i in 1:length(celltypes)){
     bulk.de <- FindMarkers(object = bulk_seurat, 
                           ident.1 = paste0(celltype1,"_g1Wk"), 
                           ident.2 = paste0(celltype1,"_Sham"),
-                          test.use = "DESeq2", logfc.threshold = 2) # DESeq2 requires counts
+                          test.use = "DESeq2", logfc.threshold = 0.5) # DESeq2 requires counts
     # subset for significance
     bulk.de <- subset(bulk.de, p_val_adj < 0.05)
-    bulk.de <- subset(bulk.de, avg_log2FC >= 2 | avg_log2FC <= -2)
-    # write out
+    bulk.de <- subset(bulk.de, avg_log2FC >= 0.5 | avg_log2FC <= -0.5)
     bulk.de <- as.data.frame(bulk.de)
-    write.table(bulk.de, file = paste0(DATA_DIR, celltype1, 
-                "_1Wk-Sham_DE_genes_lfc2.txt"))
+    # order
+    bulk.de <- bulk.de[with(bulk.de, order(p_val_adj, -avg_log2FC)), ]
+    # add axon gene
+    bulk.de <- bulk.de %>%
+      mutate(axon_gene = ifelse(row.names(bulk.de) %in% axon.genes, 1, 0))
+    # write out
+    write.table(bulk.de, file = paste0(output, "/", celltype1, week, 
+                "_R-NR_DE_genes_lfc0.5.txt"), sep="\t")
     },
     error = function(cond) {
       message(conditionMessage(cond))
@@ -220,17 +370,57 @@ for(i in 1:length(celltypes)){
   # check if dataframe is not empty
   if (dim(bulk.de)[1] != 0) {
     # get top 10 genes
-    top.10.genes <- rownames(bulk.de)[1:10]
+    if (dim(bulk.de)[1] < 10){
+        n <- dim(bulk.de)[1]
+        top.10.genes <- rownames(bulk.de)[1:n]
+    } else {
+        top.10.genes <- rownames(bulk.de)[1:10]
+    }
     top.10.genes <- unique(top.10.genes)
     top.10.genes <- top.10.genes[!is.na(top.10.genes)]
     # make violin plot with top10
-    pdf(paste0(DATA_DIR, "violinplot_",celltype1, "_1Wk-Sham_DE__lfc2.pdf"), bg = "white")
+    pdf(paste0(output, "/", "violinplot_",celltype1, "_1Wk-Sham_DE__lfc0.5.pdf"), bg = "white")
     print(VlnPlot(merged_seurat, features = top.10.genes, 
         idents = c(paste0(celltype,"_Sham"), paste0(celltype,"_1Wk")), 
         group.by = "Type"))
     dev.off()
+    # with bulk
+      pdf(paste0(output, "/violinplot_",celltype1, "_1Wk-Sham_DEseq2_lfc0.5_bulk.pdf"), bg = "white")
+      print(VlnPlot(bulk_seurat, features = top.10.genes,
+          idents = c(paste0(celltype1,"_g",week,"-NR"), paste0(celltype1,"_g",week,"-R")), 
+          group.by = "Type"))
+      dev.off()
   } else {
       print(paste0(celltype," has no DE genes between Sham and 1Wk"))
   }
 }
+```
+```{r vlnplot_bulk}
+col.genes1 <- c("TIGIT","CD226","TGFB1A","TGFB2","TGFB3","TGFB5","TGFBR1A","TGFBR2B","TGFBR3",
+              "COL1A2","COL1A1A","COL1A1B")
+col.genes2 <- c("COL4A1","COL4A2","COL4A4","COL4A5","COL4A6",
+              "COL5A1","COL5A2A","COL5A2B","COL5A3A","PDGFAB","PDGFBB")
+pdf(paste0(output,"/","violinplot_fibroblast_4wk_col.genes1_bulk.pdf"), bg = "white")
+    print(VlnPlot(bulk_seurat, features = col.genes1,
+          idents = c("Fibroblasts_g4Wk-NR", "Fibroblasts_g4Wk-R"), 
+          group.by = "Type"))
+dev.off()
+pdf(paste0(output,"/","violinplot_fibroblast_4wk_col.genes2_bulk.pdf"), bg = "white")
+    print(VlnPlot(bulk_seurat, features = col.genes2,
+          idents = c("Fibroblasts_g4Wk-NR", "Fibroblasts_g4Wk-R"), 
+          group.by = "Type"))
+dev.off()
+```
+```{r vlnplottest}
+library(Seurat)
+library(SeuratData)
+sessionInfo()
+InstallData("pbmc3k")
+data("pbmc3k")
+pbmc3k <- UpdateSeuratObject(pbmc3k)
+VlnPlot(pbmc3k, features = "nFeature_RNA")
+```
+```{r outputexprs}
+df <- as.data.frame(merged_seurat[["RNA"]]$data)
+write.csv(df, file = paste0(output,"/seurat_zfish_annot_all_norma_expr_data.csv"))
 ```

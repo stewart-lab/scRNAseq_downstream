@@ -1,0 +1,7 @@
+.git
+.gitignore
+archive/
+shared_volume/
+environments/
+*.pdf
+Dockerfile

@@ -166,23 +166,78 @@ seurat.obj.mouse <- FindVariableFeatures(seurat.obj.mouse)
 seurat.obj.mouse <- RunPCA(seurat.obj.mouse, features = VariableFeatures(object = seurat.obj.mouse))
 seurat.obj.mouse <- RunUMAP(seurat.obj.mouse, dims = 1:20)
 ```
+```{r load_seurat2}
+seurat.obj.mouse <- readRDS(file="/w5home/bmoore/Pierre_sc_zebrafish/cellchat/mouse_objects/seurat_mouse_annot.rds")
+print(seurat_obj)
+setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat/")
+```
+```{r metadata}
+# read in metadata
+output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
+# read complete metadata
+seurat.obj.zebrafish.metadata <- read.table(file = 
+        paste0(output,"zebrafish_metadata_celltype_correction_only.txt"), sep="\t", 
+        header=TRUE, row.names = 1)
+head(seurat.obj.zebrafish.metadata)
+# add to seurat obj
+seurat.obj.mouse <- AddMetaData(seurat.obj.mouse, seurat.obj.zebrafish.metadata)
+colnames(seurat.obj.mouse@meta.data)
+```
+```{r}
+colnames(seurat.obj.mouse@meta.data)
+table(seurat.obj.mouse$seurat_clusters)
+table(seurat.obj.mouse$CellType)
+seurat_obj$seurat_clusters <- as.numeric(seurat_obj$seurat_clusters)
+seurat_obj <- SetIdent(seurat_obj, value = "seurat_clusters")
+levels(seurat.obj.mouse)
+seurat.obj.metadata<- as.data.frame(seurat_obj@meta.data)
+# write.table(seurat.obj.metadata, file = "zebrafish_metadata2.txt", sep="\t", 
+#             quote=F, row.names = T)
+```
+
 ```{r reannotate}
 # set idents to cluster value
 seurat.obj.mouse <- SetIdent(seurat.obj.mouse, value = "seurat_clusters")
-# read in new annotation
-annot_df <- read.csv(file="/w5home/bmoore/Pierre_sc_zebrafish/celltype_annot_df.csv")
-# order annot_df
-annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
-# get new cluster ids
-new.cluster.ids <- annot_df.ordered$Celltype 
-# Rename the clusters based on the new IDs
-names(new.cluster.ids) <- levels(seurat.obj.mouse)
-seurat.obj.mouse <- RenameIdents(seurat.obj.mouse, new.cluster.ids)
+# rename by hand
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `0` = "Radial_Glial_Cells")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `1` = "Schwann_Cells")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `2` = "Gabaergic_Neurons")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `3` = "Microglial_Cells")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `4` = "Immature_Neurons")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `5` = "T_Cells_and_Neutrophils")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `6` = "Glutamatergic_Neurons")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `7` = "Fibroblasts")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `8` = "Oligodendrocytes_maybe")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `9` = "Oligodendrocytes_progenitor_cells")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `10` = "Unknown1")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `11` = "Macrophages")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `12` = "Glycinergic_Neurons")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `13` = "Motor_Neurons")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `14` = "Unknown2")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `15` = "Endothelial_Cells")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `16` = "Keratinocytes")
+seurat.obj.mouse <-RenameIdents(seurat.obj.mouse, `17` = "Unknown3")
+
+# Idents(seurat.obj.mouse) <- factor(Idents(seurat.obj.mouse),levels=c('0','1','2','3','4','5','6','7','8',"9",'10','11','12','13','14','15','16','17'))
+# # read in new annotation
+# annot_df <- read.csv(file="/w5home/bmoore/Pierre_sc_zebrafish/celltype_annot_df.csv")
+# # order annot_df
+# annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
+# # get new cluster ids
+# new.cluster.ids <- annot_df.ordered$Celltype
+# # Rename the clusters based on the new IDs
+# names(new.cluster.ids) <- levels(seurat.obj.mouse)
+# seurat.obj.mouse <- RenameIdents(seurat.obj.mouse, new.cluster.ids)
 # put in CellType metadata
 seurat.obj.mouse$CellType <- Idents(seurat.obj.mouse)
 
 # Generate and plot the UMAP plot
-pdf(paste0(output, "new-labeled-clusters.pdf"), bg = "white", width=10, height=6)
+pdf(paste0(output, "seurat-clusters_umap.pdf"), bg = "white", width=10, height=6)
+print(DimPlot(seurat.obj.mouse, reduction = "umap", label = TRUE,
+        pt.size = 0.5, group.by = "seurat_clusters"))
+dev.off()
+
+pdf(paste0(output, "CellType_umap.pdf"), bg = "white", width=10, height=6)
 print(DimPlot(seurat.obj.mouse, reduction = "umap", label = TRUE,
         pt.size = 0.5, group.by = "CellType"))
 dev.off()
@@ -239,9 +294,29 @@ print(table(seurat.obj.mouse_6WkR$CellType))
 #install.packages("qs2")
 #remotes::install_cran("qs2", type = "source", configure.args = "--with-TBB --with-simd=AVX2")
 library(qs2)
-qs_save(seurat.obj.mouse_sham , "seurat_mouse_annot_sham.qs2")
+print("saving divided objects")
+# sham
+qs_save(seurat.obj.mouse_sham, "seurat_mouse_annot_sham.qs2")
 # convert to rds
 qs_to_rds(input_file = "seurat_mouse_annot_sham.qs2", output_file = "seurat_mouse_annot_sham.rds")
+# 1 wk
+qs_save(seurat.obj.mouse_1wk, "seurat_mouse_annot_1wk.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_1wk.qs2", output_file = "seurat_mouse_annot_1wk.rds")
+# 2 wk
+qs_save(seurat.obj.mouse_2WkNR, "seurat_mouse_annot_2WkNR.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_2WkNR.qs2", output_file = "seurat_mouse_annot_2WkNR.rds")
+qs_save(seurat.obj.mouse_2WkR, "seurat_mouse_annot_2WkR.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_2WkR.qs2", output_file = "seurat_mouse_annot_2WkR.rds")
+# 4 wk
+qs_save(seurat.obj.mouse_4WkNR, "seurat_mouse_annot_4WkNR.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_4WkNR.qs2", output_file = "seurat_mouse_annot_4WkNR.rds")
+qs_save(seurat.obj.mouse_4WkR, "seurat_mouse_annot_4WkR.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_4WkR.qs2", output_file = "seurat_mouse_annot_4WkR.rds")
+# 6 wk
+qs_save(seurat.obj.mouse_6WkNR, "seurat_mouse_annot_6WkNR.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_6WkNR.qs2", output_file = "seurat_mouse_annot_6WkNR.rds")
+qs_save(seurat.obj.mouse_6WkR, "seurat_mouse_annot_6WkR.qs2")
+qs_to_rds(input_file = "seurat_mouse_annot_6WkR.qs2", output_file = "seurat_mouse_annot_6WkR.rds")
 # full sampple
 print("saving full sample")
 qs_save(seurat.obj.mouse, "seurat_mouse_annot.qs2")
@@ -251,4 +326,10 @@ qs_to_rds(input_file = "seurat_mouse_annot.qs2", output_file = "seurat_mouse_ann
 #data <- qs_read("myfile.qs2", validate_checksum = TRUE)
 # or
 # xrds <- readRDS(file_rds)
+```
+# save metadata
+```{r}
+seurat.obj.zebrafish.metadata<- as.data.frame(seurat.obj.mouse@meta.data)
+write.table(seurat.obj.zebrafish.metadata, file = paste0(output,"zebrafish_metadata_corrected_celltype.txt"), sep="\t", 
+            quote=F, row.names = T)
 ```

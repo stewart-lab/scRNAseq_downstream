@@ -206,7 +206,7 @@ filter_cells <- function(seurat_obj, path = output, save_plots = TRUE) {
   return(seurat_obj)
 }
 
-ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = output){
+ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = output) {
   # Get parameters from config
   ortholog_file <- config$ortholog_subset$ortholog_file
   # read in orrtholog file
@@ -214,39 +214,39 @@ ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = outp
   # ortholog gene list
   orthos <- as.vector(orthologs$human.gene.name)
   # turn seurat objects into matrices
-  ref.matrix<- GetAssayData(ref_seurat, slot="data")
-  query.matrix<- GetAssayData(query_seurat, slot="data")
+  ref.matrix <- GetAssayData(ref_seurat, slot = "data")
+  query.matrix <- GetAssayData(query_seurat, slot = "data")
 
   # subset matrix so they match only orthologous genes
-  ref.matrix.flt<- ref.matrix[rownames(ref.matrix) %in% orthos, ]
+  ref.matrix.flt <- ref.matrix[rownames(ref.matrix) %in% orthos, ]
   # subset orthologs to they only match expr matrix
   orthologs <- orthologs[orthologs$human.gene.name %in% rownames(ref.matrix.flt), ]
   # switch reference genes to query genes
   # reorder based on exp matrix genes
-  ind_reorder <- match(rownames(ref.matrix.flt),orthologs$human.gene.name)
-  orthologs.reorder<- orthologs[ind_reorder,]
+  ind_reorder <- match(rownames(ref.matrix.flt), orthologs$human.gene.name)
+  orthologs.reorder <- orthologs[ind_reorder, ]
   # now replace rownames of exp matrix with pig genes
   pig.orthos <- as.vector(orthologs.reorder$pig.gene.name)
   row.names(ref.matrix.flt) <- pig.orthos
   # subset pig data so that there is same genes
-  query.matrix.flt<- query.matrix[rownames(query.matrix) %in% pig.orthos, ]
+  query.matrix.flt <- query.matrix[rownames(query.matrix) %in% pig.orthos, ]
   dim(query.matrix.flt)
   # subset human refernce based on gamm data
-  ref.matrix.flt<- ref.matrix.flt[rownames(ref.matrix.flt) %in% rownames(query.matrix.flt), ]
+  ref.matrix.flt <- ref.matrix.flt[rownames(ref.matrix.flt) %in% rownames(query.matrix.flt), ]
   dim(ref.matrix.flt)
   # get rid of duplicates in reference by averaging them
   # Aggregate rows based on row names
   ref.matrix.flt <- aggregate(ref.matrix.flt, by = list(rownames(ref.matrix.flt)), FUN = mean)
   # use column 1 as rownames
-  rownames(ref.matrix.flt)<- ref.matrix.flt$Group.1
-  ref.matrix.flt <- select(ref.matrix.flt,  -c("Group.1"))
+  rownames(ref.matrix.flt) <- ref.matrix.flt$Group.1
+  ref.matrix.flt <- select(ref.matrix.flt, -c("Group.1"))
   # turn back to sparse matrix
   library(Matrix)
-  ref.matrix.flt<- as.matrix(ref.matrix.flt)
+  ref.matrix.flt <- as.matrix(ref.matrix.flt)
   ref.matrix.flt <- Matrix(ref.matrix.flt, sparse = TRUE)
   # create seurat object
-  ref.seurat<- CreateSeuratObject(ref.matrix.flt, project = project_names[[1]], assay = "RNA")
-  query.seurat<- CreateSeuratObject(query.matrix.flt, project = project_names[[2]], assay = "RNA")
+  ref.seurat <- CreateSeuratObject(ref.matrix.flt, project = project_names[[1]], assay = "RNA")
+  query.seurat <- CreateSeuratObject(query.matrix.flt, project = project_names[[2]], assay = "RNA")
   # put in a list to export
   obj.list <- list(ref.seurat, query.seurat, orthologs)
   return(obj.list)
@@ -254,7 +254,7 @@ ortholog_subset <- function(ref_seurat, query_seurat, project_names, path = outp
 
 get_metadata <- function(seurat_obj, type, path = output, type2) {
   # Get parameters from config
-  if (type2=="seurat_mapping"){
+  if (type2 == "seurat_mapping") {
     metadata_file1 <- config$seurat_mapping$get_metadata$metadata_file1
     metadata_file2 <- config$seurat_mapping$get_metadata$metadata_file2
     metadata_subset1 <- config$seurat_mapping$get_metadata$metadata_subset1
@@ -265,7 +265,7 @@ get_metadata <- function(seurat_obj, type, path = output, type2) {
     metadata_subset1 <- config$get_metadata$metadata_subset1
     metadata_subset2 <- config$get_metadata$metadata_subset2
   }
-  
+
   # check type
   if (type == "ref") {
     metadata_file <- metadata_file1
@@ -277,17 +277,17 @@ get_metadata <- function(seurat_obj, type, path = output, type2) {
     stop("Invalid type. Please choose 'ref' or 'query'.")
   }
   # read in metadata file
-  metadata <- read.csv2(metadata_file, sep="\t", header=TRUE, row.names=1)
+  metadata <- read.csv2(metadata_file, sep = "\t", header = TRUE, row.names = 1)
   # subset metadata if needed
   if (metadata_subset != "NA") {
-    metadata <- subset(metadata, metadata$source==metadata_subset)
+    metadata <- subset(metadata, metadata$source == metadata_subset)
   }
   # get complete metadata
-  metadata<- as.data.frame(metadata)
+  metadata <- as.data.frame(metadata)
   complete.cases(metadata)
-  metadata<-na.omit(metadata)
+  metadata <- na.omit(metadata)
   # add metadata to seurat object
-  seurat_obj <- AddMetaData(object=seurat_obj, metadata=metadata)
+  seurat_obj <- AddMetaData(object = seurat_obj, metadata = metadata)
 
   return(seurat_obj)
 }
@@ -311,7 +311,8 @@ normalize_data <- function(seurat_obj, path = output) {
 
   # Replace Seurat normalized values with scran
   seurat_obj[["RNA"]] <- SetAssayData(seurat_obj[["RNA"]],
-    slot = "data", new.data = logcounts(sce))
+    slot = "data", new.data = logcounts(sce)
+  )
 
   # for seurat 5
   # new.data <- logcounts(sce)
@@ -337,7 +338,7 @@ normalize_data <- function(seurat_obj, path = output) {
 }
 
 feature_selection <- function(seurat_obj, type) {
-  if (type=="integration"){
+  if (type == "integration") {
     n_features <- config$seurat_integration$feature_selection$n_features
     analysis_type <- config$seurat_integration$feature_selection$analysis_type
   } else {
@@ -364,7 +365,7 @@ feature_selection <- function(seurat_obj, type) {
 }
 
 scale_data <- function(seurat_obj, path = output, type) {
-  if (type=="integration"){
+  if (type == "integration") {
     vars.2.regress <- config$seurat_integration$scale_data$vars.2.regress
     marker.path.s <- config$seurat_integration$scale_data$marker.path.s
     marker.path.g2m <- config$seurat_integration$scale_data$marker.path.g2m
@@ -386,9 +387,11 @@ scale_data <- function(seurat_obj, path = output, type) {
       g2m.genes <- cc.genes$g2m.genes
     } else if (species == "pig") {
       cell.cycle.markers.s <- read.csv2(marker.path.s,
-      sep = "\t", header = TRUE, row.names = 1)
+        sep = "\t", header = TRUE, row.names = 1
+      )
       cell.cycle.markers.g2m <- read.csv2(marker.path.g2m,
-      sep = "\t", header = TRUE, row.names = 1)
+        sep = "\t", header = TRUE, row.names = 1
+      )
       varslist <- c(cell.cycle.markers.s, cell.cycle.markers.g2m)
       s.genes <- varslist[4]$pig.gene.name
       g2m.genes <- varslist[8]$pig.gene.name
@@ -396,7 +399,7 @@ scale_data <- function(seurat_obj, path = output, type) {
       stop("Unsupported species")
     }
     # Check if the genes in the list are present in the dataset
-    cell.cycle.genes <- c(s.genes,g2m.genes)
+    cell.cycle.genes <- c(s.genes, g2m.genes)
     missing_genes <- setdiff(cell.cycle.genes, rownames(seurat_obj))
     if (length(missing_genes) > 0) {
       print(paste("Missing genes: ", paste(missing_genes, collapse = ", ")))
@@ -432,7 +435,7 @@ scale_data <- function(seurat_obj, path = output, type) {
 }
 
 run_and_visualize_pca <- function(seurat_obj, path = output, type) {
-  if (type=="integration"){
+  if (type == "integration") {
     top_n_dims <- config$seurat_integration$run_and_visualize_pca$top_n_dims
     heatmap_dims <- 1:config$seurat_integration$run_and_visualize_pca$heatmap_dims
     num_cells <- config$seurat_integration$run_and_visualize_pca$num_cells
@@ -516,7 +519,7 @@ perform_batch_correction <- function(seurat_obj, path = output) {
 }
 
 run_umap <- function(seurat_obj, path = output, type) {
-  if (type=="integration"){
+  if (type == "integration") {
     dims_umap <- 1:config$seurat_integration$run_umap$dims_umap
     umap.method <- config$seurat_integration$run_umap$umap.method
     umap.red <- config$seurat_integration$run_umap$umap.red
@@ -539,32 +542,34 @@ run_umap <- function(seurat_obj, path = output, type) {
   return(seurat_obj)
 }
 
-perform_clustering <- function(seurat_obj, path = output, type) {
-  if (type=="integration"){
-    resolution <- config$seurat_integration$perform_clustering$resolution
+perform_clustering <- function(seurat_obj, path = output, type, name, resolution) {
+  if (type == "integration") {
+    # resolution <- config$seurat_integration$perform_clustering$resolution
     algorithm <- config$seurat_integration$perform_clustering$algorithm
     reduction <- config$seurat_integration$perform_clustering$reduction
     dims_snn <- 1:config$seurat_integration$perform_clustering$dims_snn
     cluster_name <- config$seurat_integration$perform_clustering$cluster_name
-  } else if (type=="recluster") {
-    resolution <- config$recluster$perform_clustering$resolution
+  } else if (type == "recluster") {
+    # resolution <- config$recluster$perform_clustering$resolution
     algorithm <- config$recluster$perform_clustering$algorithm
     reduction <- config$recluster$perform_clustering$reduction
     dims_snn <- 1:config$recluster$perform_clustering$dims_snn
     cluster_name <- config$recluster$perform_clustering$cluster_name
   } else {
-    resolution <- config$perform_clustering$resolution
+    # resolution <- config$perform_clustering$resolution
     algorithm <- config$perform_clustering$algorithm
     reduction <- config$perform_clustering$reduction
     dims_snn <- 1:config$perform_clustering$dims_snn
     cluster_name <- config$perform_clustering$cluster_name
   }
+  # add resolution to cluster_name
+  cluster_name <- paste0(cluster_name, "_res", as.character(resolution))
   # Check if Harmony embeddings exist in the Seurat object
   batch_corrected <- "harmony" %in% names(Embeddings(seurat_obj))
   # check if pca in embeddings
   pca_embed <- "pca" %in% names(Embeddings(seurat_obj))
   print(pca_embed)
-  if (!pca_embed){
+  if (!pca_embed) {
     message("no PCA, running now")
     seurat_obj <- RunPCA(seurat_obj, features = VariableFeatures(object = seurat_obj))
   }
@@ -573,24 +578,28 @@ perform_clustering <- function(seurat_obj, path = output, type) {
     message("Batch correction was skipped. Updating reduction to 'pca'.")
     reduction <- "pca"
   }
-  
+
   # Perform K-nearest neighbor (KNN) graph
   seurat_obj <- FindNeighbors(seurat_obj, dims = dims_snn, reduction = reduction)
 
   # Save UMAP lanes plot
-  pdf(paste0(path, "umap_lanes.pdf"), width = 8, height = 6)
+  pdf(paste0(path, "umap_lanes", name, "_res", resolution, ".pdf"), width = 8, height = 6)
   umap_lanes <- DimPlot(seurat_obj, reduction = "umap", group.by = "orig.ident", pt.size = .5)
   print(umap_lanes)
   dev.off()
 
   # Cluster cells
-  seurat_obj <- FindClusters(seurat_obj, resolution = resolution, algorithm = algorithm,
-                cluster.name = cluster_name)
+  seurat_obj <- FindClusters(seurat_obj,
+    resolution = resolution, algorithm = algorithm,
+    cluster.name = cluster_name
+  )
 
   # Save UMAP clusters plot
-  pdf(paste0(path, "umap_clusters.pdf"), width = 8, height = 6)
-  umap_clusters <- DimPlot(seurat_obj, reduction = "umap", label = TRUE, 
-                    group.by = cluster_name, pt.size = .5)
+  pdf(paste0(path, "umap_clusters", name, "_res", resolution, ".pdf"), width = 8, height = 6)
+  umap_clusters <- DimPlot(seurat_obj,
+    reduction = "umap", label = TRUE,
+    group.by = cluster_name, pt.size = .5
+  )
   print(umap_clusters)
   dev.off()
 
@@ -648,10 +657,10 @@ find_differentially_expressed_features <- function(seurat_obj, path = output) {
 
 analyze_known_markers <- function(seurat_obj, de_results, output_path = output) {
   # read in known markers
-  if (type=="integration"){
+  if (type == "integration") {
     known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
   } else {
-  known_markers_path <- config$score_and_plot_markers$known_markers_path
+    known_markers_path <- config$score_and_plot_markers$known_markers_path
   }
   known.markers <- read.csv2(known_markers_path, sep = "\t", header = TRUE)
   de.markers <- de_results[[1]]
@@ -680,7 +689,7 @@ analyze_known_markers <- function(seurat_obj, de_results, output_path = output) 
 
   # subset all and plot using for loop
   for (i in 1:length(cell.types)) {
-    new_df <- subset(marker_df, Cell.type == cell.types[i], select = c("gene", "Cell.type", "cluster"))
+    new_df <- subset(marker_df, Cell.type == cell.types[i], select = c("gene", "Celltype", "cluster"))
     new_vec <- unique(as.vector(new_df$gene))
 
     pdf(paste0(output_path, cell.types[i], "_featureplot.pdf"), width = 8, height = 6, bg = "white")
@@ -696,8 +705,8 @@ analyze_known_markers <- function(seurat_obj, de_results, output_path = output) 
   }
 }
 
-score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) {
-  if (type=="integration"){
+score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, name, resolution) {
+  if (type == "integration") {
     known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
     known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
     top_n_markers <- config$seurat_integration$score_and_plot_markers$top_n_markers
@@ -705,7 +714,7 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
     pairwise <- config$seurat_integration$score_and_plot_markers$pairwise
     logFC_thresh <- config$seurat_integration$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$seurat_integration$score_and_plot_markers$auc_thresh
-  } else if (type=="recluster") {
+  } else if (type == "recluster") {
     known_markers_path <- config$recluster$score_and_plot_markers$known_markers_path
     known_markers <- config$recluster$score_and_plot_markers$known_markers
     top_n_markers <- config$recluster$score_and_plot_markers$top_n_markers
@@ -713,7 +722,7 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
     pairwise <- config$recluster$score_and_plot_markers$pairwise
     logFC_thresh <- config$recluster$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$recluster$score_and_plot_markers$auc_thresh
-  } else if (type=="de") {
+  } else if (type == "de") {
     known_markers_path <- config$de$score_and_plot_markers$known_markers_path
     known_markers <- config$de$score_and_plot_markers$known_markers
     top_n_markers <- config$de$score_and_plot_markers$top_n_markers
@@ -731,11 +740,12 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
     auc_thresh <- config$score_and_plot_markers$auc_thresh
   }
 
+  # add resolution to cluster_name
+  cluster_type <- paste0(cluster_type, "_res", as.character(resolution))
   sce_obj <- sce
 
   # Score markers
   marker_info <- score_markers(sce_obj, cluster_type)
-
   # Read in known markers
   known.markers.df <- if (known_markers) {
     read.csv2(known_markers_path, sep = "\t", header = TRUE, row.names = 1)
@@ -759,7 +769,7 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
 
     # Process top genes for each cluster
     clust <- as.data.frame(marker_info[[clusters[i]]])
-    annot_df <- process_top_genes(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type)
+    annot_df <- process_top_genes(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type, name, resolution)
   }
 
   return(annot_df)
@@ -767,36 +777,36 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type) 
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2","CellType")) {
-    marker_field <- paste0("label.",cluster_type)
-    marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
-  } else {
-    stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
-  }
+  # if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
+  marker_field <- paste0("label.", cluster_type)
+  marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
+  # } else {
+  #   stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
+  # }
   return(marker_info)
 }
 
 get_clusters <- function(seurat_obj, cluster_type) {
-  if (cluster_type %in% c("seurat_clusters", "orig.ident","cca_clusters","seurat_clusters2","CellType")) {
-    return(unique(seurat_obj@meta.data[[cluster_type]]))
-  } else {
-    stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
-  }
+  # if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
+  return(unique(seurat_obj@meta.data[[cluster_type]]))
+  # } else {
+  #   stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
+  # }
 }
 
-process_top_genes <- function(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type) {
+process_top_genes <- function(clust, clusters, i, known.markers.df, output_path, seurat_obj, annot_df, type, name, resolution) {
   # Extract relevant configuration settings
-  if (type=="integration"){
+  if (type == "integration") {
     top_n_markers <- config$seurat_integration$score_and_plot_markers$top_n_markers
     logFC_thresh <- config$seurat_integration$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$seurat_integration$score_and_plot_markers$auc_thresh
     known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
-  } else if (type=="recluster") {
+  } else if (type == "recluster") {
     top_n_markers <- config$recluster$score_and_plot_markers$top_n_markers
     logFC_thresh <- config$recluster$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$recluster$score_and_plot_markers$auc_thresh
     known_markers <- config$recluster$score_and_plot_markers$known_markers
-  } else if (type=="de") {
+  } else if (type == "de") {
     top_n_markers <- config$de$score_and_plot_markers$top_n_markers
     logFC_thresh <- config$de$score_and_plot_markers$logFC_thresh
     auc_thresh <- config$de$score_and_plot_markers$auc_thresh
@@ -812,19 +822,23 @@ process_top_genes <- function(clust, clusters, i, known.markers.df, output_path,
   top100 <- head(ordered, n = top_n_markers)
 
   # Create a subdirectory for Top100 DE genes
-  top100_dir <- file.path(output_path, paste0("Top",top_n_markers,"_DE_Genes"))
+  top100_dir <- file.path(output_path, paste0("Top", top_n_markers, "_DE_Genes_", name, "_res", resolution))
   if (!dir.exists(top100_dir)) {
     dir.create(top100_dir, recursive = TRUE)
   }
 
   # Write out top100 genes
   write.table(top100,
-    file = file.path(top100_dir, paste0("Top",top_n_markers,"DEgenes_clust_", clusters[i], ".txt")),
+    file = file.path(top100_dir, paste0("Top", top_n_markers, "DEgenes_clust_", clusters[i], ".txt")),
     quote = FALSE, sep = "\t", row.names = TRUE
   )
-
-  # Process known markers
-  return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df, type))
+  if (known_markers == TRUE | known_markers == "TRUE" | known_markers == "true" | known_markers == "T") {
+    # Process known markers
+    return(process_known_markers(top100, known_markers, known.markers.df, clusters, i, output_path, seurat_obj, annot_df, type, name, resolution))
+  } else {
+    print("No known markers")
+    return(annot_df)
+  }
 }
 
 
@@ -883,14 +897,14 @@ process_pairwise_comparisons <- function(clusters, i, marker.info, output_path, 
 }
 
 
-process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df, type) {
-  if (type=="integration"){
+process_known_markers <- function(top100, known_markers_flag, known_markers_df, clusters, i, output_path, seurat_obj, annot_df, type, name, resolution) {
+  if (type == "integration") {
     annot_type <- config$seurat_integration$process_known_markers$annot_type
     n_rank <- config$seurat_integration$process_known_markers$n_rank
-  } else if (type=="recluster") {
+  } else if (type == "recluster") {
     annot_type <- config$recluster$process_known_markers$annot_type
     n_rank <- config$recluster$process_known_markers$n_rank
-  } else if (type=="de") {
+  } else if (type == "de") {
     annot_type <- config$de$process_known_markers$annot_type
     n_rank <- config$de$process_known_markers$n_rank
   } else {
@@ -905,7 +919,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       new_row <- data.frame(Cluster = clusters[i], Celltype = "unknown")
       annot_df <- rbind(annot_df, new_row)
     } else {
-      subdirectory_path <- file.path(output_path, "Known_DE_Markers")
+      subdirectory_path <- file.path(output_path, "Known_DE_Markers_", name, "_res", resolution)
       if (!dir.exists(subdirectory_path)) {
         dir.create(subdirectory_path, recursive = TRUE)
       }
@@ -923,7 +937,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
       rank <- n_rank + 1
       new_df.ordered <- new_df[order(new_df$rank.logFC.cohen), ]
 
-      if (annot_type == "manual"){
+      if (annot_type == "manual") {
         new_df.ordered <- subset(new_df.ordered, rank.logFC.cohen < rank)
         new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
 
@@ -932,7 +946,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           new_row <- data.frame(Cluster = clusters[i], Celltype = "unknown")
           annot_df <- rbind(annot_df, new_row)
         } else {
-        # UMAP plot highlighting gene expression
+          # UMAP plot highlighting gene expression
           pdf(paste0(output_path, clusters[i], "_featureplot_top", n_rank, "ranks.pdf"), bg = "white")
           print(FeaturePlot(seurat_obj, features = new_vec2), label = TRUE)
           dev.off()
@@ -941,45 +955,45 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           new_row <- data.frame(Cluster = clusters[i], Celltype = result_string)
           annot_df <- rbind(annot_df, new_row)
         }
-      } else if (annot_type == "d120"| annot_type == "d40"){
+      } else if (annot_type == "d120" | annot_type == "d40") {
         new_vec2 <- unique(as.vector(new_df.ordered$Row.names))
-        cell_types <- unique(as.vector(known_markers_df[,"Celltype"]))
+        cell_types <- unique(as.vector(known_markers_df[, "Celltype"]))
         # create empty list to store cell types
         cell_type_list <- c()
         cell_type_list1 <- c()
-        for (j in 1:length(cell_types)){
+        for (j in 1:length(cell_types)) {
           cell_type <- cell_types[j]
-          #print(cell_type)
+          # print(cell_type)
           genes_df <- subset(known_markers_df, Celltype == cell_type)
-          #print(colnames(genes_df))
+          # print(colnames(genes_df))
           genes <- unique(rownames(genes_df))
-          #print(genes)
-          count = 0
-          for (k in 1:length(new_vec2)){
+          # print(genes)
+          count <- 0
+          for (k in 1:length(new_vec2)) {
             gene <- new_vec2[k]
-            if (gene %in% genes){
+            if (gene %in% genes) {
               count <- count + 1
             } else {
-                next
+              next
             }
           }
-          if (count >= 2){
+          if (count >= 2) {
             new_cell_type <- cell_type
-            #print(new_cell_type)
+            # print(new_cell_type)
           } else if (count >= 1 && cell_type == "Cone") {
             # check Pan PRs
             count2 <- 0
             genes_df <- subset(known_markers_df, Celltype == "Pan PR")
             genes <- unique(rownames(genes_df))
-            for (k in 1:length(new_vec2)){
+            for (k in 1:length(new_vec2)) {
               gene <- new_vec2[k]
-              if (gene %in% genes){
+              if (gene %in% genes) {
                 count2 <- count2 + 1
               } else {
                 next
               }
             }
-            if (count2 >= 2){
+            if (count2 >= 2) {
               new_cell_type <- "Cone"
             } else {
               new_cell_type <- "NA"
@@ -989,35 +1003,35 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             count3 <- 0
             genes_df <- subset(known_markers_df, Celltype == "Amacrine-Ganglion")
             genes <- unique(rownames(genes_df))
-            for (k in 1:length(new_vec2)){
+            for (k in 1:length(new_vec2)) {
               gene <- new_vec2[k]
-              if (gene %in% genes){
+              if (gene %in% genes) {
                 count3 <- count3 + 1
               } else {
                 next
               }
             }
-            if (count3 >= 2){
+            if (count3 >= 2) {
               new_cell_type <- "Ganglion Cell"
-            } else if (annot_type == "d40" && count3 >= 1){
+            } else if (annot_type == "d40" && count3 >= 1) {
               new_cell_type <- "Ganglion Cell"
             } else {
               new_cell_type <- "NA"
-            } 
+            }
           } else if (count >= 1 && cell_type == "Amacrine Cell") {
             # check Amacrine-Ganglion
             count4 <- 0
             genes_df <- subset(known_markers_df, Celltype == "Amacrine-Ganglion")
             genes <- unique(rownames(genes_df))
-            for (k in 1:length(new_vec2)){
+            for (k in 1:length(new_vec2)) {
               gene <- new_vec2[k]
-              if (gene %in% genes){
+              if (gene %in% genes) {
                 count4 <- count4 + 1
               } else {
                 next
               }
             }
-            if (count4 >= 2){
+            if (count4 >= 2) {
               new_cell_type <- "Amacrine Cell"
             } else {
               new_cell_type <- "NA"
@@ -1025,47 +1039,42 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           } else {
             new_cell_type <- "NA"
           }
-          if (count >= 1){
+          if (count >= 1) {
             new_cell_type1 <- cell_type
             cell_type_list1 <- c(cell_type_list1, new_cell_type1)
             # print(paste0("cell type list 1: ",cell_type_list1))
           }
-        cell_type_list <- c(cell_type_list, new_cell_type)
+          cell_type_list <- c(cell_type_list, new_cell_type)
         }
-        #print(paste0("cell type list ", cell_type_list))
-        if ("Cone" %in% cell_type_list && "Pan PR" %in% cell_type_list){
+        # print(paste0("cell type list ", cell_type_list))
+        if ("Cone" %in% cell_type_list && "Pan PR" %in% cell_type_list) {
           cell_type_list <- c("Cone")
           print("Cone!")
-        }
-        else if ("Rod" %in% cell_type_list && "Pan PR" %in% cell_type_list){
+        } else if ("Rod" %in% cell_type_list && "Pan PR" %in% cell_type_list) {
           print("Rod!")
           cell_type_list <- c("Rod")
-        }
-        else if ("Amacrine Cell" %in% cell_type_list && "Amacrine-Ganglion" %in% cell_type_list){
+        } else if ("Amacrine Cell" %in% cell_type_list && "Amacrine-Ganglion" %in% cell_type_list) {
           cell_type_list <- c("Amacrine Cell")
           print("Amacrine Cell!")
-        }
-        else if ("Ganglion Cell" %in% cell_type_list && "Amacrine-Ganglion" %in% cell_type_list){
+        } else if ("Ganglion Cell" %in% cell_type_list && "Amacrine-Ganglion" %in% cell_type_list) {
           cell_type_list <- c("Ganglion Cell")
           print("Ganglion Cell!")
-        }
-        else if (all(is.na(c("NA")) %in% names(cell_type_list))){
+        } else if (all(is.na(c("NA")) %in% names(cell_type_list))) {
           cell_type_list <- c("unknown")
-        }
-        else {
+        } else {
           cell_type_list <- cell_type_list[cell_type_list != "NA"]
         }
-        #print(paste0("cluster ", clusters[i], "cell types: ",cell_type_list))
+        # print(paste0("cluster ", clusters[i], "cell types: ",cell_type_list))
         # check second list
-        if ("unknown" %in% cell_type_list | length(cell_type_list) == 0 | length(cell_type_list) > 1){
-          if (length(unique(cell_type_list1)) > 2 && annot_type == "d40"){
+        if ("unknown" %in% cell_type_list | length(cell_type_list) == 0 | length(cell_type_list) > 1) {
+          if (length(unique(cell_type_list1)) > 2 && annot_type == "d40") {
             cell_type_list <- c("Retinal Prog")
-          } else if (length(unique(cell_type_list)) == 2 && annot_type == "d120"){
+          } else if (length(unique(cell_type_list)) == 2 && annot_type == "d120") {
             cell_type_list <- cell_type_list
-          # } else if (length(unique(cell_type_list1)) == 1){
-          #   cell_type_list <- unique(cell_type_list1)
-          # } else if (length(unique(cell_type_list1)) == 2){
-          #   cell_type_list <- unique(cell_type_list1)
+            # } else if (length(unique(cell_type_list1)) == 1){
+            #   cell_type_list <- unique(cell_type_list1)
+            # } else if (length(unique(cell_type_list1)) == 2){
+            #   cell_type_list <- unique(cell_type_list1)
           } else {
             cell_type_list <- c("unknown")
           }
@@ -1073,14 +1082,14 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           cell_type_list <- cell_type_list
         }
         result_string <- paste(cell_type_list, collapse = "-")
-        print(paste0("final cell type ", clusters[i], " ",result_string))
+        print(paste0("final cell type ", clusters[i], " ", result_string))
         new_row <- data.frame(Cluster = clusters[i], Celltype = result_string)
         annot_df <- rbind(annot_df, new_row)
-        } else {
-          print("Need to set annotation type in config")
-        }
+      } else {
+        print("Need to set annotation type in config")
       }
-    } else {
+    }
+  } else {
     print("No known marker set")
   }
   return(annot_df)
@@ -1089,16 +1098,17 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 
 annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type) {
   # get configs
-  if (type=="integration"){
+  if (type == "integration") {
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
     cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
-  } else if (type=="recluster") {
+  } else if (type == "recluster") {
     reduction <- config$recluster$score_and_plot_markers$reduction
     cluster_type <- config$recluster$score_and_plot_markers$cluster_type
   } else {
     reduction <- config$score_and_plot_markers$reduction
     cluster_type <- config$score_and_plot_markers$cluster_type
   }
+  print(new_cluster_ids)
   # make sure that idents are the clusters you want annotated
   seurat_obj <- SetIdent(seurat_obj, value = cluster_type)
   # Rename the clusters based on the new IDs
@@ -1109,12 +1119,14 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
 
   # Generate and plot the UMAP plot
   pdf(paste0(output_path, "labeled-clusters.pdf"), bg = "white")
-  print(DimPlot(seurat_obj, reduction = reduction, label = TRUE, 
-        pt.size = 0.5, group.by = "CellType1"))
+  print(DimPlot(seurat_obj,
+    reduction = reduction, label = TRUE,
+    pt.size = 0.5, group.by = "CellType1"
+  ))
   dev.off()
   # Save the Seurat object
   # if integration, goes directly to clustifyr, and will save there
-  if (type=="integration"){
+  if (type == "integration") {
     saveRDS(seurat_obj, file = paste0(output_path, "seurat_obj_labeled_integrated.rds"))
     return(seurat_obj)
   } else {
@@ -1172,11 +1184,11 @@ combine_feature_plots <- function(seurat_objs_list, feature_set1, feature_set2 =
 
 annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
   # Access the markers path
-  if (type=="integration"){
+  if (type == "integration") {
     markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
     cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
-  } else if (type=="clustifyr"){
+  } else if (type == "clustifyr") {
     markers_path <- config$clustifyr$score_and_plot_markers$known_markers_path
     cluster_type <- config$clustifyr$score_and_plot_markers$cluster_type
     reduction <- config$clustifyr$score_and_plot_markers$reduction
@@ -1185,7 +1197,7 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
     cluster_type <- config$score_and_plot_markers$cluster_type
     reduction <- config$score_and_plot_markers$reduction
   }
-  
+
   markers <- read.csv2(markers_path, sep = "\t", header = TRUE)
   markers_df <- data.frame(markers)
   colnames(markers_df) <- c("gene", "cluster")
@@ -1200,7 +1212,7 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
     obj_out = FALSE
   )
   # get rid of NA
-  list_res <- list_res[!(row.names(list_res) %in% c("orig.NA")),]
+  list_res <- list_res[!(row.names(list_res) %in% c("orig.NA")), ]
 
   if (length(unique(list_res)) > 1) {
     p1 <- plot_cor_heatmap(
@@ -1247,9 +1259,9 @@ annotate_with_clustifyR <- function(clustered_seurat_obj, SCE, output, type) {
   return(clustered_seurat_obj)
 }
 
-annotate_with_clustifyR_ref <- function(ref.seurat, query.seurat, SCE, output,type) {
+annotate_with_clustifyR_ref <- function(ref.seurat, query.seurat, SCE, output, type) {
   # get cluster type and reduction
-  if (type=="clustifyr"){
+  if (type == "clustifyr") {
     groupby <- config$clustifyr$visualize_and_subset_ref$groupby # reference annotation
     cluster_type <- config$clustifyr$score_and_plot_markers$cluster_type # clusters in query to annotate
     reduction <- config$clustifyr$score_and_plot_markers$reduction
@@ -1258,72 +1270,77 @@ annotate_with_clustifyR_ref <- function(ref.seurat, query.seurat, SCE, output,ty
     cluster_type <- config$score_and_plot_markers$cluster_type # clusters in query to annotate
     reduction <- config$score_and_plot_markers$reduction
   }
-  
+
   # get ref matrix
   new_ref_matrix <- seurat_ref(
-    seurat_object = ref.seurat,        # SeuratV3 object
-    cluster_col = groupby)
+    seurat_object = ref.seurat, # SeuratV3 object
+    cluster_col = groupby
+  )
 
   # run clustify (spearman corr is default)
   res <- clustify(
-    input = query.seurat,       # a Seurat object
-    ref_mat = new_ref_matrix,    # matrix of RNA-seq expression data for each cell type
+    input = query.seurat, # a Seurat object
+    ref_mat = new_ref_matrix, # matrix of RNA-seq expression data for each cell type
     cluster_col = cluster_type, # name of column in meta.data containing cell clusters
-    obj_out = TRUE,      # output Seurat object with cell type inserted as "type" column
-    rename_prefix= "clustify_pred_ref",
-    n_genes= 2000
+    obj_out = TRUE, # output Seurat object with cell type inserted as "type" column
+    rename_prefix = "clustify_pred_ref",
+    n_genes = 2000
   )
   print(table(res$clustify_pred_ref_type))
 
   # visualize
-  pc <- DimPlot(res, reduction = reduction, group.by = "clustify_pred_ref_type", label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Clustifyr predicted labels- spearmans") +
-  guides(fill = guide_legend(label.theme = element_text(size = 8)))
+  pc <- DimPlot(res,
+    reduction = reduction, group.by = "clustify_pred_ref_type", label = TRUE,
+    label.size = 3, repel = TRUE
+  ) + ggtitle("Clustifyr predicted labels- spearmans") +
+    guides(fill = guide_legend(label.theme = element_text(size = 8)))
   pdf(paste0(output, "clustifyr_predicted_labels_umap.pdf"), width = 10, height = 6)
   print(pc)
   dev.off()
   # save
-  saveRDS(res, file= paste0(output, "seurat.obj_clustifyr.rds"))
+  saveRDS(res, file = paste0(output, "seurat.obj_clustifyr.rds"))
   return(res)
 }
 
-count_and_feature_plots <- function(ref_seurat_obj, query_seurat_obj, path = output){
+count_and_feature_plots <- function(ref_seurat_obj, query_seurat_obj, path = output) {
   # raw counts
-  p1<- FeaturePlot(ref_seurat_obj, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+  p1 <- FeaturePlot(ref_seurat_obj, features = "nCount_RNA") & theme(plot.title = element_text(size = 10))
   pdf(paste0(output, "human_ref-rnacounts-featureplot.pdf"), width = 8, height = 6)
   print(p1)
   dev.off()
-  p2<- FeaturePlot(query_seurat_obj, features = "nCount_RNA") & theme(plot.title = element_text(size=10))
+  p2 <- FeaturePlot(query_seurat_obj, features = "nCount_RNA") & theme(plot.title = element_text(size = 10))
   pdf(paste0(output, "query-rnacounts-featureplot.pdf"), width = 8, height = 6)
   print(p2)
   dev.off()
   # number of unique genes expressed per cell
-  p3<-FeaturePlot(ref_seurat_obj, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+  p3 <- FeaturePlot(ref_seurat_obj, features = "nFeature_RNA") & theme(plot.title = element_text(size = 10))
   pdf(paste0(output, "human_ref-nfeature-featureplot.pdf"), width = 8, height = 6)
   print(p3)
   dev.off()
-  p4<-FeaturePlot(query_seurat_obj, features = "nFeature_RNA") & theme(plot.title = element_text(size=10))
+  p4 <- FeaturePlot(query_seurat_obj, features = "nFeature_RNA") & theme(plot.title = element_text(size = 10))
   pdf(paste0(output, "query-nfeature-featureplot.pdf"), width = 8, height = 6)
   print(p4)
   dev.off()
 }
 
 visualize_and_subset_ref <- function(ref_seurat_obj, path = output, type) {
-  if (type=="seurat_mapping"){
+  if (type == "seurat_mapping") {
     groupby <- config$seurat_mapping$visualize_and_subset_ref$groupby
     removal_list <- config$seurat_mapping$visualize_and_subset_ref$celltype_removal_list
-  } else if (type=="clustifyr"){
+  } else if (type == "clustifyr") {
     groupby <- config$clustifyr$visualize_and_subset_ref$groupby
     removal_list <- config$clustifyr$visualize_and_subset_ref$celltype_removal_list
   } else {
     groupby <- config$visualize_and_subset_ref$groupby
     removal_list <- config$visualize_and_subset_ref$celltype_removal_list
   }
-  
+
   # Visualize the reference object
   pdf(paste0(path, "ref_seurat_obj_umap.pdf"), width = 8, height = 6)
-  print(DimPlot(ref_seurat_obj, reduction = "umap", group.by = groupby, 
-        label = TRUE, repel = TRUE))
+  print(DimPlot(ref_seurat_obj,
+    reduction = "umap", group.by = groupby,
+    label = TRUE, repel = TRUE
+  ))
   dev.off()
   table(ref.seurat[[groupby]])
   # set identity class to existing meta data
@@ -1334,12 +1351,14 @@ visualize_and_subset_ref <- function(ref_seurat_obj, path = output, type) {
   # remove NAs
   ref_seurat_obj <- subset(x = ref_seurat_obj, subset = idents != "<NA>")
   # Subset the reference object
-  if(length(removal_list) != 0){
-    print(paste0("removing celltypes: ",removal_list))
-    for(i in 1:length(removal_list)) {
+  if (length(removal_list) != 0) {
+    print(paste0("removing celltypes: ", removal_list))
+    for (i in 1:length(removal_list)) {
       if (removal_list[i] %in% Idents(ref_seurat_obj)) {
-        ref_seurat_obj <- subset(x = ref_seurat_obj, idents = removal_list[i], 
-        invert = TRUE)
+        ref_seurat_obj <- subset(
+          x = ref_seurat_obj, idents = removal_list[i],
+          invert = TRUE
+        )
       }
     }
   } else {
@@ -1347,35 +1366,47 @@ visualize_and_subset_ref <- function(ref_seurat_obj, path = output, type) {
   }
   # Visualize the subsetted reference object
   pdf(paste0(path, "ref_seurat_obj_subset_umap.pdf"), width = 8, height = 6)
-  print(DimPlot(ref_seurat_obj, reduction = "umap", group.by = groupby, 
-        label = TRUE, repel = TRUE))
+  print(DimPlot(ref_seurat_obj,
+    reduction = "umap", group.by = groupby,
+    label = TRUE, repel = TRUE
+  ))
   dev.off()
 
-  tablex<- table(Idents(ref_seurat_obj))
-  write.table(tablex, file = paste0(output,"subset_celltype_table.txt"), 
-              sep="\t", row.names = FALSE)
+  tablex <- table(Idents(ref_seurat_obj))
+  write.table(tablex,
+    file = paste0(output, "subset_celltype_table.txt"),
+    sep = "\t", row.names = FALSE
+  )
   return(ref_seurat_obj)
 }
 
-transfer_anchors<- function(ref.seurat, query.seurat, path = output){
+transfer_anchors <- function(ref.seurat, query.seurat, path = output) {
   reduc.type <- config$seurat_mapping$transfer_anchors$reduc.type
   query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   # integrate features
-  ret.list<- list(query.seurat,ref.seurat)
+  ret.list <- list(query.seurat, ref.seurat)
   features <- SelectIntegrationFeatures(object.list = ret.list, nfeatures = 3000)
   # find anchors and transfer data
-  if (reduc.type== "cca"){
-  # for cca
-  anchors <- FindTransferAnchors(reference = ref.seurat, query = query.seurat,
-                                        dims = 1:30,reduction= "cca")
-  predictions <- TransferData(anchorset = anchors, refdata = ref.seurat$idents,
-                            dims = 1:30, weight.reduction="cca")
-  } else if (reduc.type== "pca"){
-  # for pca
-  anchors <- FindTransferAnchors(reference = ref.seurat, query = query.seurat,
-                                        dims = 1:30, referemce.reduction= "pca")
-  predictions <- TransferData(anchorset = anchors, refdata = ref.seurat$idents,
-                            dims = 1:30)
+  if (reduc.type == "cca") {
+    # for cca
+    anchors <- FindTransferAnchors(
+      reference = ref.seurat, query = query.seurat,
+      dims = 1:30, reduction = "cca"
+    )
+    predictions <- TransferData(
+      anchorset = anchors, refdata = ref.seurat$idents,
+      dims = 1:30, weight.reduction = "cca"
+    )
+  } else if (reduc.type == "pca") {
+    # for pca
+    anchors <- FindTransferAnchors(
+      reference = ref.seurat, query = query.seurat,
+      dims = 1:30, referemce.reduction = "pca"
+    )
+    predictions <- TransferData(
+      anchorset = anchors, refdata = ref.seurat$idents,
+      dims = 1:30
+    )
   } else {
     print("choose reduc.type either cc or pca")
   }
@@ -1383,15 +1414,19 @@ transfer_anchors<- function(ref.seurat, query.seurat, path = output){
   query.seurat <- AddMetaData(query.seurat, metadata = predictions)
   print(table(query.seurat$predicted.id))
   # visualize with umap
-  pg <- DimPlot(query.seurat, reduction = "umap", group.by = "predicted.id", label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+  pg <- DimPlot(query.seurat,
+    reduction = "umap", group.by = "predicted.id", label = TRUE,
+    label.size = 3, repel = TRUE
+  ) + ggtitle("Query transferred labels")
   pdf(paste0(output, "query-celltype_seurat_predictions_umap.pdf"), width = 8, height = 6)
-    print(pg)
+  print(pg)
   dev.off()
-  pc <- DimPlot(query.seurat, reduction = "umap", group.by = query_manual_annot, label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Query manually annotated labels")
+  pc <- DimPlot(query.seurat,
+    reduction = "umap", group.by = query_manual_annot, label = TRUE,
+    label.size = 3, repel = TRUE
+  ) + ggtitle("Query manually annotated labels")
   pdf(paste0(output, "query-manual_annotation_umap.pdf"), width = 8, height = 6)
-    print(pc)
+  print(pc)
   dev.off()
 
   # return query and anchors
@@ -1399,35 +1434,46 @@ transfer_anchors<- function(ref.seurat, query.seurat, path = output){
   return(obj.list)
 }
 
-project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = output){
+project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = output) {
   reduc.type <- config$seurat_mapping$transfer_anchors$reduc.type
   ref_annot <- config$seurat_mapping$visualize_and_subset_ref$groupby
   query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   # need to rerun umap to store model
   ref.seurat <- RunPCA(ref.seurat, features = VariableFeatures(object = ref.seurat))
-  ref.seurat <- RunUMAP(ref.seurat, dims = 1:30, reduction = "pca", return.model = TRUE) 
+  ref.seurat <- RunUMAP(ref.seurat, dims = 1:30, reduction = "pca", return.model = TRUE)
   # map query
-  if (reduc.type== "cca"){
+  if (reduc.type == "cca") {
     # for cca
-    query.seurat <- MapQuery(anchorset = anchors, reference = ref.seurat, query = query.seurat,
-                           refdata = list(celltype = ref_annot), reference.reduction = "cca", reduction.model = "umap")
-
-  } else if (reduc.type== "pca"){
+    query.seurat <- MapQuery(
+      anchorset = anchors, reference = ref.seurat, query = query.seurat,
+      refdata = list(celltype = ref_annot), reference.reduction = "cca", reduction.model = "umap"
+    )
+  } else if (reduc.type == "pca") {
     # for pca
-    query.seurat <- MapQuery(anchorset = anchors, reference = ref.seurat, query = query.seurat,
-                           refdata = list(celltype = ref_annot), reference.reduction = "pca", reduction.model = "umap")
-  } else {print("choose reduc.type either cc or pca")} 
+    query.seurat <- MapQuery(
+      anchorset = anchors, reference = ref.seurat, query = query.seurat,
+      refdata = list(celltype = ref_annot), reference.reduction = "pca", reduction.model = "umap"
+    )
+  } else {
+    print("choose reduc.type either cc or pca")
+  }
 
   # visualize with umap
-  p1 <- DimPlot(ref.seurat, reduction = "umap", group.by = ref_annot, label = TRUE, label.size = 3,
-              repel = TRUE) + ggtitle("Reference annotations")# + NoLegend()
-  p2 <- DimPlot(query.seurat, reduction = "ref.umap", group.by = "predicted.celltype", label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Query transferred labels")
+  p1 <- DimPlot(ref.seurat,
+    reduction = "umap", group.by = ref_annot, label = TRUE, label.size = 3,
+    repel = TRUE
+  ) + ggtitle("Reference annotations") # + NoLegend()
+  p2 <- DimPlot(query.seurat,
+    reduction = "ref.umap", group.by = "predicted.celltype", label = TRUE,
+    label.size = 3, repel = TRUE
+  ) + ggtitle("Query transferred labels")
   pdf(paste0(output, "celltype_seurat_predictions-umap_cca_clabels.pdf"), width = 11, height = 6)
   print(p1 + p2)
   dev.off()
-  p3 <- DimPlot(query.seurat, reduction = "ref.umap", group.by = query_manual_annot, label = TRUE,
-              label.size = 3, repel = TRUE) + ggtitle("Manually annotated labels")
+  p3 <- DimPlot(query.seurat,
+    reduction = "ref.umap", group.by = query_manual_annot, label = TRUE,
+    label.size = 3, repel = TRUE
+  ) + ggtitle("Manually annotated labels")
   pdf(paste0(output, "celltype_seurat_predictionsvsmanual-umap_0.5_cca_clabels.pdf"), width = 11, height = 6)
   print(p2 + p3)
   dev.off()
@@ -1436,44 +1482,51 @@ project_query_on_ref <- function(ref.seurat, query.seurat, anchors, path = outpu
   return(obj.list)
 }
 
-get_manual_comparison <- function(query.seurat, path = output){
+get_manual_comparison <- function(query.seurat, path = output) {
   query_manual_annot <- config$seurat_mapping$transfer_anchors$query_manual_annot
   rowvec <- config$seurat_mapping$get_manual_comparison$rowvec
   colvec <- config$seurat_mapping$get_manual_comparison$colvec
   # verify model performance in query data
-  query.ref.data.table1<- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype"))
+  query.ref.data.table1 <- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype"))
   # check out proportion of cells
-  query.ref.data.table2<- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype", output = "prop"))
+  query.ref.data.table2 <- as.data.frame(crossTab(query.seurat, query_manual_annot, "predicted.celltype", output = "prop"))
   # order according to rowvec and colvec
-  query.ref.data.table1<- query.ref.data.table1[order(match(rownames(query.ref.data.table1), rowvec)), , drop = FALSE]
-  query.ref.data.table1<- query.ref.data.table1[colvec]
-  query.ref.data.table2<- query.ref.data.table2[order(match(rownames(query.ref.data.table2), rowvec)), , drop = FALSE]
-  query.ref.data.table2<- query.ref.data.table2[colvec]
+  query.ref.data.table1 <- query.ref.data.table1[order(match(rownames(query.ref.data.table1), rowvec)), , drop = FALSE]
+  query.ref.data.table1 <- query.ref.data.table1[colvec]
+  query.ref.data.table2 <- query.ref.data.table2[order(match(rownames(query.ref.data.table2), rowvec)), , drop = FALSE]
+  query.ref.data.table2 <- query.ref.data.table2[colvec]
   # write out tables
-  write.table(query.ref.data.table1, file = paste0(output,"query_ref_data_table.txt"), 
-              sep="\t", row.names = TRUE)
-  write.table(query.ref.data.table2, file = paste0(output,"query_ref_data_table_proportion.txt"), 
-              sep="\t", row.names = TRUE)
+  write.table(query.ref.data.table1,
+    file = paste0(output, "query_ref_data_table.txt"),
+    sep = "\t", row.names = TRUE
+  )
+  write.table(query.ref.data.table2,
+    file = paste0(output, "query_ref_data_table_proportion.txt"),
+    sep = "\t", row.names = TRUE
+  )
   return(query.ref.data.table2)
 }
 
-heatmap_func <- function(df, path = output){
+heatmap_func <- function(df, path = output) {
   # turn df into matrix
-  mat <- as.matrix(sapply(df, as.numeric, rownames=TRUE))  
+  mat <- as.matrix(sapply(df, as.numeric, rownames = TRUE))
   y <- rownames(df)
   rownames(mat) <- y
 
   # make heatmap
-  hm<- Heatmap(mat, name= "Proportion of cells", column_title = "Cell types - manual", 
-             row_title = "Cell types - predicted", column_title_side = "top",row_title_side = "left", 
-             col = colorRamp2(c(0, 0.5, 1), c("blue","white","darkred")),
-             cluster_columns = F, cluster_rows= F, show_row_dend = F, 
-             column_names_gp = gpar(fontsize = 10), show_column_names = T, 
-             show_row_names = T, row_names_gp = gpar(fontsize = 10), 
-             cell_fun = function(j, i, x, y, width, height, fill) {
-               grid.text(sprintf("%.2f", mat[i, j]), x, y, gp = gpar(fontsize = 8))})
+  hm <- Heatmap(mat,
+    name = "Proportion of cells", column_title = "Cell types - manual",
+    row_title = "Cell types - predicted", column_title_side = "top", row_title_side = "left",
+    col = colorRamp2(c(0, 0.5, 1), c("blue", "white", "darkred")),
+    cluster_columns = F, cluster_rows = F, show_row_dend = F,
+    column_names_gp = gpar(fontsize = 10), show_column_names = T,
+    show_row_names = T, row_names_gp = gpar(fontsize = 10),
+    cell_fun = function(j, i, x, y, width, height, fill) {
+      grid.text(sprintf("%.2f", mat[i, j]), x, y, gp = gpar(fontsize = 8))
+    }
+  )
   # save as pdf
-  pdf(file = paste0(output,"celltype_manualvs.predicted_heatmap.pdf"), width = 7, height = 5)
+  pdf(file = paste0(output, "celltype_manualvs.predicted_heatmap.pdf"), width = 7, height = 5)
   print(hm)
   dev.off()
   return(hm)

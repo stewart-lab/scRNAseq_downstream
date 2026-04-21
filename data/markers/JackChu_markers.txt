@@ -1,0 +1,18 @@
+gene	Celltype
+TBXT	Primitive streak
+MIXL1	Primitive streak
+HES1	PSM
+HES5	PSM
+HES7	PSM
+LFNG	PSM
+DLL1	PSM
+AXIN2	PSM
+TBX6	PSM
+MSGN1	PSM
+PAX3	Somite
+TCF15	Somite
+MEOX1	Somite
+UNCX	Somite
+CCNB1	cell_cycle
+CDK2	cell_cycle
+SOX2	Primitive streak

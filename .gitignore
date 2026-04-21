@@ -59,6 +59,8 @@ pst_env/
 data/gamm_data/
 data/example_data/
 data/input_data
+archive/example_data/
+archive/gamm_data/
 *.h5ad
 
 # output
@@ -69,6 +71,12 @@ shared_volume/
 *.tar.gz
 */*.tar.gz
 
+# nohup
+nohup.out
+
+# cellchat
+cellchat_task_*.log
+Rplots.pdf
 # MacOS system files
 .DS_Store
 ._.DS_Store

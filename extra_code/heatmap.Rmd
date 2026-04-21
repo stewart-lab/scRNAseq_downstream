@@ -1,0 +1,161 @@
+---
+title: "Transition Probability Heatmap"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Load Libraries
+
+```{r libraries}
+library(ggplot2)
+library(reshape2) # for melt()
+```
+
+```{r path}
+path <- "/w5home/bmoore/Pierre_sc_zebrafish/output_seurat2ann_20260224_121120/realtime_moscot_recovered_20260325_093911/"
+setwd(path)
+
+# ── SET TIME POINTS HERE ──────────────────────────
+# Change these two values to switch between transitions
+time_from <- 3
+time_to <- 4
+```
+
+## Read Data
+
+Update the `csv_path` variable to point to your CSV file.
+
+```{r read-data}
+csv_file <- paste0("transitions_", time_from, "_", time_to, "_res0.75.csv")
+
+# Read CSV — first column is row names
+mat <- read.csv(csv_file, row.names = 1, check.names = FALSE)
+
+# Convert to matrix then melt to long format for ggplot
+mat <- as.matrix(mat)
+df_long <- melt(mat)
+colnames(df_long) <- c("Source", "Target", "Probability")
+
+# Ensure cluster ordering is preserved (numeric order)
+df_long$Source <- factor(df_long$Source, levels = rev(rownames(mat)))
+df_long$Target <- factor(df_long$Target, levels = colnames(mat))
+```
+
+## Plot Heatmap
+
+```{r heatmap, fig.width=10, fig.height=9}
+p1 <- ggplot(df_long, aes(x = Target, y = Source, fill = Probability)) +
+    geom_tile(color = "grey30", linewidth = 0.15) +
+    scale_fill_viridis_c(
+        option = "inferno",
+        name   = "Transition\nProbability",
+        limits = c(0, 1)
+    ) +
+    labs(
+        title = "Cell-State Transition Probabilities",
+        subtitle = paste0("Time ", time_from, " → Time ", time_to, "  |  Resolution 0.75"),
+        x = paste0("Target Cluster (Time ", time_to, ")"),
+        y = paste0("Source Cluster (Time ", time_from, ")")
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(
+        plot.title       = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle    = element_text(hjust = 0.5, color = "grey40"),
+        axis.text.x      = element_text(angle = 45, hjust = 1),
+        panel.grid       = element_blank(),
+        legend.position  = "right"
+    ) +
+    coord_fixed() # square tiles
+```
+```{r make_pdf}
+ggsave(p1, filename = paste0("heatmap1_transitions_", time_from, "_", time_to, ".pdf"), width = 10, height = 9, dpi = 600)
+```
+
+### Optional: Log-scaled version
+
+Very small transition probabilities are hard to see on a linear scale. A log10 transform can help reveal structure in the off-diagonal entries.
+
+```{r heatmap-log, fig.width=10, fig.height=9}
+# Replace exact zeros with NA so log transform doesn't produce -Inf
+df_log <- df_long
+df_log$Probability[df_log$Probability == 0] <- NA
+
+p2 <- ggplot(df_log, aes(x = Target, y = Source, fill = Probability)) +
+    geom_tile(color = "grey30", linewidth = 0.15) +
+    scale_fill_viridis_c(
+        option    = "inferno",
+        name      = "Transition\nProbability",
+        trans     = "log10",
+        na.value  = "black",
+        labels    = scales::label_scientific()
+    ) +
+    labs(
+        title = "Cell-State Transition Probabilities (log\u2081\u2080 scale)",
+        subtitle = paste0("Time ", time_from, " → Time ", time_to, "  |  Resolution 0.75"),
+        x = paste0("Target Cluster (Time ", time_to, ")"),
+        y = paste0("Source Cluster (Time ", time_from, ")")
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(
+        plot.title       = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle    = element_text(hjust = 0.5, color = "grey40"),
+        axis.text.x      = element_text(angle = 45, hjust = 1),
+        panel.grid       = element_blank(),
+        legend.position  = "right"
+    ) +
+    coord_fixed()
+```
+
+```{r make_pdf}
+ggsave(p2, filename = paste0("heatmap2_transitions_", time_from, "_", time_to, ".pdf"), width = 10, height = 9, dpi = 600)
+```
+
+### Off-diagonal heatmap (diagonal masked)
+
+Set the diagonal (cluster *i* → cluster *i*) to `NA` so only cross-cluster transitions are visible. The color scale auto-ranges to the off-diagonal values for better contrast.
+
+```{r heatmap-offdiag, fig.width=10, fig.height=9}
+# Copy the matrix and blank out the diagonal
+mat_offdiag <- mat
+diag(mat_offdiag) <- NA
+
+# Melt to long format
+df_offdiag <- melt(mat_offdiag)
+colnames(df_offdiag) <- c("Source", "Target", "Probability")
+
+# Preserve cluster ordering
+df_offdiag$Source <- factor(df_offdiag$Source, levels = rev(rownames(mat)))
+df_offdiag$Target <- factor(df_offdiag$Target, levels = colnames(mat))
+
+p3 <- ggplot(df_offdiag, aes(x = Target, y = Source, fill = Probability)) +
+    geom_tile(color = "grey30", linewidth = 0.15) +
+    scale_fill_viridis_c(
+        option   = "inferno",
+        name     = "Transition\nProbability",
+        na.value = "grey90"
+    ) +
+    labs(
+        title = "Off-Diagonal Transition Probabilities",
+        subtitle = paste0("Time ", time_from, " → Time ", time_to, "  |  Resolution 0.75  |  Diagonal masked"),
+        x = paste0("Target Cluster (Time ", time_to, ")"),
+        y = paste0("Source Cluster (Time ", time_from, ")")
+    ) +
+    theme_minimal(base_size = 13) +
+    theme(
+        plot.title       = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle    = element_text(hjust = 0.5, color = "grey40"),
+        axis.text.x      = element_text(angle = 45, hjust = 1),
+        panel.grid       = element_blank(),
+        legend.position  = "right"
+    ) +
+    coord_fixed()
+
+p3
+```
+
+```{r save_offdiag_pdf}
+ggsave(p3, filename = paste0("heatmap3_offdiag_transitions_", time_from, "_", time_to, ".pdf"), width = 10, height = 9, dpi = 600)
+```

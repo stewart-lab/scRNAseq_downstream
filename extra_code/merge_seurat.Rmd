@@ -1,0 +1,62 @@
+---
+title: "merge seurat"
+output: "html_document"
+---
+
+# ENVIRONMENT SETUP
+```{r env}
+library(Seurat)
+library(reticulate)
+library(rmarkdown)
+library(SeuratDisk)
+use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
+```
+# GET DATA
+```{r data}
+DATA_DIR <- "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/"
+setwd(DATA_DIR)
+#seurat.combined <- readRDS(file="GAMM_S1-S2_combined.rds")
+seurat.obj.1 <- readRDS(file="seurat_obj_labeled_S1.rds")
+seurat.obj.2 <- readRDS(file="seurat_obj_labeled_S2.rds")
+print(seurat.obj.1)
+print(seurat.obj.2)
+```
+# merge
+```{r merge}
+seurat.combined <- merge(seurat.obj.1, y = seurat.obj.2, 
+                        project = "combined40-120",merge.data = TRUE)
+print(seurat.combined)
+table(seurat.combined$orig.ident)
+```
+# stash idents
+```{r stash}
+seurat.combined[["CellType_combined"]] <- Idents(object = seurat.combined)
+table(seurat.combined$CellType_combined)
+```
+# reset identity class
+```{r reset}
+# Set identity classes to an existing column in meta data
+Idents(object = seurat.combined) <- "orig.ident"
+# rename
+new_names <- c("GAMM_40", "GAMM_40", "GAMM_120", "GAMM_120", "GAMM_120")
+names(new_names) <- levels(seurat.combined)
+seurat.combined <- RenameIdents(object = seurat.combined, 
+                                new_names)
+# redo orig,ident
+seurat.combined[["orig.ident2"]] <- Idents(object = seurat.combined)
+```
+# change metadata to characters before writing
+```{r metadata}
+i <- sapply(seurat.combined@meta.data, is.factor)
+seurat.combined@meta.data[i] <- lapply(seurat.combined@meta.data[i], as.character)
+```
+# write
+```{r write}
+# write as seurat obj
+saveRDS(seurat.combined, file="GAMM_S1-S2_combined.rds")
+# write as h5ad obj
+# first save seurat as h5 seurat file
+SaveH5Seurat(seurat.combined, filename = "GAMM_S1-S2_combined.h5Seurat")
+# then convert to h5ad
+Convert("GAMM_S1-S2_combined.h5Seurat", dest = "h5ad")
+```

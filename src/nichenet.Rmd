@@ -1,29 +1,703 @@
+---
+title: "NicheNet Analysis"
+output: html_document
+---
+
 # niche net
 
 ```{r load_packages}
+# conda activate scRNAseq_new
 library(nichenetr) # Please update to v2.0.4
 library(Seurat)
 library(SeuratObject)
 library(tidyverse)
+library(viridis)
+library(digest)
+library(DiagrammeR)
+```
+```{r load_seurat}
+projPath <- "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/"
+# example data from https://zenodo.org/records/3531889/files/seuratObj.rds
+# seuratObj <- readRDS(file= paste0(projPath,"seuratObj_nichenet.rds"))
+# read in object 1
+seuratObjNR <- readRDS(file = paste0(projPath, "seurat_mouse_annot_6WkNR.rds"))
+seuratObjR <- readRDS(file = paste0(projPath, "seurat_mouse_annot_6WkR.rds"))
+print(seuratObjNR@meta.data %>% head())
+print(seuratObjR@meta.data %>% head())
+```
+```{r}
+# Merge two Seurat objects
+seuratObj <- merge(x = seuratObjR, y = seuratObjNR, merge.data = TRUE)
+seuratObj[["RNA"]] <- JoinLayers(seuratObj[["RNA"]])
+# For older Seurat objects, you may need to run this
+seuratObj <- UpdateSeuratObject(seuratObj)
+print(seuratObj)
+seuratObj@meta.data %>% head()
+table(seuratObj$Type)
+table(seuratObj$CellType)
+table(seuratObj$seurat_clusters)
 ```
 
-```{r load_seurat}
-output <- "/w5home/bmoore/Pierre_sc_zebrafish/"
-seuratObj <- readRDS(file= paste0(output,"seurat.obj.mouse_1wk.rds"))
-seuratObj@meta.data %>% head()
-table(seuratObj$labels)
-# For older Seurat objects, you may need to run this
-#seuratObj <- UpdateSeuratObject(seuratObj)
-print(seuratObj)
+```{r readin_networks}
+# from: zenodo_path <- " https://zenodo.org/record/7074291/files/"
+network_path <- "/w5home/bmoore/Pierre_sc_zebrafish/nichenet/nichenet_networks/"
+ligand_target_matrix <- readRDS(paste0(network_path, "ligand_target_matrix_nsga2r_final_mouse.rds"))
+lr_network <- readRDS(paste0(network_path, "lr_network_mouse_21122021.rds"))
+weighted_networks <- readRDS(paste0(network_path, "weighted_networks_nsga2r_final_mouse.rds"))
+# read ligand/TF matrix
+ligand_tf_matrix <- readRDS(file = paste0(network_path, "ligand_tf_matrix_nsga2r_final_mouse.rds"))
+# save as dataframe
+ligand_tf_matrix_df <- as.data.frame(ligand_tf_matrix)
+ligand_target_matrix_df <- as.data.frame(ligand_target_matrix)
+lr_network_df <- as.data.frame(lr_network)
+# write out
+# write.table(ligand_tf_matrix_df, file = paste0("Nichenet_ligand-tf_matrix.txt"),
+#     sep = "\t", quote = FALSE)
+# write.table(ligand_target_matrix_df, file = paste0("Nichenet_ligand-target_matrix.txt"),
+#     sep = "\t", quote = FALSE)
+# write.table(lr_network_df, file = paste0("Nichenet_ligand-receptor_network.txt"),
+#     sep = "\t", quote = FALSE)
 ```
 
 ```{r convert_symbols}
-# cnovert old symbols
-seuratObj <- alias_to_symbol_seurat(seuratObj, "mouse")
+Features(seuratObj[["RNA"]])
+# convert old symbols
+# seuratObj <- alias_to_symbol_seurat(seuratObj, "mouse")
 ```
 
-```{r visualize}
-pdf(file=paste0(output,"seurat_mouse_umap1wk.pdf"))
-DimPlot(seuratObj, reduction = "umap", group.by = "CellType")
+```{r outputdir}
+name <- "6wk_R-NR_"
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("/w5home/bmoore/Pierre_sc_zebrafish/nichenet/nichnet_", name, timestamp)
+print(output)
+dir.create(output, mode = "0777", showWarnings = FALSE)
+output <- paste0(output, "/")
+```
+```{r}
+# run dim reduction and plot umap
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- RunUMAP(seuratObj, dims = 1:15)
+gg1 <- DimPlot(seuratObj, reduction = "umap", group.by = "CellType")
+gg2 <- DimPlot(seuratObj, reduction = "umap", group.by = "Type")
+pdf(file = paste0(output, "seurat_mouse_umap.pdf"), height = 6, width = 10)
+patchwork::wrap_plots(plots = list(gg1, gg2))
 dev.off()
+```
+```{r}
+# define reference condition and condition of interest
+condition_oi <- "6Wk-R" # this is the "case" cond
+condition_reference <- "6Wk-NR" # this is the "control"
+```
+```{r}
+# set cell type annotation
+Idents(seuratObj) <- seuratObj$CellType
+table(Idents(seuratObj))
+# define receiver
+receivers <- c("T_Cells_and_Neutrophils", "Fibroblasts") # , "T_Cells_and_Neutrophils", "Immature_Neurons","Gabaergic_Neurons","Glutamatergic_Neurons",,"Glycinergic_Neurons", "Motor_Neurons"
+for (i in 1:length(receivers)) {
+  print(receivers[i])
+}
+```
+
+
+```{r}
+# visualization functions
+
+# heatmap of ligand activity
+lig_activity_heatmap <- function(vis_ligand_aupr, output, name, receiver) {
+  pdf(file = paste0(output, name, "_", receiver, "_ligand_activity_heatmap", condition_oi, ".pdf"), width = 3, height = 8)
+  print(make_heatmap_ggplot(vis_ligand_aupr,
+    y_name = "Prioritized ligands",
+    x_name = "Ligand activity", legend_title = "AUPR", color = "darkorange"
+  ) +
+    theme(axis.text.x.top = element_blank()))
+  dev.off()
+}
+
+# heat map of target potential
+lig_target_heatmap <- function(vis_ligand_target, output, name, receiver) {
+  pdf(file = paste0(output, name, "_", receiver, "_ligand-target_reg_potential_heatmap", condition_oi, ".pdf"), width = 8, height = 5)
+  print(make_heatmap_ggplot(vis_ligand_target,
+    y_name = "Prioritized ligands", x_name = "Predicted target genes",
+    color = "purple", legend_title = "Regulatory potential"
+  ) +
+    scale_fill_gradient2(low = "whitesmoke", high = "purple"))
+  dev.off()
+}
+
+# heat map of ligand-receptor
+LR_heatmap <- function(vis_ligand_receptor_network, output, name, receiver) {
+  pdf(file = paste0(output, name, "_", receiver, "_ligand-receptor_interactions_heatmap", condition_oi, ".pdf"))
+  print(make_heatmap_ggplot(t(vis_ligand_receptor_network),
+    y_name = "Prioritized ligands",
+    x_name = "Receptors", color = "mediumvioletred", legend_title = "Prior interaction potential"
+  ))
+  dev.off()
+}
+
+ligand_lfc_heatmap <- function(vis_ligand_lfc, output, name, receiver) {
+  pdf(file = paste0(output, name, "_", receiver, "_ligand_logfc_heatmap", condition_oi, ".pdf"))
+  print(make_threecolor_heatmap_ggplot(vis_ligand_lfc,
+    y_name = "Prioritized ligands",
+    x_name = "LFC in Sender", low_color = "midnightblue", mid_color = "white",
+    mid = median(vis_ligand_lfc), high_color = "red", legend_title = "LFC"
+  ))
+  dev.off()
+}
+
+ligand_dotplot <- function(seuratObj, best_upstream_ligands, output, name, receiver) {
+  pdf(file = paste0(output, name, "_", receiver, "_ligand_expr_dotplot", condition_oi, ".pdf"))
+  print(DotPlot(subset(seuratObj, CellType %in% sender_celltypes),
+    features = rev(best_upstream_ligands), cols = "RdYlBu"
+  ) +
+    coord_flip() + scale_y_discrete(position = "right") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)))
+  dev.off()
+}
+
+ligand_lineplot <- function(ligand_activities_all, potential_ligands_focused, output, name, receiver) {
+  pdf(file = paste0(output, name, "_", receiver, "_ligand_activities_lineplot", condition_oi, ".pdf"))
+  print(make_line_plot(
+    ligand_activities = ligand_activities_all,
+    potential_ligands = potential_ligands_focused
+  ))
+  dev.off()
+}
+
+chord_diagram <- function(sender_celltypes, circos_links, plot_name, output, name, receiver) {
+  # Check for any cell types in circos_links that are missing from sender_celltypes
+  extra_types <- setdiff(unique(circos_links$ligand_type), sender_celltypes)
+  # Remove "General" from extra_types if it's there (we will add it specifically)
+  extra_types <- extra_types[extra_types != "General"]
+
+  # Construct list: senders + extra + General
+  sender_celltypes_gen <- c(sender_celltypes, extra_types, "General")
+  # Assign colors
+  print(sender_celltypes_gen)
+  colors <- viridis(length(sender_celltypes_gen), option = "D")
+  print(colors)
+  ligand_colors <- setNames(colors, sender_celltypes_gen)
+  print(ligand_colors)
+  target_colors <- setNames("#999999", receiver)
+  # prepare circos object
+  vis_circos_obj <- prepare_circos_visualization(circos_links,
+    ligand_colors = ligand_colors, target_colors = target_colors
+  )
+  # make legend
+  par(bg = "transparent")
+  # Default celltype order
+  celltype_order <- unique(circos_links$ligand_type) %>%
+    sort() %>%
+    .[. != "General"] %>%
+    c(., "General")
+  # Create legend
+  circos_legend <- ComplexHeatmap::Legend(
+    labels = celltype_order,
+    background = ligand_colors[celltype_order],
+    type = "point",
+    grid_height = unit(3, "mm"),
+    grid_width = unit(3, "mm"),
+    labels_gp = grid::gpar(fontsize = 8)
+  )
+  circos_legend_grob <- grid::grid.grabExpr(ComplexHeatmap::draw(circos_legend))
+
+  # combine plot with legend and make pdf
+  pdf(file = paste0(output, name, "_", receiver, "_", plot_name, "_chord", condition_oi, ".pdf"))
+  print(cowplot::plot_grid(
+    make_circos_plot(vis_circos_obj,
+      transparency = TRUE,
+      link.visible = TRUE, args.circos.text = list(cex = 0.5)
+    ),
+    circos_legend_grob,
+    rel_widths = c(1, 0.1)
+  )) # combine chord plot and legend
+  dev.off()
+}
+
+mushroom_plot <- function(prioritized_table, output, name, receiver) {
+  mp <- make_mushroom_plot(prioritized_table, top_n = 30, show_all_datapoints = TRUE, show_rankings = TRUE, condition_oi = condition_oi)
+  pdf(file = paste0(output, name, "_", receiver, "_ligand-prioritize_mushroom_plot", condition_oi, ".pdf"))
+  print(mp + theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5),
+    legend.position = "bottom"
+  ))
+  dev.off()
+}
+```
+```{r}
+# make signaling network maps (ligand -> receptor -> target TF -> target)
+sig_network_maps <- function(order_ligands, order_targets, weighted_networks,
+                             ligand_tf_matrix, output, name, receiver) {
+  # Signaling graph depicting the key mediators between a ligand–target pair
+  ligands_oi <- unique(as.vector(order_ligands))
+  print("maps for ligands: ")
+  print(ligands_oi)
+  targets_oi <- unique(as.vector(order_targets))
+  active_signaling_network <- get_ligand_signaling_path(
+    ligands_all = ligands_oi,
+    targets_all = targets_oi, weighted_networks = weighted_networks,
+    ligand_tf_matrix = ligand_tf_matrix, top_n_regulators = 4, minmax_scaling = TRUE
+  )
+  # DiagrammeR signaling graph
+  signaling_graph <- diagrammer_format_signaling_graph(
+    signaling_graph_list = active_signaling_network,
+    ligands_all = ligands_oi, targets_all = targets_oi, sig_color = "indianred", gr_color = "steelblue"
+  )
+  tryCatch(
+    {
+      signaling_graph %>%
+        export_graph(
+          file_name = paste0(output, name, "_", receiver, "_", "signaling_graph.pdf"),
+          title = paste0("Ligand-Target Diagram for ", receiver)
+        )
+    },
+    error = function(msg) {
+      print("Error, cannot make signaling graph")
+      return(NA)
+    }
+  )
+
+  ## loop to graph all ligands with targets
+  for (i in 1:length(ligands_oi)) {
+    ligand <- ligands_oi[i]
+    print(ligand)
+    active_signaling_network_ligand <- get_ligand_signaling_path(
+      ligands_all = ligand,
+      targets_all = targets_oi, weighted_networks = weighted_networks,
+      ligand_tf_matrix = ligand_tf_matrix, top_n_regulators = 4, minmax_scaling = TRUE
+    )
+    signaling_graph_lig <- diagrammer_format_signaling_graph(
+      signaling_graph_list = active_signaling_network_ligand,
+      ligands_all = ligand, targets_all = targets_oi, sig_color = "indianred", gr_color = "steelblue"
+    )
+    signaling_graph_lig %>%
+      export_graph(
+        file_name = paste0(output, name, "_", receiver, "_", ligand, "_signaling_graph", condition_oi, ".pdf"),
+        title = paste0("Ligand-Target Diagram for ", receiver, "_", ligand)
+      )
+  }
+}
+```
+
+```{r}
+# loop through receivers
+for (i in 1:length(receivers)) {
+  receiver <- receivers[i]
+  print(receiver)
+
+  ## Find potential Ligands
+  # get genes expressed in receiver pop
+  expressed_genes_receiver <- get_expressed_genes(receiver, seuratObj, pct = 0.05)
+  expressed_genes_receiver
+  # get all receptors from lr_network and find the expressed ones
+  all_receptors <- unique(lr_network$to)
+  expressed_receptors <- intersect(all_receptors, expressed_genes_receiver)
+  # find potential ligands as all ligands whose recepters are expressed
+  potential_ligands <- lr_network[lr_network$to %in% expressed_receptors, ]
+  potential_ligands <- unique(potential_ligands$from)
+  # filter by sender celltypes- potenital ligands are expressed here
+  sender_celltypes <- as.vector(unique(seuratObj$CellType))
+  sender_celltypes <- sender_celltypes[sender_celltypes != receiver]
+  list_expressed_genes_sender <- lapply(sender_celltypes, function(celltype) {
+    get_expressed_genes(celltype, seuratObj, pct = 0.05)
+  })
+  expressed_genes_sender <- unique(unlist(list_expressed_genes_sender))
+  potential_ligands_focused <- intersect(potential_ligands, expressed_genes_sender)
+  print(potential_ligands_focused)
+
+  ## DE for reciever group
+  # here, "group.by" is the condition variable in the metadata
+  seurat_obj_receiver <- subset(seuratObj, idents = receiver)
+  DE_table_receiver <- FindMarkers(
+    object = seurat_obj_receiver,
+    ident.1 = condition_oi, ident.2 = condition_reference,
+    group.by = "Type", min.pct = 0.05
+  )
+
+  # find targets as those genes that are DE and in the target matrix
+  geneset_oi <- DE_table_receiver[DE_table_receiver$p_val_adj <= 0.05 &
+    abs(DE_table_receiver$avg_log2FC) >= 0.25, ]
+  geneset_oi <- rownames(geneset_oi)[rownames(geneset_oi) %in%
+    rownames(ligand_target_matrix)]
+  if (length(geneset_oi) == 0) {
+    geneset_oi <- DE_table_receiver[DE_table_receiver$p_val_adj <= 0.06 &
+      abs(DE_table_receiver$avg_log2FC) >= 0.2, ]
+    geneset_oi <- rownames(geneset_oi)[rownames(geneset_oi) %in%
+      rownames(ligand_target_matrix)]
+    print(paste0("DE genes: ", geneset_oi))
+  } else {
+    print(paste0("DE genes: ", geneset_oi))
+  }
+  # determine background genes, or all genes expressed in the receiver cell type that are also in ligand-target matrix
+  background_expressed_genes <- expressed_genes_receiver[expressed_genes_receiver %in%
+    rownames(ligand_target_matrix)]
+
+  ## Ligand activaity analysis
+  suppressWarnings({
+    ligand_activities <- predict_ligand_activities(
+      geneset = geneset_oi,
+      background_expressed_genes = background_expressed_genes,
+      ligand_target_matrix = ligand_target_matrix,
+      potential_ligands = potential_ligands
+    )
+  })
+  ligand_activities <- ligand_activities[order(ligand_activities$aupr_corrected,
+    decreasing = TRUE
+  ), ]
+  # optional: subset ligand activites to contain only expressed ligands
+  ligand_activities_all <- ligand_activities
+  ligand_activities <- ligand_activities[ligand_activities$test_ligand %in% potential_ligands_focused, ]
+  ligand_activities %>% head()
+
+  # replace ligand_activities with ligand_activities_all for sender agnostic approach
+  # top 50 ligands
+  best_upstream_ligands <- top_n(ligand_activities, 50, aupr_corrected)$test_ligand
+  print(best_upstream_ligands)
+  best_upstream_ligands <- append(best_upstream_ligands, "App")
+  # make dataframe of ligand activities
+  ligand_activities_df <- as.data.frame(ligand_activities)
+  write.table(ligand_activities_df,
+    file = paste0(output, name, "_", receiver, "_ligand_activities", condition_oi, ".txt"),
+    sep = "\t", quote = FALSE
+  )
+
+  ## Ligand-Target
+  # Infer which genes (targets) in the gene set of interest have the highest regulatory potential for each top-ranked ligand
+  active_ligand_target_links_df <- lapply(best_upstream_ligands, get_weighted_ligand_target_links,
+    geneset = geneset_oi, ligand_target_matrix = ligand_target_matrix, n = 200
+  )
+  active_ligand_target_links_df <- drop_na(bind_rows(active_ligand_target_links_df))
+  print(active_ligand_target_links_df)
+  write.table(as.data.frame(active_ligand_target_links_df),
+    file = paste0(output, name, "_", receiver, "_ligand-target_links", condition_oi, ".txt"),
+    sep = "\t", quote = FALSE
+  )
+
+  ## Ligand-Receptor
+  # get_weighted_ligand_receptor_links will return genes that are in the gene set of interest and are the top n targets of a ligand (default: n = 250)
+  ligand_receptor_links_df <- get_weighted_ligand_receptor_links(
+    best_upstream_ligands,
+    expressed_receptors, lr_network, weighted_networks$lr_sig
+  )
+  # write out
+  write.table(as.data.frame(ligand_receptor_links_df),
+    file = paste0(output, name, "_", receiver, "_ligand-receptor_links", condition_oi, ".txt"),
+    sep = "\t", quote = FALSE
+  )
+
+  ###### Visualizations ######
+
+  ## heatmap of ligand activity
+  ligand_aupr_matrix <- column_to_rownames(ligand_activities, "test_ligand")
+  ligand_aupr_matrix <- ligand_aupr_matrix[rev(best_upstream_ligands),
+    "aupr_corrected",
+    drop = FALSE
+  ]
+  vis_ligand_aupr <- as.matrix(ligand_aupr_matrix, ncol = 1)
+  lig_activity_heatmap(vis_ligand_aupr, output, name, receiver)
+
+
+  ## Heatmap of ligand–target regulatory potential
+  # prepare matrix
+  active_ligand_target_links <- prepare_ligand_target_visualization(
+    ligand_target_df = active_ligand_target_links_df,
+    ligand_target_matrix = ligand_target_matrix, cutoff = 0.05
+  ) # 0.25
+  if (all(is.na(active_ligand_target_links)) == FALSE) {
+    # order rows and columns
+    order_ligands <- rev(intersect(best_upstream_ligands, colnames(active_ligand_target_links)))
+    order_targets <- intersect(unique(active_ligand_target_links_df$target), rownames(active_ligand_target_links))
+    vis_ligand_target <- t(active_ligand_target_links[order_targets, order_ligands])
+    # write out
+    write.table(as.data.frame(vis_ligand_target), file = paste0(
+      output, name,
+      "_", receiver, "_ligand-target_reg_potential", condition_oi, ".txt"
+    ), sep = "\t", quote = FALSE)
+    # heatmap
+    lig_target_heatmap(vis_ligand_target, output, name, receiver)
+    ## Chord diagram of ligand–target interactions
+    # assign ligand to celltype
+    ligand_type_indication_df <- assign_ligands_to_celltype(seuratObj,
+      best_upstream_ligands[1:20],
+      celltype_col = "CellType"
+    )
+    # Use the weighted ligand–target data frame to group target genes
+    active_ligand_target_links_df$target_type <- receiver
+    circos_links <- get_ligand_target_links_oi(ligand_type_indication_df,
+      active_ligand_target_links_df,
+      cutoff = 0.40
+    )
+    # chord diagram
+    chord_diagram(
+      sender_celltypes, circos_links, "ligand-target_interactions",
+      output, name, receiver
+    )
+    # make signaliing maps between ligand and targets
+    print("Making signaling network maps")
+    sig_network_maps(
+      order_ligands, order_targets, weighted_networks,
+      ligand_tf_matrix, output, name, receiver
+    )
+  } else {
+    print(paste0(receiver, ": No active_ligand_target_links"))
+    ligand_type_indication_df <- assign_ligands_to_celltype(seuratObj,
+      best_upstream_ligands[1:20],
+      celltype_col = "CellType"
+    )
+  }
+
+  ## Heatmap of LR interaction potential
+  # prepare matrix
+  vis_ligand_receptor_network <- prepare_ligand_receptor_visualization(ligand_receptor_links_df,
+    best_upstream_ligands,
+    order_hclust = "receptors"
+  )
+  # heatmap
+  LR_heatmap(vis_ligand_receptor_network, output, name, receiver)
+
+  ## Heatmap of ligand log-fold change across conditions
+  # compute log FC
+  celltype_order <- levels(Idents(seuratObj))
+  DE_table_top_ligands <- lapply(celltype_order[celltype_order %in% sender_celltypes], function(celltype) {
+    tryCatch(
+      {
+        get_lfc_celltype(celltype,
+          seurat_obj = seuratObj, condition_colname = "Type",
+          condition_oi = condition_oi, condition_reference = condition_reference,
+          celltype_col = "CellType", min.pct = 0, logfc.threshold = 0,
+          features = best_upstream_ligands
+        )
+      },
+      error = function(e) {
+        print(paste0("Error in get_lfc_celltype for ", celltype, ": ", e$message))
+        return(NULL)
+      }
+    )
+  })
+  DE_table_top_ligands <- DE_table_top_ligands[!sapply(DE_table_top_ligands, is.null)]
+  DE_table_top_ligands <- reduce(DE_table_top_ligands, full_join)
+  DE_table_top_ligands <- column_to_rownames(DE_table_top_ligands, "gene")
+  # get matrix
+  vis_ligand_lfc <- as.matrix(DE_table_top_ligands[rev(best_upstream_ligands), ])
+  # order
+  celltype_colnames <- colnames(vis_ligand_lfc)
+  vis_ligand_lfc <- as.data.frame(vis_ligand_lfc) %>%
+    arrange(desc(celltype_colnames[1]), celltype_colnames[2]) # to change direction add desc()
+  # matrix
+  vis_ligand_lfc <- as.matrix(vis_ligand_lfc)
+  # heatmap
+  ligand_lfc_heatmap(vis_ligand_lfc, output, name, receiver)
+
+  ## Dot plot of ligand expr and fraction of expressed cells
+  ligand_dotplot(seuratObj, best_upstream_ligands, output, name, receiver)
+
+  ## Lineplot comparing ligand rankings between sender agnostic and sender focused
+  ligand_lineplot(ligand_activities_all, potential_ligands_focused, output, name, receiver)
+
+
+  ## Chord diagram of LR interactions
+  lr_network_top_df <- rename(ligand_receptor_links_df, ligand = from, target = to)
+  lr_network_top_df$target_type <- receiver
+  lr_network_top_df <- inner_join(lr_network_top_df, ligand_type_indication_df)
+  # chord plot
+  chord_diagram(
+    sender_celltypes, lr_network_top_df, "ligand-receptor_interactions",
+    output, name, receiver
+  )
+
+  ## Prioritization of LR pairs
+  # filter network
+  lr_network_filtered <- filter(lr_network, from %in%
+    potential_ligands_focused & to %in% expressed_receptors)[
+    ,
+    c("from", "to")
+  ]
+  # Calculate DE between cell types, average expression and DE between conditions
+  info_tables <- generate_info_tables(seuratObj,
+    celltype_colname =
+      "CellType", senders_oi = sender_celltypes, receivers_oi = receiver,
+    lr_network = lr_network_filtered, condition_colname = "Type",
+    condition_oi = condition_oi, condition_reference = condition_reference,
+    scenario = "case_control"
+  )
+  # make output tables
+  processed_DE_table <- info_tables$sender_receiver_de
+  processed_expr_table <- info_tables$sender_receiver_info
+  processed_condition_markers <- info_tables$lr_condition_de
+
+  # Generate the prioritization table
+  prioritized_table <- generate_prioritization_tables(
+    sender_receiver_info =
+      processed_expr_table, sender_receiver_de = processed_DE_table,
+    ligand_activities = ligand_activities, lr_condition_de =
+      processed_condition_markers, scenario = "case_control"
+  )
+  prioritized_table$sender <- factor(prioritized_table$sender,
+    levels = sender_celltypes
+  )
+  # write out
+  write.table(as.data.frame(prioritized_table), file = paste0(
+    output, name,
+    "_", receiver, "_ligand-receptor_prioritized_table", condition_oi, ".txt"
+  ), sep = "\t", quote = FALSE)
+
+  # mushroom plot
+  mushroom_plot(prioritized_table, output, name, receiver)
+}
+```
+
+
+
+####### Run mulitple receiver celltypes ########
+```{r}
+# Prioritizing LR pairs across multiple receiver cell types
+receiver_celltypes <- c("T_Cells_and_Neutrophils", "Fibroblasts")
+nichenet_outputs <- lapply(receiver_celltypes, function(receiver_ct) {
+  tryCatch(
+    {
+      output <- nichenet_seuratobj_aggregate(
+        receiver = receiver_ct,
+        seurat_obj = seuratObj,
+        condition_colname = "Type",
+        condition_oi = condition_oi,
+        condition_reference = condition_reference,
+        sender = sender_celltypes,
+        ligand_target_matrix = ligand_target_matrix,
+        lr_network = lr_network,
+        weighted_networks = weighted_networks,
+        expression_pct = 0.05
+      )
+      # Add receiver information
+      output$ligand_activities$receiver <- receiver_ct
+      return(output)
+    },
+    error = function(e) {
+      print(paste("Error processing", receiver_ct, ":", e$message))
+      return(NULL)
+    }
+  )
+})
+
+# Remove NULL results (failed runs)
+nichenet_outputs <- nichenet_outputs[!sapply(nichenet_outputs, is.null)]
+# Generate tables used for prioritization
+info_tables <- lapply(nichenet_outputs, function(output) {
+  # Only use expressed LR pairs
+  lr_network_filtered <- filter(
+    lr_network[, c("from", "to")],
+    from %in% output$ligand_activities$test_ligand & to %in% output$background_expressed_genes
+  )
+  generate_info_tables(seuratObj,
+    celltype_colname = "CellType",
+    senders_oi = sender_celltypes,
+    receivers_oi = unique(output$ligand_activities$receiver),
+    lr_network_filtered = lr_network_filtered,
+    condition_colname = "Type",
+    condition_oi = condition_oi,
+    condition_reference = condition_reference,
+    scenario = "case_control"
+  )
+})
+# Combine the tables
+info_tables_combined <- purrr::pmap(info_tables, bind_rows)
+ligand_activities_combined <- purrr::map_dfr(nichenet_outputs, "ligand_activities")
+# Perform prioritization
+prior_table_combined <- generate_prioritization_tables(
+  sender_receiver_info = distinct(info_tables_combined$sender_receiver_info),
+  sender_receiver_de = info_tables_combined$sender_receiver_de,
+  ligand_activities = ligand_activities_combined,
+  lr_condition_de = distinct(info_tables_combined$lr_condition_de),
+  scenario = "case_control"
+)
+# mushroom plot
+mp <- make_mushroom_plot(prior_table_combined, top_n = 30, show_all_datapoints = TRUE, show_rankings = TRUE)
+pdf(file = paste0(output, name, "_", "ligand-prioritize_combined_mushroom_plot.pdf"))
+print(mp + theme(
+  axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5),
+  legend.position = "bottom"
+))
+dev.off()
+```
+
+```{r}
+# random forest model to find the top predicted ligand target genes
+# may be helpful if no target potential genes from the above script
+# Does the given gene more likely belong to gene set of interest or to background genes?
+# Predictors are regulatory potential scores of the top 30 predicted genes
+
+# Define cross-validation folds and number of iterations
+k <- 3
+n <- 10
+# Build random forest model and obtain prediction values
+predictions_list <- lapply(1:n, assess_rf_class_probabilities,
+  folds = k,
+  geneset = geneset_oi, background_expressed_genes = background_expressed_genes,
+  ligands_oi = best_upstream_ligands, ligand_target_matrix = ligand_target_matrix
+)
+# Get classification metrics of the models, then calculate mean across all rounds
+performances_cv <- bind_rows(lapply(predictions_list, classification_evaluation_continuous_pred_wrapper))
+colMeans(performances_cv)
+# Calculate fraction of target genes and non-target genes
+# that are among the top 5% predicted targets
+fraction_cv <- bind_rows(lapply(predictions_list, calculate_fraction_top_predicted,
+  quantile_cutoff = 0.95
+), .id = "round")
+# In this case, ~30% of target genes are in the top targets
+# compared to ~1% of the non-target genes
+mean(filter(fraction_cv, true_target)$fraction_positive_predicted)
+mean(filter(fraction_cv, !true_target)$fraction_positive_predicted)
+# Perform Fisher's exact test
+lapply(predictions_list, calculate_fraction_top_predicted_fisher, quantile_cutoff = 0.95)
+# Get which genes had the highest prediction values
+top_predicted_genes <- lapply(1:n, get_top_predicted_genes, predictions_list)
+top_predicted_genes <- reduce(top_predicted_genes, full_join, by = c("gene", "true_target"))
+print(top_predicted_genes)
+# write out
+write.table(as.data.frame(top_predicted_genes), file = paste0(
+  output, name,
+  "_", receiver, "_top_predicted_target_genes.txt"
+), sep = "\t", quote = FALSE)
+```
+# ####### Requires specifc ligand-target pair #######
+```{r}
+# Signaling graph depicting the key mediators between a ligand–target pair
+
+ligands_oi <- as.vector(order_ligands)
+targets_oi <- as.vector(order_targets)
+active_signaling_network <- get_ligand_signaling_path(
+  ligands_all = ligands_oi,
+  targets_all = targets_oi, weighted_networks = weighted_networks,
+  ligand_tf_matrix = ligand_tf_matrix, top_n_regulators = 4, minmax_scaling = TRUE
+)
+print(active_signaling_network)
+# DiagrammeR signaling graph
+signaling_graph <- diagrammer_format_signaling_graph(
+  signaling_graph_list = active_signaling_network,
+  ligands_all = ligands_oi, targets_all = targets_oi, sig_color = "indianred", gr_color = "steelblue"
+)
+
+signaling_graph %>%
+  export_graph(
+    file_name = paste0(output, name, "_", receiver, "_", "signaling_graph.pdf"),
+    title = "Ligand-Target Diagram"
+  )
+
+## loop to graph all ligands with targets
+for (i in 1:length(ligands_oi)) {
+  ligand <- ligands_oi[i]
+  active_signaling_network_ligand <- get_ligand_signaling_path(
+    ligands_all = ligand,
+    targets_all = targets_oi, weighted_networks = weighted_networks,
+    ligand_tf_matrix = ligand_tf_matrix, top_n_regulators = 4, minmax_scaling = TRUE
+  )
+  signaling_graph <- diagrammer_format_signaling_graph(
+    signaling_graph_list = active_signaling_network_ligand,
+    ligands_all = ligand, targets_all = targets_oi, sig_color = "indianred", gr_color = "steelblue"
+  )
+  signaling_graph %>%
+    export_graph(
+      file_name = paste0(output, name, "_", receiver, "_", ligand, "_signaling_graph.pdf"),
+      title = paste0("Ligand-Target Diagram for ", receiver, "_", ligand)
+    )
+}
 ```
