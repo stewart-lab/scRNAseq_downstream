@@ -1,0 +1,225 @@
+---
+title: "subset_data_for_positively_expressed_cells"
+author: "Beth Moore"
+date: "2024-10-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Seurat)
+library(patchwork)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(reticulate)
+library(SeuratWrappers)
+library(ggplot2)
+library(SeuratDisk)
+library(dplyr)
+library(tidyverse)
+use_condaenv("scRNAseq_new")
+
+# set variables
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
+config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
+# DATA_DIR <- config$subset_seurat$DATA_DIR
+# SEURAT_OBJ <- config$subset_seurat$SEURAT_OBJ
+# GENE_LIST <- config$subset_seurat$GENE_LIST
+# DIM.RED <- config$subset_seurat$DIM.RED
+# ANNOT <- config$subset_seurat$ANNOT
+
+DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/"
+SEURAT_OBJ <- "seuratobj_all_reclustered.rds"
+GENE_LIST <- config$subset_seurat$GENE_LIST
+DIM.RED <- "pca"
+ANNOT <- "seurat_clusters_res0.75"
+
+# set up environment and output
+setwd(DATA_DIR)
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("output_subset_", timestamp)
+dir.create(output, showWarnings = FALSE)
+file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
+output <- paste0(output, "/")
+config <- jsonlite::fromJSON(file.path(output, "config.json"))
+source(paste0(GIT_DIR, "src/sc_pipeline_functions.R"))
+```
+```{r load_data}
+seurat.obj <- readRDS(file = SEURAT_OBJ)
+seurat.obj
+colnames(seurat.obj@meta.data)
+```
+# create Timepoint and Condition metadata from Type
+```{r split_metadata}
+# Extract timepoint: everything before the hyphen (or the full value for Sham/1Wk)
+seurat.obj$Timepoint <- gsub("-.*", "", seurat.obj$Type)
+
+# Extract condition: everything after the hyphen, or "Undetermined" for Sham/1Wk
+seurat.obj$Condition <- ifelse(
+        grepl("-", seurat.obj$Type),
+        gsub(".*-", "", seurat.obj$Type),
+        "Undetermined"
+)
+
+# Verify the new columns
+table(seurat.obj$Timepoint)
+table(seurat.obj$Condition)
+table(seurat.obj$Type, seurat.obj$Timepoint)
+table(seurat.obj$Type, seurat.obj$Condition)
+```
+# subset for positively expressed genelist
+```{r get_cells}
+new.obj <- GetAssayData(object = seurat.obj, layer = "data")[GENE_LIST, ] > 0
+```
+```{r subset}
+# get the required cells
+df <- as.data.frame(new.obj)
+# get cells that are true
+cellstokeep <- which(apply(df, 2, any))
+# subset the required cells
+seurat.obj_subset <- subset(seurat.obj, cells = cellstokeep)
+seurat.obj_subset
+```
+# subset according to metadata
+```{r subset2}
+seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 == "3")
+seurat.obj_subset
+```
+
+```{r plot}
+plot_function <- function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT) {
+        p1 <- DimPlot(seurat.obj_subset,
+                reduction = DIM.RED, label = TRUE,
+                pt.size = 0.5, group.by = ANNOT
+        )
+        p2 <- DimPlot(seurat.obj,
+                reduction = DIM.RED, label = TRUE,
+                pt.size = 0.5, group.by = ANNOT
+        )
+        p3 <- DimPlot(seurat.obj_subset,
+                reduction = DIM.RED,
+                pt.size = 0.5, group.by = "Condition"
+        )
+        p4 <- DimPlot(seurat.obj_subset,
+                reduction = DIM.RED, label = TRUE,
+                pt.size = 0.5, group.by = "Timepoint"
+        )
+
+        # Combined plot: Timepoint as color, Condition as shape
+        embed <- Embeddings(seurat.obj_subset, reduction = DIM.RED)[, 1:2]
+        plot_df <- data.frame(
+                PC_1 = embed[, 1],
+                PC_2 = embed[, 2],
+                Timepoint = seurat.obj_subset$Timepoint,
+                Condition = seurat.obj_subset$Condition
+        )
+        p5 <- ggplot(plot_df, aes(x = PC_1, y = PC_2, color = Timepoint, shape = Condition)) +
+                geom_point(size = 1.5, alpha = 0.7) +
+                theme_classic() +
+                labs(
+                        title = "PCA: Timepoint (color) & Condition (shape)",
+                        x = "PC 1", y = "PC 2"
+                ) +
+                guides(
+                        color = guide_legend(override.aes = list(size = 3)),
+                        shape = guide_legend(override.aes = list(size = 3))
+                )
+
+        combined_plot <- ((p1 | p2) / (p3 | p4) / p5) + plot_layout(
+                width = c(2, 2, 2),
+                heights = c(1, 1, 1)
+        )
+        pdf(file = paste0(output, "seurat_subset_cluster_", cluster_name, ".pdf"), width = 12, height = 12)
+        print(combined_plot)
+        dev.off()
+}
+```
+# loop through clusters, subset and plot
+```{r loop}
+cluster_list <- unique(seurat.obj@meta.data$seurat_clusters_res0.75)
+for (cluster_name in cluster_list) {
+        print(cluster_name)
+        seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 == cluster_name)
+        # redo pca
+        seurat.obj_subset <- RunPCA(object = seurat.obj_subset)
+        plot_function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT)
+}
+```
+
+```{r manual cluster list}
+cluster_list <- list(
+        glial = c("3", "5", "7", "26", "25"), schwann = c("2", "6", "15", "16"),
+        fibroblast = c("13"), neurons = c("4", "8", "10", "11", "12", "18", "28", "19"),
+        immune = c("1", "9", "17", "21", "22")
+)
+
+for (i in 1:length(cluster_list)) {
+        cluster_name <- names(cluster_list[i])
+        print(cluster_name)
+        clusterL <- cluster_list[[i]]
+        seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 %in% clusterL)
+        table(seurat.obj_subset$seurat_clusters_res0.75)
+        # redo pca
+        seurat.obj_subset <- RunPCA(object = seurat.obj_subset)
+        plot_function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT)
+}
+```
+
+```{r logFC}
+logFC_function <- function(seurat.obj, cluster_name, output) {
+        # get total number of cells for each condition
+        cond_table <- table(seurat.obj$Condition)
+        cond_table <- as.data.frame(rbind(cond_table))
+        NR_tot <- cond_table$NR
+        R_tot <- cond_table$R
+
+        seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 == cluster_name & Timepoint == c("2Wk", "4Wk", "6Wk"))
+        mytable <- table(seurat.obj_subset$Condition, seurat.obj_subset$Timepoint)
+        df <- as.data.frame(rbind(mytable))
+        # proportions
+        df["prop_NR", ] <- df["NR", ] / NR_tot
+        df["prop_R", ] <- df["R", ] / R_tot
+        # get log FC
+        df["log2FC", ] <- log2((as.numeric(df["R", ]) / R_tot) / (as.numeric(df["NR", ]) / NR_tot))
+        # write out data
+        write.csv(df, file = paste0(output, "cluster", cluster_name, "_log2FC_data.csv"), row.names = TRUE)
+        # get only logFC row and pivot longer
+        dflfc <- df["log2FC", ]
+        dflfc
+        timepoints <- colnames(dflfc)
+        long_df <- tidyr::pivot_longer(dflfc, cols = timepoints, names_to = "Timepoint", values_to = "log2FC")
+        long_df
+        # get direction where + is R and - is NR
+        long_df$direction <- ifelse(long_df$log2FC > 0, "R", "NR")
+        # plot log fold change
+        p1 <- ggplot(long_df, aes(x = factor(Timepoint, levels = Timepoint), y = log2FC, fill = direction)) +
+                geom_col() +
+                scale_fill_manual(values = c("R" = "blue", "NR" = "red")) +
+                ggtitle(paste0("cluster ", cluster_name, " R vs NR")) +
+                theme_bw() +
+                ylab("log2 Fold Change of Cell Counts") +
+                xlab("Time")
+        p1
+        pdf(file = paste0(output, "cluster", cluster_name, "_log2FC_plot.pdf"), width = 4, height = 4)
+        print(p1)
+        dev.off()
+}
+```
+
+```{r}
+cluster_list <- unique(seurat.obj@meta.data$seurat_clusters_res0.75)
+cluster_list <- cluster_list[cluster_list != "29"]
+for (cluster_name in cluster_list) {
+        print(cluster_name)
+        logFC_function(seurat.obj, cluster_name, output)
+}
+```
+
+```{r save}
+saveRDS(seurat.obj_subset, file = paste0(output, "seurat.obj_subset.rds"))
+```
+# save session info
+```{r sessioninfo}
+writeLines(capture.output(sessionInfo()), paste0(output, "sessionInfo.txt"))
+```
