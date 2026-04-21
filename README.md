@@ -170,6 +170,54 @@ Outputs:
     * sessionInfo.txt: package information
     * config.json: config settings used
 
+### CellxGene and scVI
+This tool predicts cell types using an scVI model published by CellxGene. It takes a query and a reference datasets as its inputs. Both datasets are projected into the scVI embedding, then the query dataset is annotated based on the reference.
+
+Suggested workflow:
+* Prepare the query dataset:
+    * Make sure the dataset is in the AnnData format (`*.h5ad`)
+    * Map gene ids to Ensembl ENSG numbers
+* Prepare the reference dataset:
+    * Use `get_sample_ds_from_cellxgene` to download a subset of an appropriate dataset from CellxGene (using a subset representative of all cell types speeds up computations)
+        * Example: use `29244e1d-02e6-4133-b411-516ef7474638` for the 2025-11-08 version of the Yayon et al. thymus cell atlas
+    * Use `assign_high_level_cell_types` to map the low-level cell types annotated by CellxGene to a smaller set of high-level cell types from the [OBO Cell Ontology (CL)](http://www.obofoundry.org/ontology/cl.html) 
+* Use `cellxgene_scvi` to annotate the query dataset
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title;
+    * `METHOD`: set to `cellxgene_scvi`;
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool; 
+
+* Under the `cellxgene_scvi` section:
+    * `DATA_DIR`: the folder containing the input data;
+    * `ref_data_file`: reference dataset file;
+    * `query_data_file`: query dataset file;
+    * `gene_id_column`: column name for gene IDs;
+    * `cell_type_column`: column name for cell types in the reference dataset;
+    * `high_level_cell_type_column`: column name for high-level cell types in the reference dataset;
+    * `model_folder`: folder containing the scVI model;
+    * `output_file`: file to save the annotated query dataset;
+    * `random_seed`: a seed for the random number generator;
+    * `compare_to_gold_standard`: whether to compare the results to a gold standard (used for testing purposes);
+    * `gold_standard_cell_type_column`: column name for gold standard cell type annotations in the query dataset;
+    * `gold_standard_high_level_cell_type_column`: column name for gold standard high-level cell type annotations in the query dataset.
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The annotated dataset: <output_file> as specified in the config file;
+* UMAP plots;
+* Other:
+    * config.json: config settings used;
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis.
+
 ## Annotation via marker lists
 
 ### GPT CellType
@@ -520,6 +568,57 @@ Outputs:
 
 ## Other processes
 
+### Two-level clustering of an AnnData object
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"cluster_adata"
+"docker": "FALSE" # Not implemented in docker, use conda environments.
+
+"cluster_adata":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/cellxgene_scvi_20260311_145341/", # Directory containing input data
+    "input_data_file": "Yayon_subset_2_scvi_annot.h5ad", # File that contains the AnnData object to be clustered
+    "gene_id_column": "feature_id", # Usually Ensembl ID
+    "gene_symbol_column": "feature_name", # Usually gene symbol
+    "output_file_prefix": "Yayon_subset_2_clustered", # Output file names will start with this string
+    "random_seed": 318, # A seed for the random number generator
+    "embedding": "scvi", # Compute the neighbor graph in this embedding
+    "n_neighbors": 15, # Number of neighbors for neighbor graph computation
+    "distance_metric": "correlation", # Distance metric for neighbor graph computation
+    "clustering_resolution": 0.1, # Resolution for clustering
+    "subclustering_resolution": 1.0, # Resolution for subclustering
+    "leiden_flavor": "igraph", # Leiden algorithm flavor
+    "num_iterations": 2, # Number of iterations for clustering
+    "cluster_column": "cluster", # Metadata column name for clusters
+    "subcluster_column": "subcluster", # Metadata column name for subclusters
+    "compare_to_gold_standard": true, # Whether to compare to gold standard annotations
+    "gold_standard_high_level_cell_type_column": "high_level_cell_type", # Metadata column name for high-level cell types in gold standard
+    "gold_standard_cell_type_column": "cell_type" # Metadata column name for low-level cell types in gold standard
+}
+```
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* Object:
+    * <output_file_prefix>.h5ad - AnndData object, same as the input, with clustering and differential expression results added
+* Cluster markers (differential expression results)
+    * <output_file_prefix>_cluster_de.csv - tables of differentially expressed genes in top-level clusters
+    * <output_file_prefix>_cluster_de_dotplot.png - dotplots of top differentially expressed genes in top-level clusters    
+    * <output_file_prefix>_[0-9]+_subcluster_de.csv - tables of differentially expressed genes in subclusters
+    * <output_file_prefix>_[0-9]+_subcluster_de_dotplot.png - dotplots of top differentially expressed genes in subclusters
+* Visualizations of contingency tables comparing current clustering to gold standard annotations
+    * contingency_cluster_vs_high_level_cell_type.png - top-level clusters vs high-level cell types
+    * contingency_cluster_[0-9]+_subcluster_vs_cell_type.png - subclusters vs low-level cell types
+* Session info:
+    * conda-requirements.txt - conda package versions
+    * config.json - configuration settings used
+    * pip-requirements.txt - pip package versions
+
+
 ### Recluster
 To re-cluster and re-annotate with updated cell types, use recluster-and-annotate.R:
 
@@ -680,6 +779,103 @@ Subset cell cycle genes by ortholog. Modify to input ortholog list and cell cycl
 ```
 Rscript merge_orthologs_to_cellcycle_genes.R
 ```
+### Subset a CellxGene dataset to create a smaller dataset for testing
+This tool generates a relatively small dataset that can serve as the input for cell type annotation tools to test if they work as expected. The generated dataset contains a subset of cells from an original CellxGene dataset, including a random selection of cells from each annotated cell type. The original CellxGene cell type annotations can be used as a “gold standard” when testing an annotation method.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title
+    * `METHOD`: set to `get_sample_ds_from_cellxgene`
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
+
+* Under the `get_sample_ds_from_cellxgene` section:
+    * `DATA_DIR`: leave blank (""), as no data is loaded from disk
+    * `reference_datasets`:
+        * `census_version`: the major CellxGene Census releases are named by their dates. 2025-11-08 is the latest stable release at the time of writing. See more at https://chanzuckerberg.github.io/cellxgene-census/cellxgene_census_docsite_data_release_info.html
+        * `organism`: your species, e.g., "homo_sapiens"
+        * `ref_dataset_ids`: a list of ids of the datasets to retrieve. For example, `29244e1d-02e6-4133-b411-516ef7474638` is the 2025-11-08 version of the Yayon et al. thymus cell atlas. One can potentially specify more than one dataset, although this has not been tested
+    * `high_level_cell_types`: the (relatively low-level) cell types provided by CellxGene are mapped to a smaller set of high-level types using the Obo Cell Ontology (CL). When testing an annotation method, one can expect that high-level cell types are going to be annotated more successfully than the original, lower-level ones
+    * `ref_cells_per_cell_type`: how many cells of each cell type to keep in the dataset, e.g., 100
+    * `output_file`: the file to save the generated dataset to, e.g., "test_Yayon_subset.h5ad". The data are saved as an `anndata` object in the `a5hd` format.
+    * `random_seed`: a seed for the random number generator
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The subsetted dataset: <output_file> as specified in the config file
+* Other:
+    * config.json: config settings used
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
+
+### Assign high-level cell types based on existing low-level cell type annotations
+This tool takes an annotated dataset and assigns high-level cell types based on a list supplied by the user. Existing low-level cell types, such as those included in CellxGene datasets, are mapped to a smaller set of high-level types using [OBO Cell Ontology (CL)](http://www.obofoundry.org/ontology/cl.html). Both the existing cell type annotations and the high-level cell types must match valid ontology terms. The reason one may want to assign higher-level cell types is that they can be annotated with higher confidence.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title
+    * `METHOD`: set to `assign_high_level_cell_types`
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
+
+* Under the `assign_high_level_cell_types` section:
+    * `DATA_DIR`: directory where the input file is located
+    * `input_file`: the input file, in `h5ad` format
+    * `high_level_cell_types`: an array of cell types
+    * `output_file`: the file to save the generated dataset, in the `a5hd` format.
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The modified dataset to which high-level cell types have been added: <output_file> as specified in the config file
+* Other:
+    * config.json: config settings used
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
+
+### Add noise and modify cell ids in a test dataset
+This tool adds noise to a test dataset and modifies its cell ids. 
+
+Noise values are sampled from a normal distribution with the mean of 0 and the scale (standard deviation) of `noise_level`. Noise values are added to log(x+1)-transformed counts (`np.log1p`). The modified counts are then transformed back to the original scale (`np.expm1`) and rounded to the nearest integer.
+
+Cell ids are modified by adding a user-specified prefix to them. This is necessary to avoid warnings when concatenating the test dataset with a reference that may contain some of the same cells, e.g., for joint potting.
+
+Pre-install the cellxgene_scvi conda environment from `cellxgene_scvi.yml` 
+before attempting to run this tool.
+
+Modify the following variables in `config.json`:
+* At the top level:
+    * `title`: specify your analysis title
+    * `METHOD`: set to `prep_test_ds`
+    * `docker`: set to `FALSE`, as docker is not currently supported for this tool 
+
+* In the `prep_test_ds` section:
+    * `DATA_DIR`: directory where the input file is located
+    * `input_file`: the input file, in `h5ad` format
+    * `output_file`: the file to save the generated dataset, in the `a5hd` format
+    * `random_seed`: an integer to set the seed of the random number generator
+    * `noise_level`: the scale of the noise distribution (float)
+    * `cell_id_prefix`: a prefix to add to the original cell ids
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+
+Outputs:
+* The modified dataset to which high-level cell types have been added: <output_file> as specified in the config file
+* Other:
+    * config.json: config settings used
+    * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
 
 # References: 
 

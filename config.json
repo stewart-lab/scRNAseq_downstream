@@ -300,5 +300,67 @@
     "source1": "Fibroblasts",
     "source2": "Radial_glial_cells",
     "task_id": 1
+  "get_sample_ds_from_cellxgene":{
+    "DATA_DIR": "",
+    "reference_datasets":{
+      "census_version":"2025-11-08",
+      "organism":"homo_sapiens",
+      "ref_dataset_ids": ["29244e1d-02e6-4133-b411-516ef7474638"]
+    },
+    "ref_cells_per_cell_type": 100,
+    "output_file": "Yayon_subset_2.h5ad",
+    "random_seed": 455
+  },
+  "assign_high_level_cell_types":{
+    "DATA_DIR": "./shared_volume/get_sample_ds_from_cellxgene_20260227_165632/",
+    "input_file": "Yayon_subset_2.h5ad",
+    "high_level_cell_types": [
+      "epithelial cell", "hematopoietic cell", "neural cell", 
+      "connective tissue cell", "muscle cell", "absorptive cell", 
+      "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
+    ],
+    "output_file": "Yayon_subset_2_hlct.h5ad"
+  },
+  "prep_test_ds":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/227_Yayon-subsampled-ds/Yayon_subset_2/assign_high_level_cell_types_20260227_173028/",
+    "input_file": "Yayon_subset_2_hlct.h5ad",
+    "output_file": "Yayon_subset_2_hlct_nonoise_modid.h5ad",
+    "random_seed": 1151,
+    "noise_level": 0,
+    "cell_id_prefix": "test"
+  },
+  "cellxgene_scvi":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/inputs/",
+    "ref_data_file": "Yayon_subset_1_hlct.h5ad",
+    "query_data_file": "Yayon_subset_2_hlct_nonoise_modid.h5ad",
+    "gene_id_column": "feature_id",
+    "cell_type_column": "cell_type",
+    "high_level_cell_type_column": "high_level_cell_type",
+    "model_folder": "2025-11-08-scvi-homo-sapiens",
+    "output_file": "Yayon_subset_2_scvi_annot.h5ad",
+    "random_seed": 428,
+    "compare_to_gold_standard": true,
+    "gold_standard_cell_type_column": "cell_type",
+    "gold_standard_high_level_cell_type_column": "high_level_cell_type"
+  },
+  "cluster_adata":{
+    "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/cellxgene_scvi_20260311_145341/",
+    "input_data_file": "Yayon_subset_2_scvi_annot.h5ad",
+    "gene_id_column": "feature_id",
+    "gene_symbol_column": "feature_name",
+    "output_file_prefix": "Yayon_subset_2_clustered",
+    "random_seed": 318,
+    "embedding": "scvi",
+    "n_neighbors": 15,
+    "distance_metric": "correlation",
+    "clustering_resolution": 0.1,
+    "subclustering_resolution": 1.0,
+    "leiden_flavor": "igraph",
+    "num_iterations": 2,
+    "cluster_column": "cluster",
+    "subcluster_column": "subcluster",
+    "compare_to_gold_standard": true,
+    "gold_standard_high_level_cell_type_column": "high_level_cell_type",
+    "gold_standard_cell_type_column": "cell_type"
   }
 }
