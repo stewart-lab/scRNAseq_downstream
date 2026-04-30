@@ -27,6 +27,8 @@ GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 WD <- config$recluster$DATA_DIR
 SEURAT.FILE <- config$recluster$SEURAT.FILE
+```
+```{r}
 # set up environment and output
 #use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best", required=TRUE)
 setwd(WD)

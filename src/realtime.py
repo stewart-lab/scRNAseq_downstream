@@ -75,7 +75,8 @@ elif dim_red != "NA" and dim_red != "":
 else:
     adata = sc.read_h5ad(data_dir + ADATA_FILE)
 print(adata)
-
+print(adata.obs)
+# make time a category
 adata.obs["time"] = adata.obs[time_label]
 print(adata.obs["time"].unique())
 
@@ -249,7 +250,7 @@ for i in timepoints:
         if i < j:  # Only process if i is earlier than j
             print(i, j)
             key = f"transitions_{i}_{j}"
-            tp.cell_transition(
+            ct_desc = tp.cell_transition(
                 source=i, 
                 target=j, 
                 source_groups=annot_label, 
@@ -257,7 +258,10 @@ for i in timepoints:
                 forward=True, 
                 key_added=key
             )
-            
+            # make transition matrix
+            cd_desc = pd.DataFrame(ct_desc)
+            cd_desc.to_csv(out_dir + key + "_transitions.csv", index=True)
+
             # Create plots
             mtp.cell_transition(adata, key=key, dpi=100, 
                 fontsize=8, save=f"{out_dir}{key}.png")

@@ -1,6 +1,6 @@
 {
-  "title": "zebrafish_cellchat_4wkR",
-  "METHOD": "cellchat",
+  "title": "zfish_umap_and_subset_condtion",
+  "METHOD": "subset_seurat",
   "docker": "false",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -175,10 +175,10 @@
     }
   },
   "realtime": {
-    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_seurat2ann_20260224_121120/",
-    "ADATA_FILE": "seuratobj_all_reclustered_075_nonrecovered.h5ad",
-    "time_label": "Type",
-    "annot_label": "seurat_clusters_res0.75",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
+    "ADATA_FILE": "merged_seurat2.h5ad",
+    "time_label": "orig.ident2",
+    "annot_label": "seurat_clusters",
     "dim_red": "umap"
   },
   "celltypeGPT": {
@@ -205,10 +205,10 @@
     }
   },
   "recluster": {
-    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/",
-    "SEURAT.FILE": "SCI6WK_PARSE_PG_SB_030123.rds",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+    "SEURAT.FILE": "seuratobj_all_reclustered.rds",
     "perform_clustering": {
-      "reduction": "pca",
+      "reduction": "umap",
       "resolution": [
         0.5,
         0.7,
@@ -251,8 +251,8 @@
     "DIM.RED": "umap"
   },
   "subset_seurat": {
-    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/",
-    "SEURAT_OBJ": "SCI6WK_PARSE_PG_SB_030123.rds",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+    "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
     "GENE_LIST": [],
     "DIM.RED": "umap",
     "ANNOT": "Type"
@@ -300,28 +300,38 @@
     "source1": "Fibroblasts",
     "source2": "Radial_glial_cells",
     "task_id": 1
-  "get_sample_ds_from_cellxgene":{
+  },
+  "get_sample_ds_from_cellxgene": {
     "DATA_DIR": "",
-    "reference_datasets":{
-      "census_version":"2025-11-08",
-      "organism":"homo_sapiens",
-      "ref_dataset_ids": ["29244e1d-02e6-4133-b411-516ef7474638"]
+    "reference_datasets": {
+      "census_version": "2025-11-08",
+      "organism": "homo_sapiens",
+      "ref_dataset_ids": [
+        "29244e1d-02e6-4133-b411-516ef7474638"
+      ]
     },
     "ref_cells_per_cell_type": 100,
     "output_file": "Yayon_subset_2.h5ad",
     "random_seed": 455
   },
-  "assign_high_level_cell_types":{
+  "assign_high_level_cell_types": {
     "DATA_DIR": "./shared_volume/get_sample_ds_from_cellxgene_20260227_165632/",
     "input_file": "Yayon_subset_2.h5ad",
     "high_level_cell_types": [
-      "epithelial cell", "hematopoietic cell", "neural cell", 
-      "connective tissue cell", "muscle cell", "absorptive cell", 
-      "endothelial cell", "transit amplifying cell", "embryonic stem cell", "pluripotent stem cell"
+      "epithelial cell",
+      "hematopoietic cell",
+      "neural cell",
+      "connective tissue cell",
+      "muscle cell",
+      "absorptive cell",
+      "endothelial cell",
+      "transit amplifying cell",
+      "embryonic stem cell",
+      "pluripotent stem cell"
     ],
     "output_file": "Yayon_subset_2_hlct.h5ad"
   },
-  "prep_test_ds":{
+  "prep_test_ds": {
     "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/227_Yayon-subsampled-ds/Yayon_subset_2/assign_high_level_cell_types_20260227_173028/",
     "input_file": "Yayon_subset_2_hlct.h5ad",
     "output_file": "Yayon_subset_2_hlct_nonoise_modid.h5ad",
@@ -329,7 +339,7 @@
     "noise_level": 0,
     "cell_id_prefix": "test"
   },
-  "cellxgene_scvi":{
+  "cellxgene_scvi": {
     "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/inputs/",
     "ref_data_file": "Yayon_subset_1_hlct.h5ad",
     "query_data_file": "Yayon_subset_2_hlct_nonoise_modid.h5ad",
@@ -343,7 +353,7 @@
     "gold_standard_cell_type_column": "cell_type",
     "gold_standard_high_level_cell_type_column": "high_level_cell_type"
   },
-  "cluster_adata":{
+  "cluster_adata": {
     "DATA_DIR": "/w5home/ybukhman/Projects/BIOINFDEV/230_cellxgene_scvi/cellxgene_scvi_20260311_145341/",
     "input_data_file": "Yayon_subset_2_scvi_annot.h5ad",
     "gene_id_column": "feature_id",
