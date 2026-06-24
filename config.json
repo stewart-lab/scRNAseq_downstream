@@ -1,6 +1,6 @@
 {
-  "title": "zfish_umap_and_subset_condtion",
-  "METHOD": "subset_seurat",
+  "title": "zfish_subset_cluster_cellchat",
+  "METHOD": "cellchat",
   "docker": "false",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -244,10 +244,8 @@
     "reduction": "umap"
   },
   "seurat2ann": {
-    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
-    "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
-    "METADATA": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/manual_annot_metadata_all_res0.75.txt",
-    "OUTPUT_name": "seuratobj_all_reclustered_075.h5Seurat",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset_20260512_162630/",
+    "METADATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/monocole_slingshot_for_each_cluster/",
     "DIM.RED": "umap"
   },
   "subset_seurat": {
@@ -296,10 +294,11 @@
   "cellchat": {
     "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/",
     "FILELIST": "filelist_test.txt",
-    "group_by": "CellType",
-    "source1": "Fibroblasts",
-    "source2": "Radial_glial_cells",
-    "task_id": 1
+    "group_by": "seurat_clusters_res0.75",
+    "source1": "13",
+    "source2": "9",
+    "task_id": 8,
+    "metadata_file": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/manual_annot_metadata_all_res0.75.txt"
   },
   "get_sample_ds_from_cellxgene": {
     "DATA_DIR": "",
@@ -372,5 +371,25 @@
     "compare_to_gold_standard": true,
     "gold_standard_high_level_cell_type_column": "high_level_cell_type",
     "gold_standard_cell_type_column": "cell_type"
+  },
+  "de_cond": {
+  "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+  "seurat_object": "seuratobj_all_reclustered.rds",
+  "group_by": {
+    "condition": "Type",
+    "sample_replicates": "orig.ident",
+    "cluster_column": "seurat_clusters_res0.75"
+    }
+  },
+  "gprofiler": {
+    "DATA_DIR": "./data/test_gprofiler/",
+    "organism": "hsapiens",
+    "mthreshold": 500,
+    "padj": 0.05,
+    "lfc": 0.25,
+    "file_pattern": "_lfc0.25\\.txt$",
+    "output_name": "_GO_enrich",
+    "title": "GO enrichment",
+    "lower": "FALSE"
   }
 }

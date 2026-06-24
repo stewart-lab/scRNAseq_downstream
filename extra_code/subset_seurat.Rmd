@@ -18,7 +18,7 @@ library(ggplot2)
 library(SeuratDisk)
 library(dplyr)
 library(tidyverse)
-use_condaenv("scRNAseq_new")
+# use_condaenv("scRNAseq_new")
 
 # set variables
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/"
@@ -38,7 +38,7 @@ ANNOT <- "seurat_clusters_res0.75"
 # set up environment and output
 setwd(DATA_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_subset_", timestamp)
+output <- paste0("output_subset_psuedobulk_", timestamp)
 dir.create(output, showWarnings = FALSE)
 file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
 output <- paste0(output, "/")
@@ -66,7 +66,7 @@ seurat.obj$Condition <- ifelse(
 table(seurat.obj$Timepoint)
 table(seurat.obj$Condition)
 table(seurat.obj$Type, seurat.obj$Timepoint)
-table(seurat.obj$Type, seurat.obj$Condition)
+table(seurat.obj$sample, seurat.obj$Condition, seurat.obj$Timepoint)
 ```
 
 # plot before subsetting
@@ -96,12 +96,12 @@ dev.off()
 ```
 # plot function
 ```{r plot_function}
-plot_function1 <- function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT, mypallete) {
+plot_function1 <- function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT, mypallete, condition) {
         p1 <- DimPlot(seurat.obj_subset,
                 reduction = DIM.RED, label = FALSE,
                 pt.size = 0.2, group.by = ANNOT, cols = mypallete
         )
-        pdf(file = paste0(output, "seurat_subset_cluster_", cluster_name, ".pdf"), width = 8, height = 6)
+        pdf(file = paste0(output, "seurat_subset_cluster_", cluster_name, "_", condition, ".pdf"), width = 8, height = 6)
         print(p1)
         dev.off()
 }
@@ -185,15 +185,44 @@ plot_function2 <- function(seurat.obj_subset, DIM.RED, output, cluster_name, ANN
         dev.off()
 }
 ```
+```{r subset_cond}
+# subset condition
+seurat.obj_subset1 <- subset(seurat.obj, subset = Condition == "R")
+seurat.obj_subset1
+seurat.obj_subset2 <- subset(seurat.obj, subset = Condition == "NR")
+seurat.obj_subset2
+```
 # loop through clusters, subset and plot
 ```{r loop}
-cluster_list <- unique(seurat.obj@meta.data$seurat_clusters_res0.75)
-for (cluster_name in cluster_list) {
-        print(cluster_name)
-        seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 == cluster_name)
+# recovered
+cluster_list <- unique(seurat.obj_subset1@meta.data$seurat_clusters)
+# clusterL <- cluster_list[[1]]
+for (i in 2:length(cluster_list)) {
+        cluster <- as.character(cluster_list[[i]])
+        seurat.obj_subset <- subset(seurat.obj_subset1, subset = seurat_clusters == cluster)
         # redo pca
-        seurat.obj_subset <- RunPCA(object = seurat.obj_subset)
-        plot_function2(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT)
+        # seurat.obj_subset <- RunPCA(object = seurat.obj_subset)
+        # plot_function2(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT)
+        # plot
+        plot_function1(seurat.obj_subset, DIM.RED, output, cluster, ANNOT, mypallete2, "R")
+        # save seurat object
+        saveRDS(seurat.obj_subset, file = paste0(output, "seurat_subset_cluster_", cluster, "_R.rds"))
+}
+```
+```{r loop2}
+# not recovered
+cluster_list <- unique(seurat.obj_subset2@meta.data$seurat_clusters)
+# clusterL <- cluster_list[[1]]
+for (i in 2:length(cluster_list)) {
+        cluster <- as.character(cluster_list[[i]])
+        seurat.obj_subset <- subset(seurat.obj_subset2, subset = seurat_clusters == cluster)
+        # redo pca
+        # seurat.obj_subset <- RunPCA(object = seurat.obj_subset)
+        # plot_function2(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT)
+        # plot
+        plot_function1(seurat.obj_subset, DIM.RED, output, cluster, ANNOT, mypallete2, "NR")
+        # save seurat object
+        saveRDS(seurat.obj_subset, file = paste0(output, "seurat_subset_cluster_", cluster, "_NR.rds"))
 }
 ```
 
@@ -224,22 +253,38 @@ logFC_function <- function(seurat.obj, cluster_name, output) {
         NR_tot <- cond_table$NR
         R_tot <- cond_table$R
 
-        seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 == cluster_name & Timepoint == c("2Wk", "4Wk", "6Wk"))
-        mytable <- table(seurat.obj_subset$Condition, seurat.obj_subset$Timepoint)
-        df <- as.data.frame(rbind(mytable))
+        # Fix: use %in% instead of == to prevent vector recycling bug
+        seurat.obj_subset <- subset(seurat.obj, subset = seurat_clusters_res0.75 == cluster_name & Timepoint %in% c("2Wk", "4Wk", "6Wk"))
+        
+        # 1. Condition-level table for log2FC calculations
+        cond_time_table <- table(seurat.obj_subset$Condition, seurat.obj_subset$Timepoint)
+        df_cond <- as.data.frame.matrix(cond_time_table)
+        
         # proportions
-        df["prop_NR", ] <- df["NR", ] / NR_tot
-        df["prop_R", ] <- df["R", ] / R_tot
+        df_cond["prop_NR", ] <- df_cond["NR", ] / NR_tot
+        df_cond["prop_R", ] <- df_cond["R", ] / R_tot
         # get log FC
-        df["log2FC", ] <- log2((as.numeric(df["R", ]) / R_tot) / (as.numeric(df["NR", ]) / NR_tot))
+        df_cond["log2FC", ] <- log2((as.numeric(df_cond["R", ]) / R_tot) / (as.numeric(df_cond["NR", ]) / NR_tot))
         # write out data
-        write.csv(df, file = paste0(output, "cluster", cluster_name, "_log2FC_data.csv"), row.names = TRUE)
+        write.csv(df_cond, file = paste0(output, "cluster", cluster_name, "_log2FC_data.csv"), row.names = TRUE)
+        
+        # 2. Sample-level table with the Condition column added
+        sample_time_table <- table(seurat.obj_subset$sample, seurat.obj_subset$Timepoint)
+        df_sample <- as.data.frame.matrix(sample_time_table)
+        
+        # Add Condition column by matching row names (sample names) to the metadata
+        df_sample$Condition <- seurat.obj_subset$Condition[match(rownames(df_sample), seurat.obj_subset$sample)]
+        
+        # Reorder columns to put Condition first
+        df_sample <- df_sample[, c("Condition", setdiff(colnames(df_sample), "Condition"))]
+        
+        # Write out sample counts data
+        write.csv(df_sample, file = paste0(output, "cluster", cluster_name, "_sample_counts.csv"), row.names = TRUE)
+        
         # get only logFC row and pivot longer
-        dflfc <- df["log2FC", ]
-        dflfc
+        dflfc <- df_cond["log2FC", ]
         timepoints <- colnames(dflfc)
         long_df <- tidyr::pivot_longer(dflfc, cols = timepoints, names_to = "Timepoint", values_to = "log2FC")
-        long_df
         # get direction where + is R and - is NR
         long_df$direction <- ifelse(long_df$log2FC > 0, "R", "NR")
         # plot log fold change
@@ -250,7 +295,6 @@ logFC_function <- function(seurat.obj, cluster_name, output) {
                 theme_bw() +
                 ylab("log2 Fold Change of Cell Counts") +
                 xlab("Time")
-        p1
         pdf(file = paste0(output, "cluster", cluster_name, "_log2FC_plot.pdf"), width = 4, height = 4)
         print(p1)
         dev.off()

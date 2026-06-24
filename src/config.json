@@ -1,0 +1,9 @@
+{
+  "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+  "seurat_object": "seuratobj_all_reclustered.rds",
+  "group_by": {
+    "condition": "Type",
+    "sample_replicates": "orig.ident",
+    "cluster_column": "seurat_clusters_res0.75"
+  }
+}

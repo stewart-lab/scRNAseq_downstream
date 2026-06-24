@@ -69,8 +69,16 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
             /bin/bash -c '. scRNAseq_new/bin/activate 
             Rscript src/scType.R'
         elif [ \"$METHOD\" == \"de\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/get_DE_genes.R'
+        elif [ \"$METHOD\" == \"de_cond\" ]; then
+            /bin/bash -c '. scRNAseq_new/bin/activate
+            Rscript src/get_DE_genes_across_cond.R'
+        elif [ \"$METHOD\" == \"gprofiler\" ]; then
+            /bin/bash -c '. DEseq2_best/bin/activate
+            Rscript src/gprofiler.r'
+        elif [ \"$METHOD\" == \"cellchat\" ]; then
+            conda run -n cellchat /bin/bash -c 'Rscript src/cellchat.R'
         else
             echo \"Unknown METHOD: $METHOD\"
             exit 1
@@ -126,9 +134,15 @@ else
     elif [ "$METHOD" == "de" ]; then
         conda activate scRNAseq_new
         Rscript src/get_DE_genes.R
+    elif [ "$METHOD" == "de_cond" ]; then
+        conda activate scRNAseq_new
+        Rscript src/get_DE_genes_across_cond.R
+    elif [ "$METHOD" == "gprofiler" ]; then
+        conda activate DEseq2_best
+        Rscript src/gprofiler.r
     elif [ "$METHOD" == "cellchat" ]; then
         conda activate cellchat
-        Rscript src/cellchat.R
+        nohup Rscript src/cellchat.R &
     elif [ "$METHOD" == "get_sample_ds_from_cellxgene" ]; then
         source activate cellxgene_scvi
         python src/get_sample_ds_from_cellxgene.py

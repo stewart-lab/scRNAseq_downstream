@@ -59,6 +59,7 @@ group_by <- config$cellchat$group_by
 source1 <- config$cellchat$source1
 source2 <- config$cellchat$source2
 task_id <- config$cellchat$task_id
+metadata_file <- config$cellchat$metadata_file
 ### set working directory and output ###
 setwd(GIT_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
@@ -71,6 +72,23 @@ GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
 ## source config and functions
 source(paste0(GIT_DIR, "src/sc_pipeline_functions.R"))
+
+add_metadata <- function(seurat_obj, metadata_file) {
+    if (is.null(metadata_file) || metadata_file == "NA" || metadata_file == "") {
+        return(seurat_obj)
+    }
+    print(paste0("Adding metadata from: ", metadata_file))
+    meta <- read.table(metadata_file, header = TRUE, sep = "\t", row.names = 1, stringsAsFactors = FALSE)
+    # R prepends "X" to row names starting with a digit; apply the same fix so names match the Seurat object
+    rownames(meta) <- make.names(rownames(meta))
+    # subset to cells present in the Seurat object
+    shared_cells <- intersect(rownames(meta), colnames(seurat_obj))
+    print(paste0("Cells in metadata: ", nrow(meta), " | Cells in Seurat object: ", ncol(seurat_obj), " | Shared: ", length(shared_cells)))
+    meta <- meta[shared_cells, , drop = FALSE]
+    seurat_obj <- AddMetaData(seurat_obj, metadata = meta)
+    print(paste0("Metadata columns added: ", paste(colnames(meta), collapse = ", ")))
+    return(seurat_obj)
+}
 
 # load Seurat objects
 filename_list <- read.table(file = paste0(DATA_DIR, filelist), header = FALSE, sep = "\t", stringsAsFactors = FALSE)
@@ -145,7 +163,7 @@ cc_prob <- function(cellchatobj, output, name) {
     colnames(df.net.p.all)[1:3] <- c("source", "target", "pathway_name")
     # df.net.p.all <- cellchatobj@netP
     # extract significant dfs
-    df.net <- subsetCommunication(cellchatobj) # df of inferreed cc communications from ligand/receptors
+    df.net <- subsetCommunication(cellchatobj) # df of inferred cc communications from ligand/receptors
     df.net.p <- subsetCommunication(cellchatobj, slot.name = "netP") # inferred at signal pathways
     execution.time <- Sys.time() - ptm
     print(paste0("communication porbability computation time: ", as.numeric(execution.time, units = "secs")))
@@ -265,23 +283,23 @@ analyze_paths <- function(cellchatobj, vertex.receiver, output, source1, source2
 # LR pair vizualization
 LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1, not_source2) {
     # sig L-R pairs for interaction
-    p1 <- netVisual_bubble(cellchat, sources.use = not_source1, targets.use = source1, remove.isolate = FALSE)
+    p1 <- netVisual_bubble(cellchatobj, sources.use = not_source1, targets.use = source1, remove.isolate = FALSE)
     pdf(
-        file = paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"),
+        file = paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_",source1,".pdf"),
         height = 11, width = 8.5
     )
     print(p1)
     dev.off()
     # sig L-R pairs for interaction
-    p2 <- netVisual_bubble(cellchat, sources.use = not_source2, targets.use = source2, remove.isolate = FALSE)
+    p2 <- netVisual_bubble(cellchatobj, sources.use = not_source2, targets.use = source2, remove.isolate = FALSE)
     pdf(
-        file = paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"),
+        file = paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_",source2,".pdf"),
         height = 11, width = 8.5
     )
     print(p2)
     dev.off()
-    # sig L-R pairs for interaction T cells
-    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
+    # sig L-R pairs for interaction source 1
+    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_",source1,".pdf"))
     tryCatch(
         {
             result <- netVisual_chord_gene(cellchatobj,
@@ -301,7 +319,7 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
     dev.off()
 
     # receiving
-    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_Tcells_receive.pdf"))
+    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_",source1,"_receive.pdf"))
     tryCatch(
         {
             result <- netVisual_chord_gene(cellchatobj,
@@ -319,8 +337,8 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
     )
 
     dev.off()
-    # sig L-R pairs for interaction fibroblasts
-    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts.pdf"))
+    # sig L-R pairs for interaction source 2
+    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_",source2,".pdf"))
     tryCatch(
         {
             result <- netVisual_chord_gene(cellchatobj,
@@ -338,7 +356,7 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
     )
     dev.off()
     # receiving
-    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_fibroblasts_receive.pdf"))
+    pdf(file = paste0(name, "_sig_cc_L-Rpairs_celltypes_chord_",source2,"_receive.pdf"))
     tryCatch(
         {
             result <- netVisual_chord_gene(cellchatobj,
@@ -356,10 +374,10 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
     )
     dev.off()
     # show all the significant signaling pathways from some cell groups (defined by 'sources.use') to other cell groups (defined by 'targets.use')
-    pdf(file = paste0(name, "_sig_cc_pathways_chord_Tcells.pdf"))
+    pdf(file = paste0(name, "_sig_cc_pathways_chord_",source1,".pdf"))
     tryCatch(
         {
-            result <- netVisual_chord_gene(cellchat,
+            result <- netVisual_chord_gene(cellchatobj,
                 sources.use = source1, targets.use = not_source1,
                 slot.name = "netP", legend.pos.x = 10
             )
@@ -373,10 +391,10 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
         }
     )
     dev.off()
-    pdf(file = paste0(name, "_sig_cc_pathways_chord_Tcells_receive.pdf"))
+    pdf(file = paste0(name, "_sig_cc_pathways_chord_",source1,"_receive.pdf"))
     tryCatch(
         {
-            result <- netVisual_chord_gene(cellchat,
+            result <- netVisual_chord_gene(cellchatobj,
                 sources.use = not_source1, targets.use = source1,
                 slot.name = "netP", legend.pos.x = 10
             )
@@ -390,7 +408,7 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
         }
     )
     dev.off()
-    pdf(file = paste0(name, "_sig_cc_pathways_chord_fibroblasts.pdf"))
+    pdf(file = paste0(name, "_sig_cc_pathways_chord_",source2,".pdf"))
     tryCatch(
         {
             result <- netVisual_chord_gene(cellchatobj,
@@ -407,7 +425,7 @@ LRpair_viz <- function(cellchatobj, output, name, source1, source2, not_source1,
         }
     )
     dev.off()
-    pdf(file = paste0(name, "_sig_cc_pathways_chord_fibroblasts_receive.pdf"))
+    pdf(file = paste0(name, "_sig_cc_pathways_chord_",source2,"_receive.pdf"))
     tryCatch(
         {
             result <- netVisual_chord_gene(cellchatobj,
@@ -689,6 +707,7 @@ if (length(object_names) == 1) {
     dir.create(output, mode = "0777", showWarnings = FALSE)
     output <- paste0(output, "/")
     seurat_obj <- seurat_vector[[name]]
+    seurat_obj <- add_metadata(seurat_obj, metadata_file)
     print(seurat_obj)
     print(colnames(seurat_obj@meta.data))
     print(unique(seurat_obj@meta.data[[group_by]]))
@@ -727,6 +746,7 @@ if (length(object_names) == 1) {
         dir.create(output, mode = "0777", showWarnings = FALSE)
         output <- paste0(output, "/")
         seurat_obj <- seurat_vector[[name]]
+        seurat_obj <- add_metadata(seurat_obj, metadata_file)
         print(seurat_obj)
         print(colnames(seurat_obj@meta.data))
         print(unique(seurat_obj@meta.data[[group_by]]))
