@@ -20,7 +20,7 @@ This notebook loads a Seurat object, calculates the number of uniquely expressed
 
 We implement two different definitions of "uniquely expressed genes":
 1. **Method A (Marker-Based):** Genes that are identified as significant positive markers for a single cluster using `FindAllMarkers()`, and do not appear as markers for any other cluster.
-2. **Method B (Expression-Fraction-Based):** Genes that are expressed in at least a minimum percentage of cells ($P_{min}$) in a given cluster and in less than a maximum percentage of cells ($P_{max}$) in all other clusters.
+2. **Method B (Expression-Fraction-Based):** Genes that are expressed in more than a minimum percentage of cells ($P_{min}$) in a given cluster, regardless of their expression in other clusters.
 
 # Configuration & Load Data
 Specify the path to the Seurat object and any parameter thresholds.
@@ -28,7 +28,8 @@ Specify the path to the Seurat object and any parameter thresholds.
 ```{r config}
 # File paths
 SEURAT_PATH <- "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/seuratobj_all_reclustered.rds"
-OUTPUT_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/output_unique_genes"
+OUTPUT_DIR <- file.path("/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842",
+                        paste0("output_unique_genes_", format(Sys.time(), "%Y%m%d_%H%M%S")))
 dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # Method A (Marker) Thresholds
@@ -37,8 +38,7 @@ MIN_PCT <- 0.10
 P_VAL_ADJ_THRESH <- 0.05
 
 # Method B (Expression-Fraction) Thresholds
-P_MIN <- 0.10 # Minimum expression fraction in target cluster
-P_MAX <- 0.01 # Maximum expression fraction in all other clusters
+P_MIN <- 0.05 # Minimum expression fraction in target cluster (other-cluster expression not restricted)
 ```
 
 ```{r load_data}
@@ -142,7 +142,7 @@ dev.off()
 ---
 
 # Method B: Expression-Fraction-Based Uniquely Expressed Genes
-Here, we compute the percentage of cells expressing each gene in each cluster. A gene is "uniquely expressed" in cluster $C$ if the fraction of cells expressing it in $C$ is $\ge P_{min}$ (e.g., 10%) and in all other clusters is $< P_{max}$ (e.g., 1%).
+Here, we compute the percentage of cells expressing each gene in each cluster. A gene is "uniquely expressed" in cluster $C$ if the fraction of cells expressing it in $C$ is $> P_{min}$ (e.g., 5%), regardless of expression in other clusters.
 
 ```{r method_b_expression_fraction}
 cat("Calculating expression percentages per cluster...\n")
@@ -176,19 +176,10 @@ unique_genes_method_b <- list()
 method_b_counts_list <- c()
 
 for (clust in unique_clusters) {
-  other_clusts <- setdiff(unique_clusters, clust)
+  # Condition: target cluster expression > P_MIN (no restriction on other clusters)
+  cond_target <- pct_df[[clust]] > P_MIN
 
-  # Condition 1: target cluster expression >= P_MIN
-  cond_target <- pct_df[[clust]] >= P_MIN
-
-  # Condition 2: all other clusters expression < P_MAX
-  if (length(other_clusts) == 1) {
-    cond_others <- pct_df[[other_clusts]] < P_MAX
-  } else {
-    cond_others <- rowSums(pct_df[, other_clusts, drop = FALSE] >= P_MAX) == 0
-  }
-
-  matching_genes <- rownames(pct_df)[cond_target & cond_others]
+  matching_genes <- rownames(pct_df)[cond_target]
   unique_genes_method_b[[clust]] <- matching_genes
   method_b_counts_list <- c(method_b_counts_list, length(matching_genes))
 }
@@ -220,10 +211,10 @@ p2 <- ggplot(method_b_counts, aes(x = cluster, y = num_unique_genes)) +
   geom_text(aes(label = num_unique_genes), vjust = -1.2, size = 3.5, fontface = "bold", show.legend = FALSE) +
   scale_color_gradientn(colors = c("#3182bd", "#8e31a3", "#de2d26")) +
   labs(
-    title = "Method B: Number of Uniquely Expressed Genes per Cluster",
-    subtitle = paste0("Criteria: >= ", P_MIN * 100, "% cells in cluster, and < ", P_MAX * 100, "% cells in all other clusters"),
+    title = "Method B: Number of Expressed Genes per Cluster",
+    subtitle = paste0("Criteria: > ", P_MIN * 100, "% cells in cluster (expression in other clusters not restricted)"),
     x = "Seurat Cluster",
-    y = "Number of Uniquely Expressed Genes",
+    y = "Number of Expressed Genes",
     color = "Count",
     size = "Count"
   ) +
@@ -260,7 +251,7 @@ p_comp <- ggplot(comparison_df, aes(x = Method_A, y = Method_B)) +
   geom_text(aes(label = cluster), vjust = -0.8, hjust = 0.5, size = 3) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
   labs(
-    title = "Comparison of Unique Gene Counts per Cluster",
+    title = "Comparison of Gene Counts per Cluster",
     x = "Method A: Marker-based",
     y = "Method B: Expression-fraction-based"
   ) +
@@ -298,11 +289,12 @@ if (!any(is.na(suppressWarnings(as.numeric(clust_vals))))) {
 p_umi <- ggplot(umi_df, aes(x = cluster, y = nCount_RNA, fill = cluster)) +
   geom_violin(scale = "width", adjust = 1, trim = TRUE, alpha = 0.7) +
   geom_boxplot(width = 0.1, color = "black", alpha = 0.6, outlier.shape = NA) +
+  scale_y_log10(labels = scales::label_comma()) +
   labs(
     title = "Total UMI Counts per Cluster",
     subtitle = "Distribution of total transcripts (nCount_RNA) per cell across clusters",
     x = "Seurat Cluster",
-    y = "Total UMI Counts (nCount_RNA)"
+    y = "Total UMI Counts (nCount_RNA, log10 scale)"
   ) +
   theme_cowplot() +
   theme(
@@ -383,7 +375,7 @@ if (length(mt_genes) > 0) {
 # Unique Genes vs Total UMI Counts per Cluster
 To explore the relationship between cellular sequencing depth (total UMI counts) and the detection of cluster-specific uniquely expressed genes, we generate scatter plots for each cluster. For each cell in a cluster, we plot its total UMI count against the number of uniquely expressed genes (from Method A and Method B) detected (expression > 0) in that cell.
 
-```{r unique_genes_vs_umi, fig.width=12, fig.height=6}
+```{r unique_genes_vs_umi}
 # Retrieve expression matrix
 expr_mat <- GetAssayData(seurat_obj, assay = "RNA", slot = "data")
 clusters <- Idents(seurat_obj)
@@ -401,98 +393,52 @@ plot_list <- list()
 for (clust in sorted_clusters) {
   cells_in_clust <- which(clusters == clust)
   if (length(cells_in_clust) == 0) next
-  
+
   cell_names_in_clust <- colnames(seurat_obj)[cells_in_clust]
-  
-  # Get Method A unique genes for this cluster
-  genes_a <- unique(unique_markers$gene[unique_markers$cluster == clust])
-  
-  # Get Method B unique genes for this cluster
   genes_b <- unique_genes_method_b[[clust]]
-  
-  # Total UMI counts
   umi_counts <- seurat_obj@meta.data[cell_names_in_clust, "nCount_RNA"]
-  
-  # Calculate number of unique genes detected (expression > 0) per cell
-  if (length(genes_a) > 0) {
-    detected_a <- colSums(expr_mat[genes_a, cell_names_in_clust, drop = FALSE] > 0)
-  } else {
-    detected_a <- rep(0, length(cell_names_in_clust))
-  }
-  
+
   if (length(genes_b) > 0) {
     detected_b <- colSums(expr_mat[genes_b, cell_names_in_clust, drop = FALSE] > 0)
   } else {
     detected_b <- rep(0, length(cell_names_in_clust))
   }
-  
-  # Create a dataframe for plotting
-  plot_df <- data.frame(
-    umi_counts = umi_counts,
-    detected_a = detected_a,
-    detected_b = detected_b
-  )
-  
-  # Plot for Method A
-  p_a <- ggplot(plot_df, aes(x = umi_counts, y = detected_a)) +
-    geom_point(color = "#3182bd", alpha = 0.6, size = 1.5) +
+
+  plot_df <- data.frame(umi_counts = umi_counts, detected_b = detected_b)
+
+  plot_list[[clust]] <- ggplot(plot_df, aes(x = umi_counts, y = detected_b)) +
+    geom_point(color = "#8e31a3", alpha = 0.6, size = 1) +
     geom_smooth(method = "lm", formula = y ~ x, color = "#de2d26", linetype = "dashed", se = FALSE) +
     labs(
-      title = paste("Method A (Marker-Based):", length(genes_a), "Unique Genes"),
-      x = "Total UMI Counts (nCount_RNA)",
+      title = paste0("Cluster ", clust, " (", length(genes_b), " genes)"),
+      x = "UMI Counts",
       y = "Unique Genes Detected"
     ) +
-    theme_cowplot() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold"),
-      panel.grid.major = element_line(color = "grey95")
-    )
-  
-  # Plot for Method B
-  p_b <- ggplot(plot_df, aes(x = umi_counts, y = detected_b)) +
-    geom_point(color = "#8e31a3", alpha = 0.6, size = 1.5) +
-    geom_smooth(method = "lm", formula = y ~ x, color = "#de2d26", linetype = "dashed", se = FALSE) +
-    labs(
-      title = paste("Method B (Expression-Fraction):", length(genes_b), "Unique Genes"),
-      x = "Total UMI Counts (nCount_RNA)",
-      y = "Unique Genes Detected"
-    ) +
-    theme_cowplot() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold"),
-      panel.grid.major = element_line(color = "grey95")
-    )
-  
-  # Combine plots side by side
-  p_combined <- p_a + p_b + 
-    plot_annotation(
-      title = paste("Cluster", clust, "- Unique Genes vs Total UMI Counts"),
-      theme = theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
-    )
-  
-  plot_list[[clust]] <- p_combined
+    theme_cowplot(font_size = 9) +
+    theme(panel.grid.major = element_line(color = "grey95"))
 }
 
-# Save combined plots to PDF (one page per cluster)
+# Save to PDF: 12 plots per page (3 columns x 4 rows)
+PLOTS_PER_PAGE <- 12
 pdf_path <- file.path(OUTPUT_DIR, "unique_genes_vs_umi_by_cluster.pdf")
-pdf(pdf_path, width = 12, height = 6)
-for (clust in sorted_clusters) {
-  if (!is.null(plot_list[[clust]])) {
-    print(plot_list[[clust]])
-  }
+valid_clusters <- sorted_clusters[!sapply(sorted_clusters, function(cl) is.null(plot_list[[cl]]))]
+pages <- split(valid_clusters, ceiling(seq_along(valid_clusters) / PLOTS_PER_PAGE))
+
+pdf(pdf_path, width = 8.5, height = 11)
+for (page_clusters in pages) {
+  page_plots <- plot_list[page_clusters]
+  print(wrap_plots(page_plots, ncol = 3, nrow = 4))
 }
 dev.off()
-cat("Saved combined scatter plots to:", pdf_path, "\n")
+cat("Saved scatter plots to:", pdf_path, "\n")
 
-# Print plots in the Rmd report
-for (clust in sorted_clusters) {
-  if (!is.null(plot_list[[clust]])) {
-    print(plot_list[[clust]])
-  }
+# Print pages in the Rmd report
+for (page_clusters in pages) {
+  print(wrap_plots(plot_list[page_clusters], ncol = 3, nrow = 4))
 }
 ```
 
 # Session Information
 ```{r session_info}
-sessionInfo()
+writeLines(capture.output(sessionInfo()), paste0(output, "sessionInfo.txt"))
 ```

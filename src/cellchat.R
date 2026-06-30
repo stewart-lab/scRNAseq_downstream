@@ -8,6 +8,8 @@ library(NMF)
 library(ggalluvial)
 library(reticulate)
 options(stringsAsFactors = FALSE)
+library(autozyme)
+autozyme::activate("cellchat")
 
 # # parse command line arguments
 # option_list <- list(
@@ -59,6 +61,11 @@ group_by <- config$cellchat$group_by
 source1 <- config$cellchat$source1
 source2 <- config$cellchat$source2
 task_id <- config$cellchat$task_id
+# Allow CLI override without editing config.json: Rscript cellchat.R --task_id N
+args_cli <- commandArgs(trailingOnly = TRUE)
+if (length(args_cli) >= 2 && args_cli[1] == "--task_id") {
+    task_id <- as.integer(args_cli[2])
+}
 metadata_file <- config$cellchat$metadata_file
 ### set working directory and output ###
 setwd(GIT_DIR)
@@ -462,9 +469,9 @@ net_analysis <- function(cellchatobj, output, name) {
     # Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
     ht1 <- netAnalysis_signalingRole_heatmap(cellchatobj, pattern = "outgoing")
     ht2 <- netAnalysis_signalingRole_heatmap(cellchatobj, pattern = "incoming")
-    pdf(file = paste0(name, "_NetAnalysis_allcelltype_allpaths_heatmap.pdf",
+    pdf(file = paste0(name, "_NetAnalysis_allcelltype_allpaths_heatmap.pdf"),
         width = 10, height = 10
-    ))
+    )
     print(ht1 + ht2)
     dev.off()
 
@@ -655,6 +662,7 @@ run_cellchat <- function(seurat_obj, output, name, source1, source2, not_source1
     setwd(output)
     #### visualize LR pairs ####
     print("visualize significant L-R pairs")
+    assign("cellchat", cellchat, envir = .GlobalEnv)
     cellchat <- LRpair_viz(cellchat, output, name, source1, source2, not_source1, not_source2)
 
     #### Network Analysis ####

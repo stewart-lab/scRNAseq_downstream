@@ -9,6 +9,13 @@ echo "METHOD imported as $METHOD"
 DATA_DIR=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['$METHOD']['DATA_DIR'])")
 echo "DATA_DIR imported as $DATA_DIR"
 
+# Cellchat parallelism: resolve task_id and file count once, used by both docker and conda branches
+if [ "$METHOD" == "cellchat" ]; then
+    TASK_ID=$(python -c "import json; v=json.load(open('$CONFIG_FILE'))['cellchat'].get('task_id'); print('' if v is None else int(v))")
+    FILELIST_PATH=$(python -c "import json; c=json.load(open('$CONFIG_FILE'))['cellchat']; print(c['DATA_DIR'] + c['FILELIST'])")
+    N_FILES=$(awk 'END{print NR}' "$FILELIST_PATH")
+fi
+
 echo "Step 2: Docker or conda environment?"
 read -p "Do you want to use the docker container or have you installed the conda environment on your computer? Reply y for docker, N for conda [y/N]: " confirm
 
@@ -78,7 +85,15 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
             /bin/bash -c '. DEseq2_best/bin/activate
             Rscript src/gprofiler.r'
         elif [ \"$METHOD\" == \"cellchat\" ]; then
-            conda run -n cellchat /bin/bash -c 'Rscript src/cellchat.R'
+            if [ -z \"$TASK_ID\" ]; then
+                for i in \$(seq 1 $N_FILES); do
+                    conda run -n cellchat Rscript /src/cellchat.R --task_id \$i > /shared_volume/nohup_cellchat_task\${i}.out 2>&1 &
+                done
+                wait
+                echo \"All $N_FILES cellchat jobs complete\"
+            else
+                conda run -n cellchat Rscript /src/cellchat.R --task_id $TASK_ID
+            fi
         else
             echo \"Unknown METHOD: $METHOD\"
             exit 1
@@ -142,7 +157,17 @@ else
         Rscript src/gprofiler.r
     elif [ "$METHOD" == "cellchat" ]; then
         conda activate cellchat
-        nohup Rscript src/cellchat.R &
+        mkdir -p logs
+        if [ -z "$TASK_ID" ]; then
+            echo "task_id is null: launching $N_FILES parallel cellchat jobs"
+            for i in $(seq 1 $N_FILES); do
+                nohup Rscript src/cellchat.R --task_id $i > logs/nohup_cellchat_task${i}.out 2>&1 &
+            done
+            echo "All $N_FILES cellchat jobs launched. Monitor with: tail -f logs/nohup_cellchat_task*.out"
+        else
+            echo "task_id=$TASK_ID: running single cellchat job"
+            nohup Rscript src/cellchat.R --task_id $TASK_ID > logs/nohup_cellchat_task${TASK_ID}.out 2>&1 &
+        fi
     elif [ "$METHOD" == "get_sample_ds_from_cellxgene" ]; then
         source activate cellxgene_scvi
         python src/get_sample_ds_from_cellxgene.py

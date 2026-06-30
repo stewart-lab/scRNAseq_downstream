@@ -1,5 +1,5 @@
 {
-  "title": "zfish_subset_cluster_cellchat",
+  "title": "zfish_cellchat_cluster_subset",
   "METHOD": "cellchat",
   "docker": "false",
   "seurat_mapping": {
@@ -253,7 +253,7 @@
     "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
     "GENE_LIST": [],
     "DIM.RED": "umap",
-    "ANNOT": "Type"
+    "ANNOT": "Condition"
   },
   "phate": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
@@ -293,11 +293,11 @@
   },
   "cellchat": {
     "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/",
-    "FILELIST": "filelist_test.txt",
+    "FILELIST": "filelist_test2.txt",
     "group_by": "seurat_clusters_res0.75",
     "source1": "13",
     "source2": "9",
-    "task_id": 8,
+    "task_id": null,
     "metadata_file": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/manual_annot_metadata_all_res0.75.txt"
   },
   "get_sample_ds_from_cellxgene": {

@@ -33,12 +33,12 @@ DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204
 SEURAT_OBJ <- "seuratobj_all_reclustered.rds"
 GENE_LIST <- config$subset_seurat$GENE_LIST
 DIM.RED <- "umap"
-ANNOT <- "seurat_clusters_res0.75"
+ANNOT <- "Condition"
 
 # set up environment and output
 setwd(DATA_DIR)
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-output <- paste0("output_subset_psuedobulk_", timestamp)
+output <- paste0("output_subset_umap_", timestamp) #pseudobulk
 dir.create(output, showWarnings = FALSE)
 file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
 output <- paste0(output, "/")
@@ -73,6 +73,7 @@ table(seurat.obj$sample, seurat.obj$Condition, seurat.obj$Timepoint)
 ```{r plot}
 mypallete <- DiscretePalette(29, palette = "glasbey")
 mypallete2 <- DiscretePalette(29, palette = "polychrome")
+cols <- c("#de2d26","#3182bd")
 p1 <- DimPlot(seurat.obj,
         reduction = DIM.RED, label = FALSE,
         pt.size = 0.2, group.by = ANNOT, cols = mypallete
@@ -96,26 +97,26 @@ dev.off()
 ```
 # plot function
 ```{r plot_function}
-plot_function1 <- function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT, mypallete, condition) {
+plot_function1 <- function(seurat.obj_subset, DIM.RED, output, cluster_name, ANNOT, mypallete) {
         p1 <- DimPlot(seurat.obj_subset,
                 reduction = DIM.RED, label = FALSE,
                 pt.size = 0.2, group.by = ANNOT, cols = mypallete
-        )
-        pdf(file = paste0(output, "seurat_subset_cluster_", cluster_name, "_", condition, ".pdf"), width = 8, height = 6)
+        ) + ylim(-15,15) +xlim(-15,15)
+        pdf(file = paste0(output, "seurat_subset_cluster_", cluster_name, "_", ".pdf"), width = 8, height = 6)
         print(p1)
         dev.off()
 }
 ```
 # subset
 ```{r}
-condition_list <- unique(seurat.obj$Type)
-condition_list <- condition_list[!condition_list %in% c("Sham", "1Wk")]
-print(condition_list)
+time_list <- unique(seurat.obj$Timepoint)
+time_list <- time_list[!time_list %in% c("Sham", "1Wk")]
+print(time_list)
 # loop through condition list and plot
-for (condition_name in condition_list) {
-        print(condition_name)
-        seurat.obj_subset <- subset(seurat.obj, subset = Type == condition_name)
-        plot_function1(seurat.obj_subset, DIM.RED, output, condition_name, ANNOT, mypallete2)
+for (time in time_list) {
+        print(time)
+        seurat.obj_subset <- subset(seurat.obj, subset = Timepoint == time)
+        plot_function1(seurat.obj_subset, DIM.RED, output, time, ANNOT, cols)
 }
 ```
 # subset for positively expressed genelist

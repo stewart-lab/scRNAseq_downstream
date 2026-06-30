@@ -1,5 +1,12 @@
+---
+title: "Cell chat interactions"
+author: "Beth Moore"
+date: "`r Sys.Date()`"
+output: html_document
+---
 # load libraries
 ```{r}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ptm <- Sys.time()
 library(CellChat)
 library(patchwork)
@@ -7,26 +14,27 @@ reticulate::use_python("/w5home/bmoore/.virtualenvs/cellchat/bin/python", requir
 ```
 # create dir
 ```{r}
-setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat/")
-data.dir <- "./comparison_4wk_clusters/"
-# dir.create(data.dir)
+setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/")
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+data.dir <- paste0("./comparison_6wk_clusters_0.75", timestamp)
+dir.create(data.dir, mode = "0777", showWarnings = FALSE)
 setwd(data.dir)
 ```
 # load cell chat objects from previous cell chat run
 ```{r}
-name <- "4wk_R_NR_2"
-cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat2/seurat_mouse_annot_4WkNR_cellchat_20250912_183447/seurat_mouse_annot_4WkNR_cellchat_obj.rds")
-cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat2/seurat_mouse_annot_4WkR_cellchat_20250912_200148/seurat_mouse_annot_4WkR_cellchat_obj.rds")
+name <- "6wk_R_NR"
+cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_6WkNR_cellchat_20260625_103123/seurat_mouse_annot_6WkNR_cellchat_obj.rds")
+cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_6WkR_cellchat_20260625_103119/seurat_mouse_annot_6WkR_cellchat_obj.rds")
 object.list <- list(R = cellchat.R, NR = cellchat.NR)
 table(cellchat.NR@idents)
 table(cellchat.R@idents)
 # define a positive dataset, i.e., the dataset with positive fold change against the other dataset
-pos.dataset <- "R"
-neg.dataset <- "NR"
-fibroblast <- "7" # c(8)
-not_fibroblast <- c("clust0", "1", "2", "3", "4", "5", "6", "8", "9", "10", "11", "12", "13", "14", "15", "16") # c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
-Tcell <- "5" # c(6)
-not_Tcell <- c("clust0", "1", "2", "3", "4", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16") # c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
+pos.dataset <- "NR"
+neg.dataset <- "R"
+fibroblast <- "13" # c(8)
+not_fibroblast <- c("1", "2", "3", "4", "5", "6", "7","8", "9", "10", "11", "12", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
+Tcell <- "9" # c(6)
+not_Tcell <- c("1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
 ```
 # merge
 ```{r}
@@ -51,35 +59,30 @@ print(as.numeric(execution.time, units = "secs"))
 save(object.list, file = paste0("cellchat_object.list_", name, ".RData"))
 save(cellchat_merge, file = paste0("cellchat_merged_", name, ".RData"))
 ```
-# to reload data
-```{r load_data}
-# setwd("/w5home/bmoore/Pierre_sc_zebrafish/comparison_6wk/")
-load("cellchat_object.list_4wk_NR-R.RData")
-load("cellchat_merge_4wk_NR-R.RData")
-```
+
 # Identify altered interactions and cell populations
 ```{r}
 # Compare the total number of interactions and interaction strength and among cell populations
 ptm <- Sys.time()
-gg1 <- compareInteractions(cellchat_merge, show.legend = F, group = c(1, 2))
-gg2 <- compareInteractions(cellchat_merge, show.legend = F, group = c(1, 2), measure = "weight")
-pdf(file = paste0(name, "_global_interactions_NRpos.pdf"))
+gg1 <- compareInteractions(cellchat_merge, show.legend = F, group = c(2, 1))
+gg2 <- compareInteractions(cellchat_merge, show.legend = F, group = c(2, 1), measure = "weight")
+pdf(file = paste0(name, "_global_interactions_pos",pos.dataset,".pdf"))
 print(gg1 + gg2)
 dev.off()
 
 # circle plot
-pdf(file = paste0(name, "_cell_diffinteractions_circ_NRpos.pdf"))
+pdf(file = paste0(name, "_cell_diffinteractions_circ_pos",pos.dataset,".pdf"))
 par(mfrow = c(1, 2), xpd = TRUE)
 netVisual_diffInteraction(cellchat_merge, weight.scale = T)
 netVisual_diffInteraction(cellchat_merge, weight.scale = T, measure = "weight")
 dev.off()
 # heatmap
 # Red represent increased signals in second dataset compared to the first
-gg1 <- netVisual_heatmap(cellchat_merge)
+gg1 <- netVisual_heatmap(cellchat_merge, comparison = c(1, 2))
 #> Do heatmap based on a merged object
-gg2 <- netVisual_heatmap(cellchat_merge, measure = "weight")
+gg2 <- netVisual_heatmap(cellchat_merge, measure = "weight", comparison = c(1, 2))
 #> Do heatmap based on a merged object
-pdf(file = paste0(name, "_cell_diffinteractions_heatmap_NRpos.pdf"))
+pdf(file = paste0(name, "_cell_diffinteractions_heatmap_pos",pos.dataset,".pdf"))
 print(gg1 + gg2)
 dev.off()
 ```
@@ -108,11 +111,11 @@ dev.off()
 # Positive values indicate the increase in the second dataset (R) while negative values indicate the increase in the first dataset (NR)
 gg1 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
         idents.use =
-                Tcell
+                Tcell, comparison = c(2, 1)
 ) # "T_Cells_and_Neutrophils"
 gg2 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
         idents.use =
-                fibroblast
+                fibroblast, comparison = c(2, 1)
 ) # "Fibroblasts"
 
 pdf(file = paste0(name, "_sig_changes_Tcell-Fibroblast.pdf"), height = 6, width = 10)
@@ -122,12 +125,14 @@ dev.off()
 gg1 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
         idents.use =
                 Tcell, # "T_Cells_and_Neutrophils"
-        xlims = c(-0.04, 0.0005), ylims = c(-0.025, 0.0005)
+        xlims = c(-0.04, 0.0005), ylims = c(-0.025, 0.0005),
+        comparison = c(2, 1)
 )
 gg2 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
         idents.use =
                 fibroblast, # "Fibroblasts"
-        xlims = c(-0.04, 0.0005), ylims = c(-0.025, 0.0005)
+        xlims = c(-0.04, 0.0005), ylims = c(-0.025, 0.0005),
+        comparison = c(2, 1)
 )
 
 pdf(file = paste0(name, "_sig_changes_Tcell-Fibroblast1.pdf"), height = 6, width = 10)
@@ -138,12 +143,14 @@ dev.off()
 gg1 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
         idents.use =
                 Tcell, # "T_Cells_and_Neutrophils"
-        xlims = c(-0.0005, 0.00015), ylims = c(-0.001, 0.00005)
+        xlims = c(-0.0005, 0.00015), ylims = c(-0.001, 0.00005),
+        comparison = c(2, 1)
 )
 gg2 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
         idents.use =
                 fibroblast, # "Fibroblasts"
-        xlims = c(-0.00005, 0.00005), ylims = c(-0.00005, 0.00005)
+        xlims = c(-0.00005, 0.00005), ylims = c(-0.00005, 0.00005),
+        comparison = c(2, 1)
 )
 
 pdf(file = paste0(name, "_sig_changes_Tcell-Fibroblast2.pdf"), height = 6, width = 10)
@@ -152,7 +159,7 @@ dev.off()
 ```
 ```{r}
 celltype.list <- unique(object.list[[neg.dataset]]@idents) # object.list$R@idents
-celltype.listA <- as.vector(celltype.list[celltype.list != c("7", "5")])
+celltype.listA <- as.vector(celltype.list[celltype.list != c("9", "13")])
 celltype.listA
 ```
 ```{r}
@@ -162,7 +169,8 @@ for (i in 1:length(celltype.listA)) {
         # celltype.list.tmp <- as.vector(celltype.listA[celltype.listA != celltype.listA[i]])
         gg1 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
                 idents.use =
-                        celltype.listA[i]
+                        celltype.listA[i],
+                        comparison = c(2, 1)
         )
         pdf(file = paste0(name, "_sig_changes_", celltype.listA[i], ".pdf"), height = 6, width = 6)
         print(gg1)
@@ -186,6 +194,7 @@ pdf(file = paste0(name, "_sig_networks_functional_2D_plot.pdf"))
 netVisual_embeddingPairwise(cellchat_merge,
         type = "functional",
         label.size = 3.5
+        #comparison = c(2, 1)
 )
 dev.off()
 
@@ -193,6 +202,7 @@ pdf(file = paste0(name, "_sig_networks_functional_2D_plot_pathslabel.pdf"))
 netVisual_embeddingPairwise(cellchat_merge,
         type = "functional",
         label.size = 3.5, top.label = 0.2
+        #comparison = c(2, 1)
 )
 dev.off()
 
@@ -213,7 +223,7 @@ dev.off()
 ```{r}
 # compute pathway distance in joint manifold
 pdf(file = paste0(name, "_pathway_distance.pdf"))
-rankSimilarity(cellchat_merge, type = "functional")
+rankSimilarity(cellchat_merge, type = "functional") #, comparison1 = c(2, 1)
 dev.off()
 ```
 # Identify altered signaling with distinct interaction strength
@@ -223,11 +233,11 @@ dev.off()
 # overall info flow is defined by the sum of communication probability among all pairs of cell groups in the inferred network (i.e., the total weights)
 gg1 <- rankNet(cellchat_merge,
         mode = "comparison", measure = "weight",
-        sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE
+        sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE, comparison = c(2, 1)
 )
 gg2 <- rankNet(cellchat_merge,
         mode = "comparison", measure = "weight",
-        sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE
+        sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE, comparison = c(2, 1)
 )
 pdf(file = paste0(name, "_overall_info_flow.pdf"))
 print(gg1 + gg2)
@@ -265,12 +275,12 @@ dev.off()
 p1 <- netVisual_bubble(cellchat_merge,
         sources.use = Tcell,
         targets.use = not_Tcell, # sources.use = c(6), targets.use = c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
-        comparison = c(1, 2), angle.x = 45
+        comparison = c(2, 1), angle.x = 45
 )
 p2 <- netVisual_bubble(cellchat_merge,
         sources.use = not_Tcell,
         targets.use = Tcell, # sources.use = c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
-        comparison = c(1, 2), angle.x = 45
+        comparison = c(2, 1), angle.x = 45
 )
 pdf(
         file = paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"),
@@ -282,12 +292,12 @@ dev.off()
 p3 <- netVisual_bubble(cellchat_merge,
         sources.use = fibroblast,
         targets.use = not_fibroblast, # sources.use = c(8), targets.use = c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
-        comparison = c(1, 2), angle.x = 45
+        comparison = c(2, 1), angle.x = 45
 )
 p4 <- netVisual_bubble(cellchat_merge,
         sources.use = not_fibroblast,
         targets.use = fibroblast,
-        comparison = c(1, 2), angle.x = 45
+        comparison = c(2, 1), angle.x = 45
 )
 pdf(
         file = paste0(name, "_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"),
@@ -303,22 +313,22 @@ dev.off()
 # Tcells
 gg1 <- netVisual_bubble(cellchat_merge,
         sources.use = not_Tcell, targets.use = Tcell,
-        comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in R to Tcell", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 2, title.name = "Increased signaling in R to Tcell", angle.x = 45, remove.isolate = T
 )
 
 gg2 <- netVisual_bubble(cellchat_merge,
         sources.use = not_Tcell, targets.use = Tcell,
-        comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in R to Tcell", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 1, title.name = "Decreased signaling in R to Tcell", angle.x = 45, remove.isolate = T
 )
 
 gg3 <- netVisual_bubble(cellchat_merge,
         sources.use = Tcell, targets.use = not_Tcell,
-        comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in R from Tcell", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 2, title.name = "Increased signaling in R from Tcell", angle.x = 45, remove.isolate = T
 )
 
 gg4 <- netVisual_bubble(cellchat_merge,
         sources.use = Tcell, targets.use = not_Tcell,
-        comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in R from Tcell", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 1, title.name = "Decreased signaling in R from Tcell", angle.x = 45, remove.isolate = T
 )
 
 pdf(file = paste0(name, "_inc-dec_sig_cc_L-Rpairs_celltypes_bubble_Tcells.pdf"), height = 11, width = 8.5)
@@ -328,22 +338,22 @@ dev.off()
 # Fibroblasts
 gg5 <- netVisual_bubble(cellchat_merge,
         sources.use = not_fibroblast, targets.use = fibroblast,
-        comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in R to Fibroblast", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 2, title.name = "Increased signaling in R to Fibroblast", angle.x = 45, remove.isolate = T
 )
 
 gg6 <- netVisual_bubble(cellchat_merge,
         sources.use = not_fibroblast, targets.use = fibroblast,
-        comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in R to Fibroblast", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 1, title.name = "Decreased signaling in R to Fibroblast", angle.x = 45, remove.isolate = T
 )
 
 gg7 <- netVisual_bubble(cellchat_merge,
         sources.use = fibroblast, targets.use = not_fibroblast,
-        comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in R from Fibroblast", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 2, title.name = "Increased signaling in R from Fibroblast", angle.x = 45, remove.isolate = T
 )
 
 gg8 <- netVisual_bubble(cellchat_merge,
         sources.use = fibroblast, targets.use = not_fibroblast,
-        comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in R from Fibroblast", angle.x = 45, remove.isolate = T
+        comparison = c(2, 1), max.dataset = 1, title.name = "Decreased signaling in R from Fibroblast", angle.x = 45, remove.isolate = T
 )
 
 pdf(file = paste0(name, "_inc-dec_sig_cc_L-Rpairs_celltypes_bubble_fibroblasts.pdf"), height = 11, width = 8.5)
@@ -420,14 +430,14 @@ gene.down <- extractGeneSubsetFromPair(net.down, cellchat_merge)
 pairLR.use.up <- net.up[, "interaction_name", drop = F]
 gg1 <- netVisual_bubble(cellchat_merge,
         pairLR.use = pairLR.use.up, sources.use = Tcell,
-        targets.use = not_Tcell, comparison = c(1, 2), angle.x = 90, remove.isolate = T,
+        targets.use = not_Tcell, comparison = c(2, 1), angle.x = 90, remove.isolate = T,
         title.name = paste0("Up-regulated signaling in ", names(object.list)[2])
 )
 
 pairLR.use.down <- net.down[, "interaction_name", drop = F]
 gg2 <- netVisual_bubble(cellchat_merge,
         pairLR.use = pairLR.use.down, sources.use = Tcell,
-        targets.use = not_Tcell, comparison = c(1, 2), angle.x = 90, remove.isolate = T,
+        targets.use = not_Tcell, comparison = c(2, 1), angle.x = 90, remove.isolate = T,
         title.name = paste0("Down-regulated signaling in ", names(object.list)[2])
 )
 
@@ -437,12 +447,12 @@ dev.off()
 
 gg3 <- netVisual_bubble(cellchat_merge,
         pairLR.use = pairLR.use.up, sources.use = fibroblast,
-        targets.use = not_fibroblast, comparison = c(1, 2), angle.x = 90, remove.isolate = T,
+        targets.use = not_fibroblast, comparison = c(2, 1), angle.x = 90, remove.isolate = T,
         title.name = paste0("Up-regulated signaling in ", names(object.list)[2])
 )
 gg4 <- netVisual_bubble(cellchat_merge,
         pairLR.use = pairLR.use.down, sources.use = fibroblast,
-        targets.use = not_fibroblast, comparison = c(1, 2), angle.x = 90, remove.isolate = T,
+        targets.use = not_fibroblast, comparison = c(2, 1), angle.x = 90, remove.isolate = T,
         title.name = paste0("Down-regulated signaling in ", names(object.list)[2])
 )
 
@@ -541,7 +551,7 @@ par(mfrow = c(1, 2), xpd = TRUE)
 for (i in 1:length(object.list)) {
         netVisual_chord_gene(object.list[[i]],
                 sources.use = fibroblast, targets.use = not_fibroblast,
-                lab.cex = 0.5, title.name = paste0("Signaling from Fibroblast - ", names(object.list)[i])
+                lab.cex = 0.1, title.name = paste0("Signaling from Fibroblast - ", names(object.list)[i])
         )
 }
 dev.off()
@@ -555,7 +565,7 @@ par(mfrow = c(1, 2), xpd = TRUE)
 for (i in 1:length(object.list)) {
         netVisual_chord_gene(object.list[[i]],
                 sources.use = not_fibroblast, targets.use = fibroblast,
-                lab.cex = 0.5, title.name = paste0("Signaling to Fibroblast - ", names(object.list)[i])
+                lab.cex = 0.1, title.name = paste0("Signaling to Fibroblast - ", names(object.list)[i])
         )
 }
 dev.off()
@@ -574,7 +584,7 @@ for (i in 1:length(object.list)) {
                 slot.name = "netP", title.name = paste0(
                         "Signaling pathways sending from fibroblast - ",
                         names(object.list)[i]
-                ), legend.pos.x = 10
+                ), legend.pos.x = 10, lab.cex = 0.1
         )
 }
 dev.off()
@@ -590,7 +600,7 @@ for (i in 1:length(object.list)) {
                 slot.name = "netP", title.name = paste0(
                         "Signaling pathways sending to fibroblast - ",
                         names(object.list)[i]
-                ), legend.pos.x = 10
+                ), legend.pos.x = 10, lab.cex = 0.1
         )
 }
 dev.off()
@@ -625,10 +635,9 @@ dev.off()
 ```
 ```{r}
 # detailed look at paths
-# pathways.show <- c("MPZ","ADGRL","NCAM","CDH","NRXN","EPHB","CADM","NEGR","NOTCH","NRG","APP","NCAM","PTPR","ADGRB","NRG","UNC5")
 pathways.show.all <- unique(c(object.list[[1]]@netP$pathways, object.list[[2]]@netP$pathways))
 
-pathways.show.all.fin <- unique(vctrs::vec_c(pathways.show.all, pathways.show.all2))
+#pathways.show.all.fin <- unique(vctrs::vec_c(pathways.show.all, pathways.show.all2))
 for (j in 1:length(pathways.show.all)) {
         print(pathways.show.all[j])
         tryCatch(
@@ -696,8 +705,8 @@ write.table(df.netR, file = paste0(name, "_netaggregateR_weights.txt"), quote = 
 ```{r}
 df.net.p <- subsetCommunication(cellchat.NR, slot.name = "netP")
 df.net.pR <- subsetCommunication(cellchat.R, slot.name = "netP")
-write.table(df.net.p, file = paste0("4wkNR_cellchat_df_net_signal_paths.txt"), sep = "\t", quote = FALSE)
-write.table(df.net.pR, file = paste0("4wkR_cellchat_df_net_signal_paths.txt"), sep = "\t", quote = FALSE)
+write.table(df.net.p, file = paste0(name, "_NR_cellchat_df_net_signal_paths.txt"), sep = "\t", quote = FALSE)
+write.table(df.net.pR, file = paste0(name, "_R_cellchat_df_net_signal_paths.txt"), sep = "\t", quote = FALSE)
 # combine
 df.net.p.merged <- merge(df.net.p, df.net.pR, by = c("source", "target", "pathway_name"), all = TRUE, suffixes = c("_NR", "_R"))
 
@@ -705,18 +714,18 @@ df.net.p.merged <- merge(df.net.p, df.net.pR, by = c("source", "target", "pathwa
 df.net.p.merged[is.na(df.net.p.merged)] <- 0
 # get net probability (NR - R)
 df.net.p.merged$net_prob <- df.net.p.merged$prob_NR - df.net.p.merged$prob_R
-write.table(df.net.p.merged, file = paste0("4wk_cellchat_df_net_signal_paths.txt"), sep = "\t", quote = FALSE)
+write.table(df.net.p.merged, file = paste0(name, "_cellchat_df_net_signal_paths.txt"), sep = "\t", quote = FALSE)
 ```
 # Compare the signaling gene expression distribution between different datasets
 ```{r}
 cellchat_merge@meta$datasets <- factor(cellchat_merge@meta$datasets, levels = c(neg.dataset, pos.dataset)) # set factor level
 # pathways.show <- c("MPZ","ADGRL","NCAM","CDH","NRXN","EPHB","CADM","NEGR","NOTCH","NRG","APP","NCAM","PTPR","ADGRB","NRG","UNC5")
-for (j in 1:length(pathways.show.all.fin)) {
+for (j in 1:length(pathways.show.all)) {
         p1 <- plotGeneExpression(cellchat_merge,
-                signaling = pathways.show.all.fin[j], split.by = "datasets",
+                signaling = pathways.show.all[j], split.by = "datasets",
                 colors.ggplot = T, type = "violin"
         )
-        pdf(file = paste0(pathways.show.all.fin[j], "_geneExpr_violin.pdf"))
+        pdf(file = paste0(pathways.show.all[j], "_geneExpr_violin.pdf"))
         print(p1)
         dev.off()
 }
