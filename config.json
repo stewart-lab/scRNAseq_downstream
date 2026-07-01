@@ -1,6 +1,6 @@
 {
   "title": "GAMM_S1_day40_recluster",
-  "METHOD": "subset_seurat",
+  "METHOD": "recluster",
   "docker": "true",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -205,8 +205,8 @@
     }
   },
   "recluster": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/GAMM_S1/output_20230921_142919/",
-    "SEURAT.FILE": "GAMM_S1_clabeled-clusters_0.5.rds",
+    "DATA_DIR": "/w5home/rstewart/scRNAseq_downstream/shared_volume/output_subset_20260701_170628/",
+    "SEURAT.FILE": "seurat.obj_subset.rds",
     "perform_clustering": {
       "reduction": "pca",
       "resolution": [
@@ -251,8 +251,8 @@
   "subset_seurat": {
     "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
     "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
-    "SUBSET_MODE": "gene",
-    "GENE_LIST": ["MPZ", "MBPA", "PLCL1"],
+    "SUBSET_MODE": "metadata",
+    "GENE_LIST": [],
     "METADATA_COLUMN": "Type",
     "IDENTS": ["1Wk"],
     "DIM.RED": "umap",
