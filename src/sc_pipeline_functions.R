@@ -1096,7 +1096,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 }
 
 
-annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type, cluster_type = NULL) {
+annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type, cluster_type = NULL, annotation_column = "CellType1") {
   # get configs
   if (type == "integration") {
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
@@ -1120,14 +1120,19 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
   # Rename the clusters based on the new IDs
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
-  # put in CellType metadata
-  seurat_obj$CellType1 <- Idents(seurat_obj)
+  # put in resolution-specific annotation metadata column
+  seurat_obj[[annotation_column]] <- Idents(seurat_obj)
 
   # Generate and plot the UMAP plot
-  pdf(paste0(output_path, "labeled-clusters.pdf"), bg = "white")
+  labeled_clusters_pdf <- if (annotation_column == "CellType1") {
+    paste0(output_path, "labeled-clusters.pdf")
+  } else {
+    paste0(output_path, "labeled-clusters_", annotation_column, ".pdf")
+  }
+  pdf(labeled_clusters_pdf, bg = "white")
   print(DimPlot(seurat_obj,
     reduction = reduction, label = TRUE,
-    pt.size = 0.5, group.by = "CellType1"
+    pt.size = 0.5, group.by = annotation_column
   ))
   dev.off()
   # Save the Seurat object

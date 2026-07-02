@@ -86,11 +86,13 @@ for (res in resolutions) {
         # order annot_df
         annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
         new.cluster.ids <- annot_df.ordered$Celltype
+        annotation_column <- paste0("CellType1_res", resolution)
         # annotate
-        seurat.obj <- annotate_clusters_and_save(seurat.obj, new.cluster.ids, output, "recluster", cluster_type = cluster_name)
+        seurat.obj <- annotate_clusters_and_save(seurat.obj, new.cluster.ids, output, "recluster",
+            cluster_type = cluster_name, annotation_column = annotation_column)
         # print table of celltypes
-        print(table(seurat.obj@meta.data$CellType1))
-        table1 <- table(seurat.obj@meta.data$CellType1)
+        print(table(seurat.obj@meta.data[[annotation_column]]))
+        table1 <- table(seurat.obj@meta.data[[annotation_column]])
         table1 <- as.data.frame(table1)
         write.table(table1,
             file = paste0(output, "table_celltype_counts_res", resolution, ".txt"),
@@ -106,7 +108,7 @@ for (res in resolutions) {
         pdf(paste0(output, "labeled-clusters2_res", resolution, ".pdf"), bg = "white")
         print(DimPlot(seurat.obj,
             reduction = "umap", label = TRUE,
-            pt.size = 0.5, group.by = "CellType1"
+            pt.size = 0.5, group.by = annotation_column
         ) + NoLegend())
         dev.off()
     }
