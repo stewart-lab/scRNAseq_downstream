@@ -777,12 +777,12 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, 
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  # if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
   marker_field <- paste0("label.", cluster_type)
+  if (!(marker_field %in% colnames(sce_obj@colData))) {
+    stop(paste("score_markers expected colData column not found:", marker_field,
+               "| available:", paste(colnames(sce_obj@colData), collapse = ", ")))
+  }
   marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
-  # } else {
-  #   stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
-  # }
   return(marker_info)
 }
 

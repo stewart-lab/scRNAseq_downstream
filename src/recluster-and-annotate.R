@@ -66,13 +66,16 @@ for (res in resolutions) {
     counts_matrix <- seurat.obj[["RNA"]]$counts
     data_matrix <- seurat.obj[["RNA"]]$data
     # get clusters
-    clusters <- seurat.obj[[cluster_name]]
+    clusters <- seurat.obj@meta.data[[cluster_name]]
     # get embeddings
     dim_data_pca <- Embeddings(seurat.obj, reduction = "pca")
     dim_data_umap <- Embeddings(seurat.obj, reduction = "umap")
-    # make sce object
+    # make sce object - score_markers expects colData column named label.{cluster_name}
+    sce_col_name <- paste0("label.", cluster_name)
+    col_data <- DataFrame(clusters)
+    colnames(col_data) <- sce_col_name
     sce <- SingleCellExperiment(list(counts = counts_matrix, logcounts = data_matrix),
-        colData = DataFrame(label = clusters)
+        colData = col_data
     )
     reducedDims(sce) <- list(PCA = dim_data_pca, UMAP = dim_data_umap)
     print(sce)
