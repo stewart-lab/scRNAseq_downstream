@@ -1096,17 +1096,23 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 }
 
 
-annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type) {
+annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type, cluster_type = NULL) {
   # get configs
   if (type == "integration") {
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
-    cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
+    default_cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
   } else if (type == "recluster") {
     reduction <- config$recluster$score_and_plot_markers$reduction
-    cluster_type <- config$recluster$score_and_plot_markers$cluster_type
+    default_cluster_type <- config$recluster$score_and_plot_markers$cluster_type
   } else {
     reduction <- config$score_and_plot_markers$reduction
-    cluster_type <- config$score_and_plot_markers$cluster_type
+    default_cluster_type <- config$score_and_plot_markers$cluster_type
+  }
+  if (is.null(cluster_type)) {
+    cluster_type <- default_cluster_type
+  }
+  if (!(cluster_type %in% colnames(seurat_obj@meta.data))) {
+    stop(paste("cluster_type not found in Seurat object metadata:", cluster_type))
   }
   print(new_cluster_ids)
   # make sure that idents are the clusters you want annotated

@@ -87,7 +87,7 @@ for (res in resolutions) {
         annot_df.ordered <- annot_df[order(as.numeric(annot_df$Cluster)), ]
         new.cluster.ids <- annot_df.ordered$Celltype
         # annotate
-        seurat.obj <- annotate_clusters_and_save(seurat.obj, new.cluster.ids, output, "recluster")
+        seurat.obj <- annotate_clusters_and_save(seurat.obj, new.cluster.ids, output, "recluster", cluster_type = cluster_name)
         # print table of celltypes
         print(table(seurat.obj@meta.data$CellType1))
         table1 <- table(seurat.obj@meta.data$CellType1)
