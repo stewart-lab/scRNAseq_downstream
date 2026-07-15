@@ -44,17 +44,20 @@ DIM.RED <- "umap"
 
 # Reclustering (needed so FindAllMarkers / CASSIA have >1 cluster)
 # Set FALSE to reuse seurat.obj_reclustered.rds already in OUTPUT_DIR
-DO_RECLUSTER <- FALSE
+DO_RECLUSTER <- TRUE
+# DO_RECLUSTER <- FALSE
 RECLUSTER_RESOLUTION <- 0.5
 RECLUSTER_DIMS <- 1:15
 RECLUSTER_ALGORITHM <- 4  # 4 = Leiden in Seurat
 # Set FALSE to reuse markers_merge_unique.csv already in OUTPUT_DIR
-DO_FIND_MARKERS <- FALSE
+DO_FIND_MARKERS <- TRUE
+# DO_FIND_MARKERS <- FALSE
 
 # Set FALSE to reuse the most recent CASSIA_Pipeline_*/03_csv_files/*_FINAL_RESULTS.csv
 # already in OUTPUT_DIR instead of re-running runCASSIA_pipeline() (avoids repeat
 # OpenAI API calls/cost when only downstream steps need fixing)
-DO_RUN_CASSIA <- FALSE
+DO_RUN_CASSIA <- TRUE
+# DO_RUN_CASSIA <- FALSE
 
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 # Avoid setwd() here — it confuses knitr; use OUTPUT_DIR / file.path() instead
@@ -90,15 +93,42 @@ library(stringr)
 library(patchwork)
 library(ggplot2)
 
-# Deadlock workaround: BatchProgressTracker's ascii-mode _render() calls
-# print(), which reticulate routes back to R's main thread. The main thread
-# is itself blocked inside as_completed() while workers run, so it never
-# services that callback -- worker threads hang forever holding the
-# tracker's lock waiting to report progress. Neutralize the renderer so
-# progress reporting never touches reticulate's stdout bridge.
+# Deadlock workaround: any print()/sys.stdout.write() call made from a
+# background Python thread gets routed by reticulate through a queue that
+# only the main R thread services. runCASSIA_pipeline() (and
+# merge_annotations_all) blocks the main R thread synchronously in
+# as_completed() while those same worker threads run -- so the callback
+# queue never gets serviced, and whichever thread tries to print first
+# (BatchProgressTracker's periodic render, or the plain print() in
+# merge_annotations's exception handler, or anything else) hangs forever,
+# often while holding a lock that then blocks every other worker behind it.
+#
+# First attempt (replacing sys.stdout directly) did NOT work: reticulate
+# wraps every R->Python call boundary in RemapOutputStreams, which
+# reassigns sys.stdout to a *fresh* rpytools.output.OutputRemap instance on
+# each such call -- silently clobbering any sys.stdout object we set
+# beforehand, including the whole runCASSIA_pipeline() call (confirmed via
+# py-spy: the deadlock recurred at the exact same _render -> write call
+# site after the sys.stdout patch was in place).
+#
+# Real fix: OutputRemap.write() is what actually calls back into R
+# (self.handler(message)); patch that *class method* instead of the
+# sys.stdout object. Since RemapOutputStreams creates new OutputRemap
+# instances on every call, but they're all instances of this same class,
+# patching the method survives being re-wrapped indefinitely -- the same
+# principle as the BatchProgressTracker._render patch below.
 reticulate::py_run_string("
-import CASSIA.core.progress_tracker as _pt
-_pt.BatchProgressTracker._render = lambda self: None
+import rpytools.output as _ro
+import os
+
+def _direct_write(self, message):
+    try:
+        os.write(1, message.encode('utf-8', errors='replace'))
+    except Exception:
+        pass
+    return len(message)
+
+_ro.OutputRemap.write = _direct_write
 ")
 ```
 
@@ -280,11 +310,18 @@ if (DO_RUN_CASSIA) {
     species = "pig",
     marker = markers_merge_unique,
     max_workers = 4,
-    # TEMPORARY: annotation merging deadlocks under reticulate (see _render
-    # monkeypatch above -- merge_annotations_all has the same print()-from-
-    # worker-thread problem, but isn't covered by that patch). Disabled for
-    # now to unblock this test run; re-enable once merging is fixed/patched.
-    do_merge_annotations = FALSE,
+    # Re-enabled: the merge step was defaulting to overall_provider =
+    # "openrouter" (we never overrode merge_provider/merge_model), and we
+    # only supply an OpenAI key -- so every merge LLM call failed auth,
+    # which triggered the print()-from-worker-thread deadlock in
+    # merge_annotations's exception handler. Pointing merge at the same
+    # provider/model/credentials as every other stage avoids that failure
+    # path; the sys.stdout patch above covers any print() call that still
+    # happens (e.g. on a genuine transient error) so it no longer deadlocks
+    # either way.
+    do_merge_annotations = TRUE,
+    merge_provider = "openai",
+    merge_model = "gpt-5.1",
     annotation_model = "gpt-5.1",
     annotation_provider = "openai",
     score_model = "gpt-5.1",
@@ -316,12 +353,19 @@ if (!file.exists(cassia_results_path)) {
   ))
 } else {
   message("Using CASSIA results: ", cassia_results_path)
+  # columns_to_include = 2: always add both the raw per-cluster predictions
+  # (general/sub/mixed_celltype, score) AND the merged-grouping columns when
+  # present. Default (1) silently drops the raw prediction columns entirely
+  # whenever merged groupings exist, which caught us off guard once
+  # do_merge_annotations was enabled -- the plot_if_annotated chunk below
+  # was written against the raw columns and found nothing to plot.
   seurat.obj <- add_cassia_to_seurat(
     seurat_obj = seurat.obj,
     cassia_results_path = cassia_results_path,
     cluster_col = CLUSTER_COL,
     cassia_cluster_col = "Cluster ID",
-    prefix = "Cassia_clus1_"
+    prefix = "Cassia_clus1_",
+    columns_to_include = 2
   )
 }
 ```
@@ -331,7 +375,13 @@ saveRDS(seurat.obj, file = file.path(OUTPUT_DIR, "GAMM_S2_clus1_cassia.rds"))
 ```
 
 ```{r plot_if_annotated}
-# Curated columns worth visualizing. Deliberately excludes:
+# Curated columns worth visualizing. Prefer the merged-grouping columns
+# (Cassia_clus1_merged_grouping_1/2/3) when do_merge_annotations produced
+# them -- they're CASSIA's own consolidated broad/detailed/very-detailed
+# labels, shorter and cleaner than the raw per-cluster predictions, which
+# is the whole point of running the merge step. Fall back to the raw
+# columns otherwise (e.g. if merging was disabled or failed). Deliberately
+# excludes from the raw-column fallback:
 #  - Cassia_clus1_score: a numeric confidence score, not a cell-type label.
 #    Grouping by it is actively misleading -- unrelated clusters that
 #    happen to share a score (e.g. two different clusters both scoring 88)
@@ -339,10 +389,15 @@ saveRDS(seurat.obj, file = file.path(OUTPUT_DIR, "GAMM_S2_clus1_cassia.rds"))
 #  - mixed_celltype / sub_celltype_all / sub_celltype_1-3: CASSIA's raw
 #    free-text variants, either redundant with general/sub_celltype or too
 #    verbose for a legend.
-plot_cols <- intersect(
+merged_cols <- intersect(
+  c("Cassia_clus1_merged_grouping_1", "Cassia_clus1_merged_grouping_2", "Cassia_clus1_merged_grouping_3"),
+  colnames(seurat.obj@meta.data)
+)
+raw_cols <- intersect(
   c("Cassia_clus1_general_celltype", "Cassia_clus1_sub_celltype", "Cassia_clus1_combined_celltype"),
   colnames(seurat.obj@meta.data)
 )
+plot_cols <- if (length(merged_cols) > 0) merged_cols else raw_cols
 
 if (length(plot_cols) >= 1) {
   # CASSIA's labels can run to a full sentence. Wrapping them into a
