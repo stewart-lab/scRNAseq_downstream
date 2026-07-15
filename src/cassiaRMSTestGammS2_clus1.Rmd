@@ -331,20 +331,50 @@ saveRDS(seurat.obj, file = file.path(OUTPUT_DIR, "GAMM_S2_clus1_cassia.rds"))
 ```
 
 ```{r plot_if_annotated}
-cassia_cols <- grep("^Cassia_clus1_", colnames(seurat.obj@meta.data), value = TRUE)
-if (length(cassia_cols) >= 1) {
-  plots <- lapply(cassia_cols[seq_len(min(3, length(cassia_cols)))], function(col) {
+# Curated columns worth visualizing. Deliberately excludes:
+#  - Cassia_clus1_score: a numeric confidence score, not a cell-type label.
+#    Grouping by it is actively misleading -- unrelated clusters that
+#    happen to share a score (e.g. two different clusters both scoring 88)
+#    get painted the same color.
+#  - mixed_celltype / sub_celltype_all / sub_celltype_1-3: CASSIA's raw
+#    free-text variants, either redundant with general/sub_celltype or too
+#    verbose for a legend.
+plot_cols <- intersect(
+  c("Cassia_clus1_general_celltype", "Cassia_clus1_sub_celltype", "Cassia_clus1_combined_celltype"),
+  colnames(seurat.obj@meta.data)
+)
+
+if (length(plot_cols) >= 1) {
+  # CASSIA's labels can run to a full sentence. Wrapping them into a
+  # separate display-only column (rather than plotting the raw column)
+  # keeps the legend from ballooning and pushing the actual UMAP panels
+  # out of the page.
+  for (col in plot_cols) {
+    seurat.obj@meta.data[[paste0(col, "_wrapped")]] <-
+      str_wrap(seurat.obj@meta.data[[col]], width = 40)
+  }
+  wrapped_cols <- paste0(plot_cols, "_wrapped")
+
+  plots <- lapply(wrapped_cols, function(col) {
+    # label = FALSE: CASSIA's cell-type names are too long to render as
+    # in-plot cluster labels without overlapping each other. The legend
+    # (already wrapped/sized above) conveys the full names instead.
     DimPlot(seurat.obj,
-      reduction = DIM.RED, label = TRUE,
+      reduction = DIM.RED, label = FALSE,
       pt.size = 0.5, group.by = col
-    )
+    ) +
+      theme(legend.text = element_text(size = 7)) +
+      guides(color = guide_legend(ncol = 1, override.aes = list(size = 3)))
   })
   combined_plot <- wrap_plots(plots, ncol = length(plots))
-  pdf(file = file.path(OUTPUT_DIR, "Cassia_annot_clus1_umap.pdf"), width = 8, height = 6)
+  pdf(
+    file = file.path(OUTPUT_DIR, "Cassia_annot_clus1_umap.pdf"),
+    width = 7 * length(plots), height = 7
+  )
   print(combined_plot)
   dev.off()
 } else {
-  message("No Cassia_* metadata columns yet; skip plotting until add_cassia_to_seurat succeeds.")
+  message("No curated Cassia_* cell-type columns found; skip plotting until add_cassia_to_seurat succeeds.")
 }
 ```
 
