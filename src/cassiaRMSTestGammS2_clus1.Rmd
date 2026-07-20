@@ -1,0 +1,439 @@
+---
+title: "CASSIA test on GAMM S2 cluster 1 subset (Docker)"
+output: html_document
+---
+
+# Paths and setup for Docker
+
+**Biomart (pig ↔ human gene names):**
+
+- On the host (server):  
+  `/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/Human_Pig_Biomart_Filtered_mod.txt`
+- Inside Docker, mount that *directory* and use the path below:  
+  `-v "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020:/biomart:ro"`  
+  → file becomes `/biomart/Human_Pig_Biomart_Filtered_mod.txt`
+
+**Example docker run:**
+
+```bash
+# Prefer --env-file over -e with a raw key (keeps the key out of shell history)
+docker run -it --rm \
+  --env-file /path/to/openai.env \
+  -v "/w5home/rstewart/scRNAseq_downstream/shared_volume:/shared_volume" \
+  -v "/w5home/rstewart/scRNAseq_downstream/src:/src" \
+  -v "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020:/biomart:ro" \
+  stewartlab/scrnaseq_downstream3:v1.2.3 /bin/bash
+
+conda activate cassia_env
+Rscript -e "rmarkdown::render('/src/cassiaRMSTestGammS2_clus1.Rmd', output_dir='/shared_volume/output_cassia_gammS2_clus1')"
+```
+
+**Important:** the cluster-1 subset starts as a single identity. This notebook
+**reclusters** that subset (PCA → FindNeighbors → FindClusters) so markers/CASSIA
+see multiple subclusters. Set `RECLUSTER_RESOLUTION` below as needed.
+
+```{r paths}
+# --- edit these if needed ---
+OUTPUT_DIR <- "/shared_volume/output_cassia_gammS2_clus1"
+SEURAT_RDS <- "/shared_volume/output_subset_20260714_183521/seurat.obj_subset.rds"
+BIOMART_FILE <- "/biomart/Human_Pig_Biomart_Filtered_mod.txt"
+# Cluster column used for markers + CASSIA (set automatically after recluster)
+CLUSTER_COL <- "seurat_clusters"
+CASSIA_OUT_NAME <- "gammS2_clus1_retina"
+DIM.RED <- "umap"
+
+# Reclustering (needed so FindAllMarkers / CASSIA have >1 cluster)
+# Set FALSE to reuse seurat.obj_reclustered.rds already in OUTPUT_DIR
+DO_RECLUSTER <- TRUE
+# DO_RECLUSTER <- FALSE
+RECLUSTER_RESOLUTION <- 0.5
+RECLUSTER_DIMS <- 1:15
+RECLUSTER_ALGORITHM <- 4  # 4 = Leiden in Seurat
+# Set FALSE to reuse markers_merge_unique.csv already in OUTPUT_DIR
+DO_FIND_MARKERS <- TRUE
+# DO_FIND_MARKERS <- FALSE
+
+# Set FALSE to reuse the most recent CASSIA_Pipeline_*/03_csv_files/*_FINAL_RESULTS.csv
+# already in OUTPUT_DIR instead of re-running runCASSIA_pipeline() (avoids repeat
+# OpenAI API calls/cost when only downstream steps need fixing)
+DO_RUN_CASSIA <- TRUE
+# DO_RUN_CASSIA <- FALSE
+
+dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+# Avoid setwd() here — it confuses knitr; use OUTPUT_DIR / file.path() instead
+```
+
+# load libraries
+```{r libraries}
+# Bind reticulate to the Docker conda env BEFORE library(CASSIA).
+# CASSIA's .onLoad otherwise initializes a uv-managed Python via py_require(),
+# and setup_cassia_env(method = "conda") then fails with "another version
+# of Python has already been initialized".
+cassia_python <- Sys.getenv(
+  "RETICULATE_PYTHON",
+  unset = "/opt/conda/envs/cassia_env/bin/python"
+)
+if (!file.exists(cassia_python)) {
+  stop("CASSIA Python not found at: ", cassia_python)
+}
+Sys.setenv(RETICULATE_PYTHON = cassia_python)
+options(
+  CASSIA.env_name = "cassia_env",
+  CASSIA.env_method = "conda",
+  CASSIA.conda_env = "cassia_env"
+)
+
+# matplotlib/seaborn are baked into cassia_env in image tag v1.2.3+
+
+library(reticulate)
+library(CASSIA)
+library(Seurat)
+library(dplyr)
+library(stringr)
+library(patchwork)
+library(ggplot2)
+
+# Deadlock workaround: any print()/sys.stdout.write() call made from a
+# background Python thread gets routed by reticulate through a queue that
+# only the main R thread services. runCASSIA_pipeline() (and
+# merge_annotations_all) blocks the main R thread synchronously in
+# as_completed() while those same worker threads run -- so the callback
+# queue never gets serviced, and whichever thread tries to print first
+# (BatchProgressTracker's periodic render, or the plain print() in
+# merge_annotations's exception handler, or anything else) hangs forever,
+# often while holding a lock that then blocks every other worker behind it.
+#
+# First attempt (replacing sys.stdout directly) did NOT work: reticulate
+# wraps every R->Python call boundary in RemapOutputStreams, which
+# reassigns sys.stdout to a *fresh* rpytools.output.OutputRemap instance on
+# each such call -- silently clobbering any sys.stdout object we set
+# beforehand, including the whole runCASSIA_pipeline() call (confirmed via
+# py-spy: the deadlock recurred at the exact same _render -> write call
+# site after the sys.stdout patch was in place).
+#
+# Real fix: OutputRemap.write() is what actually calls back into R
+# (self.handler(message)); patch that *class method* instead of the
+# sys.stdout object. Since RemapOutputStreams creates new OutputRemap
+# instances on every call, but they're all instances of this same class,
+# patching the method survives being re-wrapped indefinitely -- the same
+# principle as the BatchProgressTracker._render patch below.
+reticulate::py_run_string("
+import rpytools.output as _ro
+import os
+
+def _direct_write(self, message):
+    try:
+        os.write(1, message.encode('utf-8', errors='replace'))
+    except Exception:
+        pass
+    return len(message)
+
+_ro.OutputRemap.write = _direct_write
+")
+```
+
+```{r setup_env}
+# Do not call setup_cassia_env(method = "conda") here — it would try to re-init
+# Python after reticulate is already attached to cassia_env.
+print(py_config())
+py_cassia <- get("py_cassia", envir = asNamespace("CASSIA"))
+if (is.null(py_cassia)) {
+  stop("CASSIA Python module failed to load (py_cassia is NULL)")
+}
+message("CASSIA Python ready: ", py_config()$python)
+```
+
+```{r api}
+# Pass key into the container with --env-file (preferred) or -e OPENAI_API_KEY=...
+# persist = FALSE avoids writing the key into the container filesystem
+api_key <- Sys.getenv("OPENAI_API_KEY")
+if (!nzchar(api_key)) {
+  stop("OPENAI_API_KEY is not set. Start the container with --env-file or -e OPENAI_API_KEY=...")
+}
+setLLMApiKey(api_key, provider = "openai", persist = FALSE)
+```
+
+# read in subsetted Seurat object
+```{r readin}
+reclustered_rds <- file.path(OUTPUT_DIR, "seurat.obj_reclustered.rds")
+if (!DO_RECLUSTER && file.exists(reclustered_rds)) {
+  message("Loading existing reclustered object: ", reclustered_rds)
+  seurat.obj <- readRDS(reclustered_rds)
+  CLUSTER_COL <- paste0("seurat_clusters_res", RECLUSTER_RESOLUTION)
+} else {
+  seurat.obj <- readRDS(SEURAT_RDS)
+}
+print(seurat.obj)
+print(colnames(seurat.obj@meta.data))
+if (CLUSTER_COL %in% colnames(seurat.obj@meta.data)) {
+  print(table(seurat.obj[[CLUSTER_COL]], useNA = "ifany"))
+}
+```
+
+# recluster subset (creates multiple subclusters for CASSIA)
+```{r recluster}
+if (DO_RECLUSTER) {
+  message("Reclustering subset at resolution ", RECLUSTER_RESOLUTION)
+
+  if (!"pca" %in% names(seurat.obj@reductions)) {
+    message("No PCA found; running RunPCA on variable features")
+    if (length(VariableFeatures(seurat.obj)) == 0) {
+      seurat.obj <- FindVariableFeatures(seurat.obj)
+    }
+    seurat.obj <- RunPCA(seurat.obj, features = VariableFeatures(seurat.obj), verbose = FALSE)
+  }
+
+  seurat.obj <- FindNeighbors(
+    seurat.obj,
+    dims = RECLUSTER_DIMS,
+    reduction = "pca",
+    verbose = FALSE
+  )
+
+  CLUSTER_COL <- paste0("seurat_clusters_res", RECLUSTER_RESOLUTION)
+  seurat.obj <- FindClusters(
+    seurat.obj,
+    resolution = RECLUSTER_RESOLUTION,
+    algorithm = RECLUSTER_ALGORITHM,
+    cluster.name = CLUSTER_COL,
+    verbose = FALSE
+  )
+
+  # Optional: refresh UMAP on this subset's PCA for clearer plots
+  if (!DIM.RED %in% names(seurat.obj@reductions) || DO_RECLUSTER) {
+    seurat.obj <- RunUMAP(seurat.obj, dims = RECLUSTER_DIMS, reduction = "pca", verbose = FALSE)
+    DIM.RED <- "umap"
+  }
+
+  message("New cluster column: ", CLUSTER_COL)
+  print(table(seurat.obj[[CLUSTER_COL]]))
+
+  pdf(file.path(OUTPUT_DIR, paste0("umap_recluster_", CLUSTER_COL, ".pdf")), width = 8, height = 6)
+  print(DimPlot(seurat.obj, reduction = DIM.RED, group.by = CLUSTER_COL, label = TRUE, pt.size = 0.5))
+  dev.off()
+
+  saveRDS(seurat.obj, file = file.path(OUTPUT_DIR, "seurat.obj_reclustered.rds"))
+  message("Saved reclustered object to ", file.path(OUTPUT_DIR, "seurat.obj_reclustered.rds"))
+} else {
+  message("Skipping recluster; using CLUSTER_COL = ", CLUSTER_COL)
+}
+```
+
+# set idents to (re)cluster column
+```{r set_idents}
+if (!(CLUSTER_COL %in% colnames(seurat.obj@meta.data))) {
+  stop(paste("CLUSTER_COL not found in metadata:", CLUSTER_COL))
+}
+Idents(object = seurat.obj) <- CLUSTER_COL
+print(table(Idents(seurat.obj)))
+n_clusters <- length(unique(as.character(Idents(seurat.obj))))
+if (n_clusters < 2) {
+  stop(paste(
+    "Only", n_clusters, "cluster(s) after setup. FindAllMarkers/CASSIA need multiple clusters.",
+    "Try a higher RECLUSTER_RESOLUTION (e.g. 0.8 or 1.0) or check DO_RECLUSTER."
+  ))
+}
+```
+
+# find markers for each cluster
+```{r findmarkers}
+markers_merged_file <- file.path(OUTPUT_DIR, "markers_merge_unique.csv")
+if (!DO_FIND_MARKERS && file.exists(markers_merged_file)) {
+  message("Skipping FindAllMarkers; will load ", markers_merged_file, " later")
+  all.markers <- NULL
+} else {
+  all.markers <- FindAllMarkers(object = seurat.obj)
+  head(all.markers)
+  all.markers <- as.data.frame(all.markers)
+  write.csv(all.markers, file = file.path(OUTPUT_DIR, "markers_celltypes_all.csv"), row.names = FALSE)
+}
+```
+
+# map pig gene symbols to human via biomart table
+```{r readin_geneid}
+if (!DO_FIND_MARKERS && file.exists(file.path(OUTPUT_DIR, "markers_merge_unique.csv"))) {
+  message("Skipping biomart remap; markers_merge_unique.csv already exists")
+  gene_symbols_df <- NULL
+} else {
+  if (!file.exists(BIOMART_FILE)) {
+    stop(paste(
+      "Biomart file not found at:", BIOMART_FILE,
+      "\nMount the host directory when starting Docker:",
+      '\n  -v "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020:/biomart:ro"'
+    ))
+  }
+  gene_symbols_df <- read.csv(file = BIOMART_FILE, header = TRUE, sep = "\t")
+  print(head(gene_symbols_df))
+  gene_symbols_df$pig.gene.name <- toupper(gene_symbols_df$pig.gene.name)
+}
+```
+
+# merge with marker list
+```{r merge_markers}
+if (!DO_FIND_MARKERS && file.exists(file.path(OUTPUT_DIR, "markers_merge_unique.csv"))) {
+  message("Skipping merge; using saved markers")
+} else {
+  markers_merge <- merge(all.markers, gene_symbols_df,
+    by.x = "gene", by.y = "pig.gene.name",
+    all = FALSE
+  )
+  print(head(markers_merge))
+}
+```
+
+# rename columns and drop
+```{r tidy_markers}
+markers_merged_file <- file.path(OUTPUT_DIR, "markers_merge_unique.csv")
+if (!DO_FIND_MARKERS && file.exists(markers_merged_file)) {
+  markers_merge_unique <- read.csv(markers_merged_file, stringsAsFactors = FALSE)
+  message("Loaded markers_merge_unique: ", nrow(markers_merge_unique), " rows")
+} else {
+  markers_merge$pig_gene <- markers_merge$gene
+  markers_merge$gene <- markers_merge$human.gene.name
+  print(colnames(markers_merge))
+  markers_merge <- markers_merge[, 1:7]
+  head(markers_merge)
+  markers_merge_unique <- distinct(markers_merge)
+  nrow(markers_merge_unique)
+  nrow(markers_merge)
+  write.csv(markers_merge_unique, file = markers_merged_file, row.names = FALSE)
+}
+```
+
+# run CASSIA
+```{r cassia}
+if (DO_RUN_CASSIA) {
+  runCASSIA_pipeline(
+    output_file_name = CASSIA_OUT_NAME,
+    output_dir = OUTPUT_DIR,
+    tissue = "retina",
+    species = "pig",
+    marker = markers_merge_unique,
+    max_workers = 4,
+    # Re-enabled: the merge step was defaulting to overall_provider =
+    # "openrouter" (we never overrode merge_provider/merge_model), and we
+    # only supply an OpenAI key -- so every merge LLM call failed auth,
+    # which triggered the print()-from-worker-thread deadlock in
+    # merge_annotations's exception handler. Pointing merge at the same
+    # provider/model/credentials as every other stage avoids that failure
+    # path; the sys.stdout patch above covers any print() call that still
+    # happens (e.g. on a genuine transient error) so it no longer deadlocks
+    # either way.
+    do_merge_annotations = TRUE,
+    merge_provider = "openai",
+    merge_model = "gpt-5.1",
+    annotation_model = "gpt-5.1",
+    annotation_provider = "openai",
+    score_model = "gpt-5.1",
+    score_provider = "openai",
+    annotationboost_model = "gpt-5.1",
+    annotationboost_provider = "openai"
+  )
+} else {
+  message("Skipping runCASSIA_pipeline; will reuse existing FINAL_RESULTS.csv from OUTPUT_DIR")
+}
+```
+
+# add cassia annotations back into seurat object
+```{r add_cassia}
+# Find the most recent CASSIA_Pipeline_*/03_csv_files/*_FINAL_RESULTS.csv under
+# OUTPUT_DIR rather than hardcoding a timestamped path.
+final_results_candidates <- Sys.glob(file.path(
+  OUTPUT_DIR, "CASSIA_Pipeline_*", "03_csv_files", "*_FINAL_RESULTS.csv"
+))
+cassia_results_path <- if (length(final_results_candidates) > 0) {
+  final_results_candidates[order(file.info(final_results_candidates)$mtime, decreasing = TRUE)][1]
+} else {
+  file.path(OUTPUT_DIR, "NO_FINAL_RESULTS_FOUND.csv")
+}
+if (!file.exists(cassia_results_path)) {
+  warning(paste(
+    "No FINAL_RESULTS.csv found under", OUTPUT_DIR,
+    "-- run runCASSIA_pipeline() first (set DO_RUN_CASSIA <- TRUE)."
+  ))
+} else {
+  message("Using CASSIA results: ", cassia_results_path)
+  # columns_to_include = 2: always add both the raw per-cluster predictions
+  # (general/sub/mixed_celltype, score) AND the merged-grouping columns when
+  # present. Default (1) silently drops the raw prediction columns entirely
+  # whenever merged groupings exist, which caught us off guard once
+  # do_merge_annotations was enabled -- the plot_if_annotated chunk below
+  # was written against the raw columns and found nothing to plot.
+  seurat.obj <- add_cassia_to_seurat(
+    seurat_obj = seurat.obj,
+    cassia_results_path = cassia_results_path,
+    cluster_col = CLUSTER_COL,
+    cassia_cluster_col = "Cluster ID",
+    prefix = "Cassia_clus1_",
+    columns_to_include = 2
+  )
+}
+```
+
+```{r save}
+saveRDS(seurat.obj, file = file.path(OUTPUT_DIR, "GAMM_S2_clus1_cassia.rds"))
+```
+
+```{r plot_if_annotated}
+# Curated columns worth visualizing. Prefer the merged-grouping columns
+# (Cassia_clus1_merged_grouping_1/2/3) when do_merge_annotations produced
+# them -- they're CASSIA's own consolidated broad/detailed/very-detailed
+# labels, shorter and cleaner than the raw per-cluster predictions, which
+# is the whole point of running the merge step. Fall back to the raw
+# columns otherwise (e.g. if merging was disabled or failed). Deliberately
+# excludes from the raw-column fallback:
+#  - Cassia_clus1_score: a numeric confidence score, not a cell-type label.
+#    Grouping by it is actively misleading -- unrelated clusters that
+#    happen to share a score (e.g. two different clusters both scoring 88)
+#    get painted the same color.
+#  - mixed_celltype / sub_celltype_all / sub_celltype_1-3: CASSIA's raw
+#    free-text variants, either redundant with general/sub_celltype or too
+#    verbose for a legend.
+merged_cols <- intersect(
+  c("Cassia_clus1_merged_grouping_1", "Cassia_clus1_merged_grouping_2", "Cassia_clus1_merged_grouping_3"),
+  colnames(seurat.obj@meta.data)
+)
+raw_cols <- intersect(
+  c("Cassia_clus1_general_celltype", "Cassia_clus1_sub_celltype", "Cassia_clus1_combined_celltype"),
+  colnames(seurat.obj@meta.data)
+)
+plot_cols <- if (length(merged_cols) > 0) merged_cols else raw_cols
+
+if (length(plot_cols) >= 1) {
+  # CASSIA's labels can run to a full sentence. Wrapping them into a
+  # separate display-only column (rather than plotting the raw column)
+  # keeps the legend from ballooning and pushing the actual UMAP panels
+  # out of the page.
+  for (col in plot_cols) {
+    seurat.obj@meta.data[[paste0(col, "_wrapped")]] <-
+      str_wrap(seurat.obj@meta.data[[col]], width = 40)
+  }
+  wrapped_cols <- paste0(plot_cols, "_wrapped")
+
+  plots <- lapply(wrapped_cols, function(col) {
+    # label = FALSE: CASSIA's cell-type names are too long to render as
+    # in-plot cluster labels without overlapping each other. The legend
+    # (already wrapped/sized above) conveys the full names instead.
+    DimPlot(seurat.obj,
+      reduction = DIM.RED, label = FALSE,
+      pt.size = 0.5, group.by = col
+    ) +
+      theme(legend.text = element_text(size = 7)) +
+      guides(color = guide_legend(ncol = 1, override.aes = list(size = 3)))
+  })
+  combined_plot <- wrap_plots(plots, ncol = length(plots))
+  pdf(
+    file = file.path(OUTPUT_DIR, "Cassia_annot_clus1_umap.pdf"),
+    width = 7 * length(plots), height = 7
+  )
+  print(combined_plot)
+  dev.off()
+} else {
+  message("No curated Cassia_* cell-type columns found; skip plotting until add_cassia_to_seurat succeeds.")
+}
+```
+
+<!--
+The original cassia.Rmd had a second zebrafish high-expr/DE + CASSIA block below.
+That is intentionally omitted here; this notebook is for the GAMM S2 cluster-1 Docker test only.
+-->
