@@ -777,12 +777,12 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, 
 
 score_markers <- function(sce_obj, cluster_type) {
   # Score markers based on cluster type
-  # if (cluster_type %in% c("seurat_clusters", "orig.ident", "cca_clusters", "seurat_clusters2", "CellType")) {
   marker_field <- paste0("label.", cluster_type)
+  if (!(marker_field %in% colnames(sce_obj@colData))) {
+    stop(paste("score_markers expected colData column not found:", marker_field,
+               "| available:", paste(colnames(sce_obj@colData), collapse = ", ")))
+  }
   marker_info <- scoreMarkers(sce_obj, sce_obj@colData@listData[[marker_field]], full.stats = TRUE)
-  # } else {
-  #   stop("Invalid cluster_type. Please choose 'seurat_clusters', 'cca_clusters', or 'orig.ident'.")
-  # }
   return(marker_info)
 }
 
@@ -1096,17 +1096,23 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
 }
 
 
-annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type) {
+annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path = output, type, cluster_type = NULL, annotation_column = "CellType1") {
   # get configs
   if (type == "integration") {
     reduction <- config$seurat_integration$score_and_plot_markers$reduction
-    cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
+    default_cluster_type <- config$seurat_integration$score_and_plot_markers$cluster_type
   } else if (type == "recluster") {
     reduction <- config$recluster$score_and_plot_markers$reduction
-    cluster_type <- config$recluster$score_and_plot_markers$cluster_type
+    default_cluster_type <- config$recluster$score_and_plot_markers$cluster_type
   } else {
     reduction <- config$score_and_plot_markers$reduction
-    cluster_type <- config$score_and_plot_markers$cluster_type
+    default_cluster_type <- config$score_and_plot_markers$cluster_type
+  }
+  if (is.null(cluster_type)) {
+    cluster_type <- default_cluster_type
+  }
+  if (!(cluster_type %in% colnames(seurat_obj@meta.data))) {
+    stop(paste("cluster_type not found in Seurat object metadata:", cluster_type))
   }
   print(new_cluster_ids)
   # make sure that idents are the clusters you want annotated
@@ -1114,14 +1120,19 @@ annotate_clusters_and_save <- function(seurat_obj, new_cluster_ids, output_path 
   # Rename the clusters based on the new IDs
   names(new_cluster_ids) <- levels(seurat_obj)
   seurat_obj <- RenameIdents(seurat_obj, new_cluster_ids)
-  # put in CellType metadata
-  seurat_obj$CellType1 <- Idents(seurat_obj)
+  # put in resolution-specific annotation metadata column
+  seurat_obj[[annotation_column]] <- Idents(seurat_obj)
 
   # Generate and plot the UMAP plot
-  pdf(paste0(output_path, "labeled-clusters.pdf"), bg = "white")
+  labeled_clusters_pdf <- if (annotation_column == "CellType1") {
+    paste0(output_path, "labeled-clusters.pdf")
+  } else {
+    paste0(output_path, "labeled-clusters_", annotation_column, ".pdf")
+  }
+  pdf(labeled_clusters_pdf, bg = "white")
   print(DimPlot(seurat_obj,
     reduction = reduction, label = TRUE,
-    pt.size = 0.5, group.by = "CellType1"
+    pt.size = 0.5, group.by = annotation_column
   ))
   dev.off()
   # Save the Seurat object

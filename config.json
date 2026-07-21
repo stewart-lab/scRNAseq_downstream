@@ -1,7 +1,7 @@
 {
-  "title": "zfish_cellchat_cluster_subset",
-  "METHOD": "cellchat",
-  "docker": "false",
+  "title": "GAMM_S1_day40_recluster",
+  "METHOD": "recluster",
+  "docker": "true",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
     "REF.SEURAT": "Reh_205/seurat_obj_labeled_Reh205.rds",
@@ -205,10 +205,10 @@
     }
   },
   "recluster": {
-    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
-    "SEURAT.FILE": "seuratobj_all_reclustered.rds",
+    "DATA_DIR": "/w5home/rstewart/scRNAseq_downstream/shared_volume/output_subset_20260701_170628/",
+    "SEURAT.FILE": "seurat.obj_subset.rds",
     "perform_clustering": {
-      "reduction": "umap",
+      "reduction": "pca",
       "resolution": [
         0.5,
         0.7,
@@ -251,9 +251,12 @@
   "subset_seurat": {
     "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
     "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
+    "SUBSET_MODE": "metadata",
     "GENE_LIST": [],
+    "METADATA_COLUMN": "Type",
+    "IDENTS": ["1Wk"],
     "DIM.RED": "umap",
-    "ANNOT": "Condition"
+    "ANNOT": "Type"
   },
   "phate": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",
