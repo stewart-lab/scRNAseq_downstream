@@ -373,17 +373,17 @@
     "gold_standard_cell_type_column": "cell_type"
   },
   "de_cond": {
-  "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
-  "seurat_object": "seuratobj_all_reclustered.rds",
-  "group_by": {
-    "condition": "Type",
-    "sample_replicates": "orig.ident",
-    "cluster_column": "seurat_clusters_res0.75"
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+    "seurat_object": "seuratobj_all_reclustered.rds",
+    "group_by": {
+      "condition": "Type",
+      "sample_replicates": "orig.ident",
+      "cluster_column": "seurat_clusters_res0.75"
     }
   },
   "gprofiler": {
     "DATA_DIR": "./data/test_gprofiler/",
-    "organism": "hsapiens",
+    "organism": "gp__HunH_2Tcy_ESg",
     "mthreshold": 500,
     "padj": 0.05,
     "lfc": 0.25,

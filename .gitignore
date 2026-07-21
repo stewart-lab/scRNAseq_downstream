@@ -83,6 +83,9 @@ Rplots.pdf
 **/.DS_Store
 **/._.DS_Store
 
+# logs
+logs/
+
 #####################
 # Python stuff
 #####################

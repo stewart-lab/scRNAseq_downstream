@@ -28,8 +28,10 @@ Specify the path to the Seurat object and any parameter thresholds.
 ```{r config}
 # File paths
 SEURAT_PATH <- "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/seuratobj_all_reclustered.rds"
-OUTPUT_DIR <- file.path("/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842",
-                        paste0("output_unique_genes_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+OUTPUT_DIR <- file.path(
+  "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842",
+  paste0("output_qc_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+)
 dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # Method A (Marker) Thresholds
@@ -39,12 +41,25 @@ P_VAL_ADJ_THRESH <- 0.05
 
 # Method B (Expression-Fraction) Thresholds
 P_MIN <- 0.05 # Minimum expression fraction in target cluster (other-cluster expression not restricted)
+
+# Fixed display order for sample-level plots (Sham samples first, then by timepoint)
+SAMPLE_ORDER <- c(
+  "Sham_1", "Sham_2",
+  "1Wk_1", "1Wk_2",
+  "2Wk_NR_1", "2Wk_NR_2", "2Wk_R_1", "2Wk_R_2",
+  "4Wk_NR_1", "4Wk_NR_2", "4Wk_R_1", "4Wk_R_2",
+  "6Wk_NR_1", "6Wk_NR_2", "6Wk_R_1", "6Wk_R_2"
+)
 ```
 
 ```{r load_data}
 cat("Loading Seurat object from:", SEURAT_PATH, "\n")
 seurat_obj <- readRDS(SEURAT_PATH)
 print(seurat_obj)
+
+# Relabel mislabeled Sham samples
+seurat_obj$sample[seurat_obj$sample == "4Wk_Sham"] <- "Sham_1"
+seurat_obj$sample[seurat_obj$sample == "6Wk_Sham"] <- "Sham_2"
 
 # Set the active identity to the desired cluster resolution
 if ("seurat_clusters_res0.75" %in% colnames(seurat_obj@meta.data)) {
@@ -325,13 +340,13 @@ cat("Found", length(mt_genes), "mitochondrial genes starting with MT/mt.\n")
 if (length(mt_genes) > 0) {
   # Calculate percent.mt if not already present, or recalculate to ensure it matches the pattern
   seurat_obj[["percent.mt"]] <- PercentageFeatureSet(seurat_obj, features = mt_genes)
-  
+
   # Create a dataframe for plotting
   mt_df <- data.frame(
     cluster = Idents(seurat_obj),
     percent_mt = seurat_obj$percent.mt
   )
-  
+
   # Sort the clusters numerically if possible, otherwise alphabetically
   clust_vals <- unique(as.character(mt_df$cluster))
   if (!any(is.na(suppressWarnings(as.numeric(clust_vals))))) {
@@ -340,7 +355,7 @@ if (length(mt_genes) > 0) {
   } else {
     mt_df$cluster <- factor(mt_df$cluster, levels = sort(clust_vals))
   }
-  
+
   # Plot violin of percent mitochondrial expression per cluster
   p_mt <- ggplot(mt_df, aes(x = cluster, y = percent_mt, fill = cluster)) +
     geom_violin(scale = "width", adjust = 1, trim = TRUE, alpha = 0.7) +
@@ -358,9 +373,9 @@ if (length(mt_genes) > 0) {
       legend.position = "none",
       panel.grid.major.y = element_line(color = "grey90", linetype = "dashed")
     )
-  
+
   print(p_mt)
-  
+
   # Save plot to PDF
   pdf(file.path(OUTPUT_DIR, "mitochondrial_expression_per_cluster_violin.pdf"), width = 10, height = 6)
   print(p_mt)
@@ -437,8 +452,226 @@ for (page_clusters in pages) {
   print(wrap_plots(plot_list[page_clusters], ncol = 3, nrow = 4))
 }
 ```
+# get unique genes per sample 
+```{r unique_genes_sample}
+# check colnames
+colnames(seurat_obj@meta.data)
+# check biological samples
+table(seurat_obj$sample)
+# change sample labels
+seurat_obj$sample[seurat_obj$sample == "4Wk_Sham"] <- "Sham_1"
+seurat_obj$sample[seurat_obj$sample == "6Wk_Sham"] <- "Sham_2"
 
+
+cat("Calculating expression percentages per sample...\n")
+# Get expression data matrix
+expr_mat <- GetAssayData(seurat_obj, assay = "RNA", slot = "data")
+samples <- seurat_obj$sample
+unique_samples <- unique(samples)
+
+# Calculate percentage of cells expressing each gene (expression > 0) per cluster
+# Using sparse matrix rowSums is extremely fast
+pct_mat <- matrix(0,
+  nrow = nrow(expr_mat), ncol = length(unique_samples),
+  dimnames = list(rownames(expr_mat), unique_samples)
+)
+
+for (sample in unique_samples) {
+  cells_in_sample <- which(samples == sample)
+  if (length(cells_in_sample) > 0) {
+    # Count how many cells have non-zero expression for each gene
+    non_zero_counts <- Matrix::rowSums(expr_mat[, cells_in_sample, drop = FALSE] > 0)
+    pct_mat[, sample] <- non_zero_counts / length(cells_in_sample)
+  }
+}
+pct_df <- as.data.frame(pct_mat)
+
+# Save percentage matrix to CSV
+write.csv(pct_df, file = file.path(OUTPUT_DIR, "percent_cells_expressing_per_cluster.csv"))
+
+# Find genes matching target specificity criteria for each cluster
+unique_genes_method_b <- list()
+method_b_counts_list <- c()
+
+for (sample in unique_samples) {
+  # Condition: target cluster expression > P_MIN (no restriction on other clusters)
+  cond_target <- pct_df[[sample]] > P_MIN
+
+  matching_genes <- rownames(pct_df)[cond_target]
+  unique_genes_method_b[[sample]] <- matching_genes
+  method_b_counts_list <- c(method_b_counts_list, length(matching_genes))
+}
+
+method_b_counts <- data.frame(
+  sample = unique_samples,
+  num_unique_genes = method_b_counts_list
+)
+
+# Write out the count of unique genes per sample
+write.table(x = method_b_counts, file = file.path(
+  OUTPUT_DIR,
+  "unique_genes_method_b.txt"
+), row.names = F, quote = F, sep = "\t")
+
+
+print("Method B (Expression-Fraction-Based) counts per sample:")
+print(method_b_counts)
+
+# For each cell, count how many of its own sample's "unique genes"
+# (from unique_genes_method_b) are expressed (> 0) in that cell
+cat("Calculating per-cell unique gene counts...\n")
+per_cell_counts <- numeric(ncol(expr_mat))
+names(per_cell_counts) <- colnames(expr_mat)
+
+for (sample in unique_samples) {
+  cells_in_sample <- which(samples == sample)
+  genes_for_sample <- unique_genes_method_b[[sample]]
+  if (length(cells_in_sample) > 0 && length(genes_for_sample) > 0) {
+    sub_mat <- expr_mat[genes_for_sample, cells_in_sample, drop = FALSE]
+    per_cell_counts[cells_in_sample] <- Matrix::colSums(sub_mat > 0)
+  }
+}
+
+per_cell_df <- data.frame(
+  cell = colnames(expr_mat),
+  sample = samples,
+  n_unique_genes = per_cell_counts
+)
+
+write.csv(per_cell_df, file = file.path(
+  OUTPUT_DIR,
+  "unique_genes_method_b_per_cell.csv"
+), row.names = FALSE)
+```
+
+```{r violin_plot_genes_per_sample}
+# Set factor levels for ordered display
+per_cell_df$sample <- factor(per_cell_df$sample,
+  levels =
+    SAMPLE_ORDER[SAMPLE_ORDER %in% per_cell_df$sample]
+)
+
+p_genes <- ggplot(per_cell_df, aes(x = sample, y = n_unique_genes, fill = sample)) +
+  geom_violin(scale = "width", adjust = 1, trim = TRUE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, color = "black", alpha = 0.6, outlier.shape = NA) +
+  # scale_y_log10(labels = scales::label_comma()) +
+  labs(
+    title = "Distribution of Per-Cell Unique Gene Counts by Sample",
+    subtitle = paste0("Genes expressed in >", P_MIN * 100, "% of cells within sample"),
+    x = "Sample",
+    y = "Total Number of Genes Expressed per Cell"
+  ) +
+  theme_cowplot() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.major.y = element_line(color = "grey90", linetype = "dashed")
+  )
+
+print(p_genes)
+
+# Save plot to PDF
+pdf(file.path(OUTPUT_DIR, "genes_per_sample_violin.pdf"), width = 10, height = 6)
+print(p_genes)
+dev.off()
+```
+# UMI counts per sample
+```{r umi_by_sample}
+# Create a dataframe for plotting
+umi_df <- data.frame(
+  sample = seurat_obj$sample,
+  nCount_RNA = seurat_obj$nCount_RNA
+)
+
+umi_df$sample <- factor(umi_df$sample, levels = SAMPLE_ORDER[SAMPLE_ORDER %in% umi_df$sample])
+
+# Plot violin of UMI counts per cluster
+p_umi <- ggplot(umi_df, aes(x = sample, y = nCount_RNA, fill = sample)) +
+  geom_violin(scale = "width", adjust = 1, trim = TRUE, alpha = 0.7) +
+  geom_boxplot(width = 0.1, color = "black", alpha = 0.6, outlier.shape = NA) +
+  scale_y_log10(labels = scales::label_comma()) +
+  labs(
+    title = "Total UMI Counts per Sample",
+    subtitle = "Distribution of total transcripts (nCount_RNA) per cell across samples",
+    x = "Sample",
+    y = "Total UMI Counts (nCount_RNA, log10 scale)"
+  ) +
+  theme_cowplot() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.major.y = element_line(color = "grey90", linetype = "dashed")
+  )
+
+print(p_umi)
+
+# Save plot to PDF
+pdf(file.path(OUTPUT_DIR, "umi_counts_per_sample_violin.pdf"), width = 10, height = 6)
+print(p_umi)
+dev.off()
+```
+# mitochondrial genes percent per sample
+```{r mito_gene_percent}  
+# Identify mitochondrial genes
+mt_genes <- grep("^(MT|mt)", rownames(seurat_obj), value = TRUE)
+cat("Found", length(mt_genes), "mitochondrial genes starting with MT/mt.\n")
+
+if (length(mt_genes) > 0) {
+  # Calculate percent.mt if not already present, or recalculate to ensure it matches the pattern
+  seurat_obj[["percent.mt"]] <- PercentageFeatureSet(seurat_obj, features = mt_genes)
+
+  # Create a dataframe for plotting
+  mt_df <- data.frame(
+    sample = seurat_obj$sample,
+    percent_mt = seurat_obj$percent.mt
+  )
+
+  mt_df$sample <- factor(mt_df$sample, levels = SAMPLE_ORDER[SAMPLE_ORDER %in% mt_df$sample])
+
+  # Plot violin of percent mitochondrial expression per cluster
+  p_mt <- ggplot(mt_df, aes(x = sample, y = percent_mt, fill = sample)) +
+    geom_violin(scale = "width", adjust = 1, trim = TRUE, alpha = 0.7) +
+    geom_boxplot(width = 0.1, color = "black", alpha = 0.6, outlier.shape = NA) +
+    labs(
+      title = "Mitochondrial Gene Expression per Sample",
+      subtitle = "Percentage of mitochondrial transcripts (percent.mt) per cell across samples",
+      x = "Sample",
+      y = "Mitochondrial Expression (%)"
+    ) +
+    theme_cowplot() +
+    theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none",
+      panel.grid.major.y = element_line(color = "grey90", linetype = "dashed")
+    )
+
+  print(p_mt)
+
+  # Save plot to PDF
+  pdf(file.path(OUTPUT_DIR, "mitochondrial_expression_per_sample_violin.pdf"), width = 10, height = 6)
+  print(p_mt)
+  dev.off()
+} else {
+  warning("No mitochondrial genes starting with MT/mt were found in the Seurat object. Plot was not generated.")
+}
+```
+```{r combined_plot, fig.width=18, fig.height=6}
+p_combined <- wrap_plots(p_genes, p_umi, p_mt, ncol = 3)
+print(p_combined)
+
+# Save plot to PDF
+pdf(file.path(OUTPUT_DIR, "combined_sample_qc_violin.pdf"), width = 18, height = 6)
+print(p_combined)
+dev.off()
+```
+
+```{r save}
+saveRDS(seurat_obj, file.path(dirname(SEURAT_PATH), "seuratobj_all_reclustered_relabeled.rds"))
+```
 # Session Information
 ```{r session_info}
-writeLines(capture.output(sessionInfo()), paste0(output, "sessionInfo.txt"))
+writeLines(capture.output(sessionInfo()), paste0(OUTPUT_DIR, "/sessionInfo.txt"))
 ```

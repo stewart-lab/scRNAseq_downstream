@@ -16,15 +16,15 @@ reticulate::use_python("/w5home/bmoore/.virtualenvs/cellchat/bin/python", requir
 ```{r}
 setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/")
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-data.dir <- paste0("./comparison_6wk_clusters_0.75", timestamp)
+data.dir <- paste0("./comparison_2wk_clusters_0.75_", timestamp)
 dir.create(data.dir, mode = "0777", showWarnings = FALSE)
 setwd(data.dir)
 ```
 # load cell chat objects from previous cell chat run
 ```{r}
-name <- "6wk_R_NR"
-cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_6WkNR_cellchat_20260625_103123/seurat_mouse_annot_6WkNR_cellchat_obj.rds")
-cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_6WkR_cellchat_20260625_103119/seurat_mouse_annot_6WkR_cellchat_obj.rds")
+name <- "4wk_R_NR"
+cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_4WkNR_cellchat_20260625_103118/seurat_mouse_annot_4WkNR_cellchat_obj.rds")
+cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_4WkR_cellchat_20260625_103117/seurat_mouse_annot_4WkR_cellchat_obj.rds")
 object.list <- list(R = cellchat.R, NR = cellchat.NR)
 table(cellchat.NR@idents)
 table(cellchat.R@idents)
@@ -32,7 +32,7 @@ table(cellchat.R@idents)
 pos.dataset <- "NR"
 neg.dataset <- "R"
 fibroblast <- "13" # c(8)
-not_fibroblast <- c("1", "2", "3", "4", "5", "6", "7","8", "9", "10", "11", "12", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
+not_fibroblast <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
 Tcell <- "9" # c(6)
 not_Tcell <- c("1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
 ```
@@ -66,12 +66,12 @@ save(cellchat_merge, file = paste0("cellchat_merged_", name, ".RData"))
 ptm <- Sys.time()
 gg1 <- compareInteractions(cellchat_merge, show.legend = F, group = c(2, 1))
 gg2 <- compareInteractions(cellchat_merge, show.legend = F, group = c(2, 1), measure = "weight")
-pdf(file = paste0(name, "_global_interactions_pos",pos.dataset,".pdf"))
+pdf(file = paste0(name, "_global_interactions_pos", pos.dataset, ".pdf"))
 print(gg1 + gg2)
 dev.off()
 
 # circle plot
-pdf(file = paste0(name, "_cell_diffinteractions_circ_pos",pos.dataset,".pdf"))
+pdf(file = paste0(name, "_cell_diffinteractions_circ_pos", pos.dataset, ".pdf"))
 par(mfrow = c(1, 2), xpd = TRUE)
 netVisual_diffInteraction(cellchat_merge, weight.scale = T)
 netVisual_diffInteraction(cellchat_merge, weight.scale = T, measure = "weight")
@@ -82,7 +82,7 @@ gg1 <- netVisual_heatmap(cellchat_merge, comparison = c(1, 2))
 #> Do heatmap based on a merged object
 gg2 <- netVisual_heatmap(cellchat_merge, measure = "weight", comparison = c(1, 2))
 #> Do heatmap based on a merged object
-pdf(file = paste0(name, "_cell_diffinteractions_heatmap_pos",pos.dataset,".pdf"))
+pdf(file = paste0(name, "_cell_diffinteractions_heatmap_pos", pos.dataset, ".pdf"))
 print(gg1 + gg2)
 dev.off()
 ```
@@ -170,7 +170,7 @@ for (i in 1:length(celltype.listA)) {
         gg1 <- netAnalysis_signalingChanges_scatter(cellchat_merge,
                 idents.use =
                         celltype.listA[i],
-                        comparison = c(2, 1)
+                comparison = c(2, 1)
         )
         pdf(file = paste0(name, "_sig_changes_", celltype.listA[i], ".pdf"), height = 6, width = 6)
         print(gg1)
@@ -194,7 +194,7 @@ pdf(file = paste0(name, "_sig_networks_functional_2D_plot.pdf"))
 netVisual_embeddingPairwise(cellchat_merge,
         type = "functional",
         label.size = 3.5
-        #comparison = c(2, 1)
+        # comparison = c(2, 1)
 )
 dev.off()
 
@@ -202,7 +202,7 @@ pdf(file = paste0(name, "_sig_networks_functional_2D_plot_pathslabel.pdf"))
 netVisual_embeddingPairwise(cellchat_merge,
         type = "functional",
         label.size = 3.5, top.label = 0.2
-        #comparison = c(2, 1)
+        # comparison = c(2, 1)
 )
 dev.off()
 
@@ -223,7 +223,7 @@ dev.off()
 ```{r}
 # compute pathway distance in joint manifold
 pdf(file = paste0(name, "_pathway_distance.pdf"))
-rankSimilarity(cellchat_merge, type = "functional") #, comparison1 = c(2, 1)
+rankSimilarity(cellchat_merge, type = "functional") # , comparison1 = c(2, 1)
 dev.off()
 ```
 # Identify altered signaling with distinct interaction strength
@@ -250,20 +250,44 @@ i <- 1
 # combining all the identified signaling pathways from different datasets
 # outgoing
 pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i + 1]]@netP$pathways)
-ht1 <- netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6)
-ht2 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i + 1], width = 5, height = 6)
+ht1 <- netAnalysis_signalingRole_heatmap(object.list[[i]],
+        pattern = "outgoing", signaling =
+                pathway.union, title = names(object.list)[i], width = 5, height = 6,
+        font.size = 3, font.size.title = 7
+)
+ht2 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]],
+        pattern = "outgoing", signaling =
+                pathway.union, title = names(object.list)[i + 1], width = 5, height = 6,
+        font.size = 3, font.size.title = 7
+)
 pdf(file = paste0(name, "_outgoing_sig_paths.pdf"))
 draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
 dev.off()
 # incoming
-ht3 <- netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6, color.heatmap = "GnBu")
-ht4 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i + 1], width = 5, height = 6, color.heatmap = "GnBu")
+ht3 <- netAnalysis_signalingRole_heatmap(object.list[[i]],
+        pattern = "incoming", signaling =
+                pathway.union, title = names(object.list)[i], width = 5, height = 6,
+        color.heatmap = "GnBu", font.size = 3, font.size.title = 7
+)
+ht4 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]],
+        pattern = "incoming", signaling =
+                pathway.union, title = names(object.list)[i + 1], width = 5, height = 6,
+        color.heatmap = "GnBu", font.size = 3, font.size.title = 7
+)
 pdf(file = paste0(name, "_incoming_sig_paths.pdf"))
 draw(ht3 + ht4, ht_gap = unit(0.5, "cm"))
 dev.off()
 # all
-ht5 <- netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6, color.heatmap = "OrRd")
-ht6 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]], pattern = "all", signaling = pathway.union, title = names(object.list)[i + 1], width = 5, height = 6, color.heatmap = "OrRd")
+ht5 <- netAnalysis_signalingRole_heatmap(object.list[[i]],
+        pattern = "all", signaling =
+                pathway.union, title = names(object.list)[i], width = 5, height = 6, color.heatmap = "OrRd",
+        font.size = 3, font.size.title = 7
+)
+ht6 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]],
+        pattern = "all", signaling =
+                pathway.union, title = names(object.list)[i + 1], width = 5, height = 6, color.heatmap = "OrRd",
+        font.size = 3, font.size.title = 7
+)
 pdf(file = paste0(name, "_all_sig_paths.pdf"))
 draw(ht5 + ht6, ht_gap = unit(0.5, "cm"))
 dev.off()
@@ -462,52 +486,69 @@ dev.off()
 ```
 
 ```{r}
+# Wrapper: pre-filter a net data frame to the top N interactions by probability
+# for the given source/target combination, then draw the chord diagram.
+# This avoids circlize's gap.degree error when the full net has too many L-R pairs.
+chord_top_net <- function(obj, sources, targets, net_df, n = 50, ...) {
+        sub <- net_df[net_df$source %in% sources & net_df$target %in% targets, ]
+        if (nrow(sub) == 0) {
+                message("No interactions for this source/target combination — skipping")
+                return(invisible(NULL))
+        }
+        net_top <- sub[order(sub$prob, decreasing = TRUE)[1:min(n, nrow(sub))], ]
+        netVisual_chord_gene(obj,
+                sources.use = sources, targets.use = targets,
+                slot.name = "net", net = net_top, ...
+        )
+}
+
 # Chord diagram
 # T cells
 pdf(file = paste0(name, "_up-down_reg_cc_L-Rpairs_celltypes_chord_Tcells.pdf"))
 par(mfrow = c(2, 2), xpd = TRUE)
-netVisual_chord_gene(object.list[[2]],
-        sources.use = Tcell, targets.use = not_Tcell,
-        slot.name = "net", net = net.up, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[2]], Tcell, not_Tcell, net.up,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Up-regulated signaling in ", names(object.list)[2])
 )
-netVisual_chord_gene(object.list[[1]],
-        sources.use = Tcell, targets.use = not_Tcell,
-        slot.name = "net", net = net.down, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[1]], Tcell, not_Tcell, net.down,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Down-regulated signaling in ", names(object.list)[2])
 )
-netVisual_chord_gene(object.list[[2]],
-        sources.use = not_Tcell, targets.use = Tcell,
-        slot.name = "net", net = net.up, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[2]], not_Tcell, Tcell, net.up,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Up-regulated signaling in ", names(object.list)[2])
 )
-netVisual_chord_gene(object.list[[1]],
-        sources.use = not_Tcell, targets.use = Tcell,
-        slot.name = "net", net = net.down, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[1]], not_Tcell, Tcell, net.down,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Down-regulated signaling in ", names(object.list)[2])
 )
 dev.off()
+
 # fibroblasts
 pdf(file = paste0(name, "_up-down_reg_cc_L-Rpairs_celltypes_chord_fibroblasts.pdf"))
 par(mfrow = c(2, 2), xpd = TRUE)
-netVisual_chord_gene(object.list[[2]],
-        sources.use = fibroblast, targets.use = not_fibroblast,
-        slot.name = "net", net = net.up, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[2]], fibroblast, not_fibroblast, net.up,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Up-regulated signaling in ", names(object.list)[2])
 )
-netVisual_chord_gene(object.list[[1]],
-        sources.use = fibroblast, targets.use = not_fibroblast,
-        slot.name = "net", net = net.down, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[1]], fibroblast, not_fibroblast, net.down,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Down-regulated signaling in ", names(object.list)[2])
 )
-netVisual_chord_gene(object.list[[2]],
-        sources.use = not_fibroblast, targets.use = fibroblast,
-        slot.name = "net", net = net.up, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[2]], not_fibroblast, fibroblast, net.up,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Up-regulated signaling in ", names(object.list)[2])
 )
-netVisual_chord_gene(object.list[[1]],
-        sources.use = not_fibroblast, targets.use = fibroblast,
-        slot.name = "net", net = net.down, lab.cex = 0.8, small.gap = 3.5,
+chord_top_net(object.list[[1]], not_fibroblast, fibroblast, net.down,
+        n = 50,
+        lab.cex = 0.8, small.gap = 3.5,
         title.name = paste0("Down-regulated signaling in ", names(object.list)[2])
 )
 dev.off()
@@ -523,7 +564,7 @@ par(mfrow = c(1, 2), xpd = TRUE)
 for (i in 1:length(object.list)) {
         netVisual_chord_gene(object.list[[i]],
                 sources.use = Tcell, targets.use = not_Tcell,
-                lab.cex = 0.5, title.name = paste0("Signaling from Tcells - ", names(object.list)[i])
+                lab.cex = 0.4, title.name = paste0("Signaling from Tcells - ", names(object.list)[i])
         )
 }
 dev.off()
@@ -537,21 +578,40 @@ par(mfrow = c(1, 2), xpd = TRUE)
 for (i in 1:length(object.list)) {
         netVisual_chord_gene(object.list[[i]],
                 sources.use = not_Tcell, targets.use = Tcell,
-                lab.cex = 0.5, title.name = paste0("Signaling to Tcells- ", names(object.list)[i])
+                lab.cex = 0.4, title.name = paste0("Signaling to Tcells- ", names(object.list)[i])
         )
 }
 dev.off()
+```
+```{r}
+# Helper: return top-N L-R pair names ranked by summed interaction probability
+# CellChat's pairLR.use validation has an operator precedence bug — it rejects
+# a data frame with only interaction_name. Workaround: zero out non-top interactions
+# in a copy of the prob array so pairLR.use is not needed at all.
+filter_top_LR <- function(obj, sources, targets, n = 25) {
+        prob <- obj@net$prob # [source, target, LR_pair]
+        lr_strength <- apply(prob[sources, targets, , drop = FALSE], 3, sum)
+        n_keep <- min(n, sum(lr_strength > 0))
+        if (n_keep == 0) {
+                return(obj)
+        }
+        keep_idx <- order(lr_strength, decreasing = TRUE)[1:n_keep]
+        zero_idx <- setdiff(seq_len(dim(prob)[3]), keep_idx)
+        obj@net$prob[, , zero_idx] <- 0
+        obj
+}
 
 pdf(
         file = paste0(name, "_signal_cc_L-Rpairs_celltypes_chord_fromFibroblast.pdf"),
         height = 10, width = 10
 )
 par(mfrow = c(1, 2), xpd = TRUE)
-# compare all the interactions sending from T cells to  cells
 for (i in 1:length(object.list)) {
-        netVisual_chord_gene(object.list[[i]],
+        obj_f <- filter_top_LR(object.list[[i]], fibroblast, not_fibroblast, n = 25)
+        netVisual_chord_gene(obj_f,
                 sources.use = fibroblast, targets.use = not_fibroblast,
-                lab.cex = 0.1, title.name = paste0("Signaling from Fibroblast - ", names(object.list)[i])
+                lab.cex = 0.2, small.gap = 0.5, big.gap = 5,
+                title.name = paste0("Top 25 L-R from Fibroblast - ", names(object.list)[i])
         )
 }
 dev.off()
@@ -561,11 +621,12 @@ pdf(
         height = 10, width = 10
 )
 par(mfrow = c(1, 2), xpd = TRUE)
-# compare all the interactions sending from T cells to  cells
 for (i in 1:length(object.list)) {
-        netVisual_chord_gene(object.list[[i]],
+        obj_f <- filter_top_LR(object.list[[i]], not_fibroblast, fibroblast, n = 25)
+        netVisual_chord_gene(obj_f,
                 sources.use = not_fibroblast, targets.use = fibroblast,
-                lab.cex = 0.1, title.name = paste0("Signaling to Fibroblast - ", names(object.list)[i])
+                lab.cex = 0.2, small.gap = 0.5, big.gap = 5,
+                title.name = paste0("Top 25 L-R to Fibroblast - ", names(object.list)[i])
         )
 }
 dev.off()
@@ -584,7 +645,7 @@ for (i in 1:length(object.list)) {
                 slot.name = "netP", title.name = paste0(
                         "Signaling pathways sending from fibroblast - ",
                         names(object.list)[i]
-                ), legend.pos.x = 10, lab.cex = 0.1
+                ), legend.pos.x = 10, lab.cex = 0.2, small.gap = 0.5, big.gap = 5
         )
 }
 dev.off()
@@ -600,7 +661,7 @@ for (i in 1:length(object.list)) {
                 slot.name = "netP", title.name = paste0(
                         "Signaling pathways sending to fibroblast - ",
                         names(object.list)[i]
-                ), legend.pos.x = 10, lab.cex = 0.1
+                ), legend.pos.x = 10, lab.cex = 0.2, small.gap = 0.5, big.gap = 5
         )
 }
 dev.off()
@@ -614,7 +675,10 @@ par(mfrow = c(1, 2), xpd = TRUE)
 for (i in 1:length(object.list)) {
         netVisual_chord_gene(object.list[[i]],
                 sources.use = Tcell, targets.use = not_Tcell,
-                slot.name = "netP", title.name = paste0("Signaling pathways sending from Tcells - ", names(object.list)[i])
+                slot.name = "netP", title.name = paste0(
+                        "Signaling pathways sending from Tcells - ",
+                        names(object.list)[i]
+                )
         )
 }
 dev.off()
@@ -628,7 +692,11 @@ par(mfrow = c(1, 2), xpd = TRUE)
 for (i in 1:length(object.list)) {
         netVisual_chord_gene(object.list[[i]],
                 sources.use = not_Tcell, targets.use = Tcell,
-                slot.name = "netP", title.name = paste0("Signaling pathways sending to Tcells - ", names(object.list)[i])
+                slot.name = "netP", title.name = paste0(
+                        "Signaling pathways sending to Tcells - ",
+                        names(object.list)[i]
+                ),
+                legend.pos.x = 10, lab.cex = 0.2, small.gap = 0.5, big.gap = 5
         )
 }
 dev.off()
@@ -637,7 +705,7 @@ dev.off()
 # detailed look at paths
 pathways.show.all <- unique(c(object.list[[1]]@netP$pathways, object.list[[2]]@netP$pathways))
 
-#pathways.show.all.fin <- unique(vctrs::vec_c(pathways.show.all, pathways.show.all2))
+# pathways.show.all.fin <- unique(vctrs::vec_c(pathways.show.all, pathways.show.all2))
 for (j in 1:length(pathways.show.all)) {
         print(pathways.show.all[j])
         tryCatch(
@@ -738,6 +806,15 @@ writeLines(capture.output(sessionInfo()), paste0(name, "_sessionInfo.txt"))
 ```
 
 ```{r load_data}
-# load(paste0("cellchat_object.list_", name, ".RData"))
-# load(paste0("cellchat_merge_", name, ".RData"))
+name <- "6wk_R_NR"
+# define a positive dataset, i.e., the dataset with positive fold change against the other dataset
+pos.dataset <- "NR"
+neg.dataset <- "R"
+fibroblast <- "13" # c(8)
+not_fibroblast <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,6,7,9,10,11,12,13,14,15,16,17)
+Tcell <- "9" # c(6)
+not_Tcell <- c("1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
+
+load(paste0("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_6wk_clusters_0.7520260629_145515/cellchat_object.list_", name, ".RData"))
+load(paste0("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_6wk_clusters_0.7520260629_145515/cellchat_merge_", name, ".RData"))
 ```
