@@ -393,6 +393,7 @@
     "file_pattern": "_lfc0.25\\.txt$",
     "output_name": "_GO_enrich",
     "title": "GO enrichment",
-    "lower": "FALSE"
+    "lower": "FALSE",
+    "ontologies": "BP,MF,CC"
   }
 }
