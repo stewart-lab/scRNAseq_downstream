@@ -1,0 +1,6 @@
+organism	orgdb
+hsapiens	org.Hs.eg.db
+drerio	org.Dr.eg.db
+sscrofa	org.Ss.eg.db
+gp__HunH_2Tcy_ESg	org.Dr.eg.db
+gp__ClfJ_YDuX_eRo	org.Dr.eg.db
