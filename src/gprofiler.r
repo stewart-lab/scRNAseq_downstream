@@ -87,11 +87,20 @@ if (length(gene_files) == 0) {
 cat("Found", length(gene_files), "file(s) to process:\n")
 cat(paste(" ", gene_files, collapse = "\n"), "\n")
 
-for (gene_file in gene_files) {
+# Run gProfiler enrichment + rrvgo term reduction for one gene-list file.
+# Writes all of this file's own outputs (raw + reduced CSVs, grouping CSV,
+# exclusion CSV, hierarchy JSON, raw + reduced barplots, per-ontology
+# treemaps) as a side effect, and also returns list(bar_data, reduced) with
+# un-signed (positive) scores, in case this file is also being used in a
+# diverging_comparison (see below) -- sign for that plot is applied later,
+# when combining two files' worth of results.
+#
+# Returns list(bar_data = NULL, reduced = NULL) if there's nothing to
+# analyze (no DE genes, no gProfiler hits, or no significant terms) rather
+# than stopping the whole run -- other files in gene_files should still get
+# processed.
+run_gprofiler_analysis <- function(gene_file, output_file_name) {
   cat("\n--- Processing:", basename(gene_file), "---\n")
-
-  output_file_name <- tools::file_path_sans_ext(basename(gene_file))
-  output_file_name <- paste0(output_file_name, output_name)
 
   data <- read.table(gene_file, header = TRUE, stringsAsFactors = FALSE)
   data <- tibble::rownames_to_column(data, "gene")
@@ -116,7 +125,7 @@ for (gene_file in gene_files) {
 
   if (dim(data)[1] == 0) {
     cat("No DE genes to analyze for:", basename(gene_file), "\n")
-    next
+    return(list(bar_data = NULL, reduced = NULL))
   }
 
   ############### enrichment analysis via gProfiler ################
@@ -129,7 +138,7 @@ for (gene_file in gene_files) {
 
   if (is.null(gostres) || is.null(gostres$result)) {
     cat("No significant GO terms found for:", basename(gene_file), "\n")
-    next
+    return(list(bar_data = NULL, reduced = NULL))
   }
 
   # Flatten list columns in the results
@@ -151,7 +160,7 @@ for (gene_file in gene_files) {
 
   if (nrow(flattened_results) == 0) {
     cat("No significant terms found for:", basename(gene_file), "\n")
-    next
+    return(list(bar_data = NULL, reduced = NULL))
   }
 
   # if any term_name contains 'https://', swap term_id and term_name
@@ -219,20 +228,21 @@ for (gene_file in gene_files) {
   rrvgo_input$neg.log.adj.pvalue <- -log10(rrvgo_input$p.adj)
   rrvgo_input <- subset(rrvgo_input, neg.log.adj.pvalue >= 1.3)
 
+  # Predefine empty defaults so there's always a valid (possibly empty)
+  # data.frame to return, regardless of which branch below executes.
+  excluded_terms <- data.frame(
+    term_id = character(0), term_name = character(0),
+    p.adj = numeric(0), ontology = character(0), reason = character(0),
+    stringsAsFactors = FALSE
+  )
+  reduced <- data.frame(
+    go = character(0), term = character(0), parentTerm = character(0),
+    score = numeric(0), ontology = character(0), stringsAsFactors = FALSE
+  )
+
   if (nrow(rrvgo_input) == 0) {
     cat("No terms pass the rrvgo significance threshold for:", basename(gene_file), "\n")
   } else {
-    # Every term dropped from rrvgo reduction, and why, accumulates here and
-    # gets written to _reduced_excluded.csv at the end of this block -- so
-    # "why is term X in the raw CSV but missing from the reduced ones" is
-    # answered by a file in the output directory, not just a console
-    # message from whoever happened to run this.
-    excluded_terms <- data.frame(
-      term_id = character(0), term_name = character(0),
-      p.adj = numeric(0), ontology = character(0), reason = character(0),
-      stringsAsFactors = FALSE
-    )
-
     # Semantic similarity (and so rrvgo clustering) is only meaningful
     # within a single GO ontology, so classify each term and restrict to
     # the ontologies requested in config.json (`ontologies`, default "BP").
@@ -447,12 +457,13 @@ for (gene_file in gene_files) {
       # parent's own row (parentTerm clusters are defined by their
       # highest-scoring member in the first place). Faceted by ontology
       # since scores are comparable across ontologies but clusters aren't.
-      reduced_plot_data <- reduced %>%
+      reduced <- reduced %>%
         group_by(ontology, parentTerm) %>%
         dplyr::slice(which.max(score)) %>%
-        ungroup()
+        ungroup() %>%
+        as.data.frame()
 
-      p2 <- ggplot(reduced_plot_data, aes(x = reorder(parentTerm, score), y = score)) +
+      p2 <- ggplot(reduced, aes(x = reorder(parentTerm, score), y = score)) +
         geom_col(aes(fill = score), position = "identity") +
         theme_minimal() +
         scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
@@ -491,4 +502,143 @@ for (gene_file in gene_files) {
   }
 
   cat("Output written to:", output_file_name, "\n")
+
+  list(bar_data = bar_data, reduced = reduced)
+}
+
+# apply a sign to a file's scores, keeping only the columns needed for
+# plotting. `score` gets the sign (for bar position/direction: file1 right,
+# file2 left); `significance` stays unsigned (for bar fill color) so the
+# same blue->red gradient represents "how significant" on both sides of
+# the diverging plot, while position alone -- not color -- shows which
+# file a term came from.
+signed_bar_data <- function(bar_data, sign) {
+  data.frame(
+    term_name = bar_data$term_name,
+    score = sign * bar_data$neg.log.adj.pvalue,
+    significance = bar_data$neg.log.adj.pvalue
+  )
+}
+signed_reduced <- function(reduced, sign) {
+  data.frame(
+    term = reduced$term,
+    parentTerm = reduced$parentTerm,
+    ontology = reduced$ontology,
+    score = sign * reduced$score,
+    significance = reduced$score
+  )
+}
+
+# order term_col's factor levels by file1's score first, then by file2's score
+# for any terms not already placed by file1
+order_terms_by_file <- function(df, term_col) {
+  is_file1 <- df$file == "file1"
+  order1 <- df[[term_col]][is_file1][order(df$score[is_file1])]
+
+  is_file2 <- df$file == "file2"
+  order2 <- df[[term_col]][is_file2][order(df$score[is_file2])]
+  order2 <- order2[!(order2 %in% order1)]
+
+  # coord_flip() puts the first factor level at the bottom of the plot and the
+  # last level at the top, so file2 goes first here to land file1 on top.
+  df[[term_col]] <- factor(df[[term_col]], levels = c(order2, order1))
+  df
+}
+
+### process each file in DATA_DIR independently ###
+for (gene_file in gene_files) {
+  output_file_name <- tools::file_path_sans_ext(basename(gene_file))
+  output_file_name <- paste0(output_file_name, output_name)
+  run_gprofiler_analysis(gene_file, output_file_name)
+}
+
+### optional diverging two-file comparison ###
+# config.json's gprofiler.diverging_comparison is optional; when present,
+# runs one additional combined-comparison pass between two specific files
+# (file1/file2, filenames relative to DATA_DIR) on top of -- not instead of
+# -- the independent per-file loop above. Mirrors seqtools/deseq2's
+# gprofiler.r --file2 feature: bar *position* (left/right of zero) shows
+# which file a term came from; fill color is a continuous -log10(p.adj)
+# gradient showing significance on both sides, since position alone
+# already carries the direction and color is then free to show magnitude.
+diverging_cfg <- cfg$diverging_comparison
+if (!is.null(diverging_cfg)) {
+  cat("\n--- Running diverging comparison:", diverging_cfg$file1, "vs", diverging_cfg$file2, "---\n")
+
+  label1 <- if (!is.null(diverging_cfg$label1) && nzchar(diverging_cfg$label1)) diverging_cfg$label1 else "R"
+
+  file1_path <- file.path(DATA_DIR, diverging_cfg$file1)
+  file2_path <- file.path(DATA_DIR, diverging_cfg$file2)
+
+  output_file_name1 <- paste0(tools::file_path_sans_ext(basename(file1_path)), output_name)
+  output_file_name2 <- paste0(tools::file_path_sans_ext(basename(file2_path)), output_name)
+
+  # Re-runs the analysis for these two files even if they were already
+  # covered by the loop above (e.g. because they also match file_pattern):
+  # simpler than threading cached results out of the loop, and cheap
+  # (a few seconds of gost()/rrvgo per file).
+  results1 <- run_gprofiler_analysis(file1_path, output_file_name1)
+  results2 <- run_gprofiler_analysis(file2_path, output_file_name2)
+
+  if (is.null(results1$bar_data) || is.null(results2$bar_data)) {
+    cat("Skipping diverging comparison: one or both files had no significant terms.\n")
+  } else {
+    combined_bar <- signed_bar_data(results1$bar_data, 1)
+    combined_bar$file <- rep("file1", nrow(combined_bar))
+    bar2 <- signed_bar_data(results2$bar_data, -1)
+    bar2$file <- rep("file2", nrow(bar2))
+    combined_bar <- bind_rows(combined_bar, bar2)
+    combined_bar <- order_terms_by_file(combined_bar, "term_name")
+
+    combined_title <- if (!is.null(plot_title) && plot_title != "GO enrichment") {
+      plot_title
+    } else {
+      paste(tools::file_path_sans_ext(basename(file1_path)), "vs",
+            tools::file_path_sans_ext(basename(file2_path)))
+    }
+
+    p1 <- ggplot(combined_bar, aes(x = term_name, y = score, fill = significance)) +
+      geom_col(position = "identity") +
+      theme_minimal() +
+      scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+      labs(
+        title = combined_title, x = "Term",
+        y = paste0("log10(p.adj) NR / -log10(p.adj) ", label1), fill = "-log10(p.adj)"
+      ) +
+      coord_flip()
+
+    nd <- file.path(output_dir, paste0(output_file_name1, "_combined_barplot.pdf"))
+    pdf(file = nd, height = 11, width = 8.5)
+    print(p1)
+    dev.off()
+
+    if (nrow(results1$reduced) == 0 || nrow(results2$reduced) == 0) {
+      cat("Skipping diverging reduced barplot: one or both files had no rrvgo-reduced terms.\n")
+    } else {
+      combined_reduced <- signed_reduced(results1$reduced, 1)
+      combined_reduced$file <- rep("file1", nrow(combined_reduced))
+      reduced2 <- signed_reduced(results2$reduced, -1)
+      reduced2$file <- rep("file2", nrow(reduced2))
+      combined_reduced <- bind_rows(combined_reduced, reduced2)
+      combined_reduced <- order_terms_by_file(combined_reduced, "parentTerm")
+
+      p2 <- ggplot(combined_reduced, aes(x = parentTerm, y = score, fill = significance)) +
+        geom_col(position = "identity") +
+        theme_minimal() +
+        scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+        labs(
+          title = combined_title, x = "Term (parent)",
+          y = paste0("log10(p.adj) NR / -log10(p.adj) ", label1), fill = "-log10(p.adj)"
+        ) +
+        coord_flip() +
+        facet_wrap(~ontology, scales = "free_y", ncol = 1)
+
+      nd2 <- file.path(output_dir, paste0(output_file_name1, "_combined_barplot_reduced.pdf"))
+      pdf(file = nd2, height = 11, width = 8.5)
+      print(p2)
+      dev.off()
+    }
+
+    cat("Diverging comparison output written to:", output_file_name1, "_combined_*\n")
+  }
 }
