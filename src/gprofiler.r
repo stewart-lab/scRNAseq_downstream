@@ -186,11 +186,22 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
   bar_data$neg.log.adj.pvalue %>% replace_na(300)
   bar_data <- subset(bar_data, neg.log.adj.pvalue >= 1.3)
 
-  bar_data$term_name <- gsub("^GOBP_", "", as.character(bar_data$term_name))
-  bar_data$term_name <- sapply(strsplit(as.character(bar_data$term_name), "_"), function(x) {
+  # Shortening to the last 3 underscore-separated words only makes sense for
+  # MSigDB-style GOBP_-prefixed names (e.g. GOBP_POSITIVE_REGULATION_OF_
+  # APOPTOTIC_PROCESS is long enough that the full name doesn't fit as an
+  # axis label). Other sources -- including custom GMTs whose term names
+  # happen to use underscores but were never GOBP_-prefixed -- get mangled
+  # by the same truncation (e.g. positive_regulation_of_apoptotic_process
+  # becomes the unreadable fragment of_apoptotic_process), so only terms
+  # that actually had the prefix get shortened; everything else keeps its
+  # full name.
+  is_msigdb_style <- grepl("^GOBP_", as.character(bar_data$term_name))
+  stripped_term_name <- gsub("^GOBP_", "", as.character(bar_data$term_name))
+  truncated_term_name <- sapply(strsplit(stripped_term_name, "_"), function(x) {
     last_parts <- tail(x, 3)
     paste(last_parts, collapse = "_")
   })
+  bar_data$term_name <- ifelse(is_msigdb_style, truncated_term_name, stripped_term_name)
 
   bar_data <- bar_data %>%
     group_by(term_name) %>%
@@ -336,7 +347,19 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
             "reduction -- skipping clustering for ", basename(gene_file)
           )
           mapped_ids <- as.character(mapped_ids)
-          mapped_names <- sub$term_name[match(mapped_ids, sub$term_id)]
+
+          # reduceSimMatrix() names clusters from GO.db's space-separated
+          # term description (e.g. "positive regulation of apoptotic
+          # process"); look terms up the same way here so this skip-
+          # clustering fallback doesn't leak the source's underscored
+          # formatting (e.g. "heterotrimeric_G-protein_complex") into an
+          # otherwise consistently-formatted plot/table.
+          mapped_names <- AnnotationDbi::Term(mapped_ids)
+          missing_term <- is.na(mapped_names)
+          if (any(missing_term)) {
+            raw_names <- sub$term_name[match(mapped_ids, sub$term_id)]
+            mapped_names[missing_term] <- gsub("_", " ", raw_names[missing_term])
+          }
           reduced_i <- data.frame(
             go = mapped_ids,
             term = mapped_names,
@@ -573,6 +596,16 @@ if (!is.null(diverging_cfg)) {
   output_file_name1 <- paste0(tools::file_path_sans_ext(basename(file1_path)), output_name)
   output_file_name2 <- paste0(tools::file_path_sans_ext(basename(file2_path)), output_name)
 
+  # The combined/diverging outputs below represent both files at once (that's
+  # the point of the diverging plot), so their filename includes both dataset
+  # names rather than just file1's -- otherwise it looks like file2's half of
+  # the comparison never got written, when really it's already in this one
+  # plot.
+  combined_output_file_name <- paste0(
+    tools::file_path_sans_ext(basename(file1_path)), "_vs_",
+    tools::file_path_sans_ext(basename(file2_path)), output_name
+  )
+
   # Re-runs the analysis for these two files even if they were already
   # covered by the loop above (e.g. because they also match file_pattern):
   # simpler than threading cached results out of the loop, and cheap
@@ -607,7 +640,7 @@ if (!is.null(diverging_cfg)) {
       ) +
       coord_flip()
 
-    nd <- file.path(output_dir, paste0(output_file_name1, "_combined_barplot.pdf"))
+    nd <- file.path(output_dir, paste0(combined_output_file_name, "_barplot.pdf"))
     pdf(file = nd, height = 11, width = 8.5)
     print(p1)
     dev.off()
@@ -633,12 +666,12 @@ if (!is.null(diverging_cfg)) {
         coord_flip() +
         facet_wrap(~ontology, scales = "free_y", ncol = 1)
 
-      nd2 <- file.path(output_dir, paste0(output_file_name1, "_combined_barplot_reduced.pdf"))
+      nd2 <- file.path(output_dir, paste0(combined_output_file_name, "_barplot_reduced.pdf"))
       pdf(file = nd2, height = 11, width = 8.5)
       print(p2)
       dev.off()
     }
 
-    cat("Diverging comparison output written to:", output_file_name1, "_combined_*\n")
+    cat("Diverging comparison output written to:", combined_output_file_name, "_barplot*\n")
   }
 }
