@@ -474,19 +474,36 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
         file.path(output_dir, paste0(output_file_name, "_reduced_hierarchy.json"))
       )
 
+      # treemap: rrvgo's own visualization for how terms were grouped --
+      # each parent cluster is a labeled region, subdivided into its
+      # member (child) terms, sized by score. A visual complement to
+      # _reduced_grouping.csv above. One per ontology, since treemapPlot
+      # doesn't facet. Must run on the full, uncollapsed `reduced` (every
+      # significant term, not just one row per cluster) -- treemapPlot
+      # needs each cluster's member rows present to subdivide it, or every
+      # block renders as a single flat region regardless of cluster size.
+      for (ont_i in unique(reduced$ontology)) {
+        nd3 <- file.path(output_dir, paste0(output_file_name, "_reduced_treemap_", ont_i, ".pdf"))
+        pdf(file = nd3, height = 8.5, width = 11)
+        treemapPlot(reduced[reduced$ontology == ont_i, ], title = paste0(final_title, " (", ont_i, ")"))
+        dev.off()
+      }
+
       # one bar per (ontology, parent cluster) -- a term that got grouped
       # under a more significant parent no longer gets its own bar, since
       # which.max(score) within each parentTerm always selects the
       # parent's own row (parentTerm clusters are defined by their
       # highest-scoring member in the first place). Faceted by ontology
       # since scores are comparable across ontologies but clusters aren't.
-      reduced <- reduced %>%
+      # A separate variable, not a `reduced` reassignment: the treemap
+      # above needs every member term, not just one row per cluster.
+      reduced_for_plot <- reduced %>%
         group_by(ontology, parentTerm) %>%
         dplyr::slice(which.max(score)) %>%
         ungroup() %>%
         as.data.frame()
 
-      p2 <- ggplot(reduced, aes(x = reorder(parentTerm, score), y = score)) +
+      p2 <- ggplot(reduced_for_plot, aes(x = reorder(parentTerm, score), y = score)) +
         geom_col(aes(fill = score), position = "identity") +
         theme_minimal() +
         scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
@@ -499,17 +516,9 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
       print(p2)
       dev.off()
 
-      # treemap: rrvgo's own visualization for how terms were grouped --
-      # each parent cluster is a labeled region, subdivided into its
-      # member (child) terms, sized by score. A visual complement to
-      # _reduced_grouping.csv above. One per ontology, since treemapPlot
-      # doesn't facet.
-      for (ont_i in unique(reduced$ontology)) {
-        nd3 <- file.path(output_dir, paste0(output_file_name, "_reduced_treemap_", ont_i, ".pdf"))
-        pdf(file = nd3, height = 8.5, width = 11)
-        treemapPlot(reduced[reduced$ontology == ont_i, ], title = paste0(final_title, " (", ont_i, ")"))
-        dev.off()
-      }
+      # bar_data/reduced returned below feed the diverging-comparison plot,
+      # which -- like p2 above -- wants one row per cluster, not every term.
+      reduced <- reduced_for_plot
 
       cat("Reduced-term output written to:", output_file_name, "_reduced\n")
     }
