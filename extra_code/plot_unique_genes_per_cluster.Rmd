@@ -435,13 +435,41 @@ for (clust in sorted_clusters) {
 
 # Save to PDF: 12 plots per page (3 columns x 4 rows)
 PLOTS_PER_PAGE <- 12
+
+# A blank filler with the same title/axis band heights as the real cluster
+# plots (invisible text/ticks rather than removed elements). plot_spacer()
+# has no title or axis bands at all, so a page padded with spacers has less
+# total fixed overhead than a full page; since patchwork splits the leftover
+# space evenly across all "null" panel rows, that made every panel on a
+# partial page (including the real ones) render larger. Matching the band
+# heights here keeps the leftover space, and therefore panel size, identical
+# across pages.
+blank_cluster_plot <- function() {
+  ggplot(data.frame(x = c(0, 1), y = c(0, 1)), aes(x = x, y = y)) +
+    labs(title = " ", x = "UMI Counts", y = "Unique Genes Detected") +
+    theme_cowplot(font_size = 9) +
+    theme(
+      panel.grid = element_blank(),
+      panel.background = element_rect(fill = "white", colour = "white"),
+      axis.text = element_text(color = "white"),
+      axis.ticks = element_line(color = "white")
+    )
+}
+
+pad_plots <- function(plots, n) {
+  if (length(plots) < n) {
+    plots <- c(plots, replicate(n - length(plots), blank_cluster_plot(), simplify = FALSE))
+  }
+  plots
+}
+
 pdf_path <- file.path(OUTPUT_DIR, "unique_genes_vs_umi_by_cluster.pdf")
 valid_clusters <- sorted_clusters[!sapply(sorted_clusters, function(cl) is.null(plot_list[[cl]]))]
 pages <- split(valid_clusters, ceiling(seq_along(valid_clusters) / PLOTS_PER_PAGE))
 
 pdf(pdf_path, width = 8.5, height = 11)
 for (page_clusters in pages) {
-  page_plots <- plot_list[page_clusters]
+  page_plots <- pad_plots(plot_list[page_clusters], PLOTS_PER_PAGE)
   print(wrap_plots(page_plots, ncol = 3, nrow = 4))
 }
 dev.off()
@@ -449,7 +477,8 @@ cat("Saved scatter plots to:", pdf_path, "\n")
 
 # Print pages in the Rmd report
 for (page_clusters in pages) {
-  print(wrap_plots(plot_list[page_clusters], ncol = 3, nrow = 4))
+  page_plots <- pad_plots(plot_list[page_clusters], PLOTS_PER_PAGE)
+  print(wrap_plots(page_plots, ncol = 3, nrow = 4))
 }
 ```
 # get unique genes per sample 

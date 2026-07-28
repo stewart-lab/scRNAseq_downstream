@@ -22,9 +22,9 @@ setwd(data.dir)
 ```
 # load cell chat objects from previous cell chat run
 ```{r}
-name <- "4wk_R_NR"
-cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_4WkNR_cellchat_20260625_103118/seurat_mouse_annot_4WkNR_cellchat_obj.rds")
-cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_4WkR_cellchat_20260625_103117/seurat_mouse_annot_4WkR_cellchat_obj.rds")
+name <- "2wk_R_NR"
+cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_2WkNR_cellchat_20260625_103117/seurat_mouse_annot_2WkNR_cellchat_obj.rds")
+cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_2WkR_cellchat_20260625_103117/seurat_mouse_annot_2WkR_cellchat_obj.rds")
 object.list <- list(R = cellchat.R, NR = cellchat.NR)
 table(cellchat.NR@idents)
 table(cellchat.R@idents)
@@ -290,6 +290,211 @@ ht6 <- netAnalysis_signalingRole_heatmap(object.list[[i + 1]],
 )
 pdf(file = paste0(name, "_all_sig_paths.pdf"))
 draw(ht5 + ht6, ht_gap = unit(0.5, "cm"))
+dev.off()
+```
+# Differential outgoing/incoming signaling heatmap (R vs NR)
+CellChat's `netAnalysis_signalingRole_heatmap()` has no built-in "differential"
+mode: it always plots a single object, and internally row-normalizes each
+pathway to its own max (`sweep(mat, 1, apply(mat, 1, max), "/")`), so the two
+side-by-side heatmaps above are only comparable in relative pattern, not raw
+magnitude, between R and NR. `netVisual_heatmap()` *does* support a
+differential view, but only for the overall interaction count/weight network
+(`object@net$count`/`weight`), not the pathway-level centrality scores used
+here.
+
+This reimplements `netAnalysis_signalingRole_heatmap`'s internal
+outgoing/incoming centrality matrix construction (see `centr <-
+slot(object, slot.name)$centr`; `outdeg`/`indeg` per pathway), but for two
+objects instead of one, aligns them to the same pathway and cluster sets
+(zero-filling anything missing from one side), and takes the raw difference
+`mat2 - mat1` -- the same "second minus first" convention already used by
+`netVisual_heatmap()` in this file (see the "Red represent increased signals
+in second dataset" comment above). Diverging color scale via `colorRamp3()`
+(CellChat's re-export of `circlize::colorRamp2`): negative (comparison[1],
+i.e. R, relatively higher) -> blue; positive (comparison[2], i.e. NR,
+relatively higher) -> red.
+```{r}
+# Diverging color scale whose breakpoints are placed with an inverse
+# power-law (v = frac^(1/power) * max) instead of a straight line from 0 to
+# max. A plain 3-point linear ramp (0=white, max=full color) makes anything
+# that isn't near the extreme max look almost white. Placing breakpoints
+# more densely near 0 (power < 1) pushes small/faint differences toward full
+# saturation much faster, so they're actually visible; power = 1 reproduces
+# the old linear behavior. Positive and negative sides are scaled off their
+# own max magnitude so one side isn't washed out by a larger swing on the
+# other side.
+build_diverging_ramp <- function(mat, color.diff, power = 0.5, n.steps = 10) {
+        neg.max <- abs(min(min(mat), 0))
+        pos.max <- max(max(mat), 0)
+        frac <- (0:n.steps) / n.steps
+
+        breaks <- numeric(0)
+        colors <- character(0)
+
+        if (neg.max > 0) {
+                neg.breaks <- -rev(neg.max * frac^(1 / power))
+                neg.colors <- rev(colorRampPalette(c("white", color.diff[1]))(n.steps + 1))
+                breaks <- c(breaks, neg.breaks)
+                colors <- c(colors, neg.colors)
+        }
+        if (pos.max > 0) {
+                pos.breaks <- pos.max * frac^(1 / power)
+                pos.colors <- colorRampPalette(c("white", color.diff[2]))(n.steps + 1)
+                if (length(breaks) > 0) {
+                        # drop the duplicate 0/white at the negative/positive junction
+                        pos.breaks <- pos.breaks[-1]
+                        pos.colors <- pos.colors[-1]
+                }
+                breaks <- c(breaks, pos.breaks)
+                colors <- c(colors, pos.colors)
+        }
+        colorRamp3(breaks, colors)
+}
+
+netAnalysis_signalingRole_heatmap_diff <- function(object.list, comparison = c(1, 2),
+                                                   pattern = c("outgoing", "incoming", "all"),
+                                                   signaling = NULL, slot.name = "netP",
+                                                   color.use = NULL,
+                                                   color.diff = c("#2166ac", "#b2182b"),
+                                                   contrast.power = 0.5,
+                                                   title = NULL, width = 10, height = 8,
+                                                   font.size = 8, font.size.title = 10,
+                                                   cluster.rows = FALSE, cluster.cols = FALSE) {
+        pattern <- match.arg(pattern)
+
+        # build the raw pathway x cluster outgoing/incoming matrix for one
+        # object, mirroring netAnalysis_signalingRole_heatmap's internals
+        # (but skipping its per-row max normalization, since that would make
+        # the two objects' values incomparable)
+        get_mat <- function(object) {
+                if (length(slot(object, slot.name)$centr) == 0) {
+                        stop("Please run `netAnalysis_computeCentrality` on all objects first!")
+                }
+                centr <- slot(object, slot.name)$centr
+                outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+                incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+                dimnames(outgoing) <- list(levels(object@idents), names(centr))
+                dimnames(incoming) <- dimnames(outgoing)
+                for (j in seq_along(centr)) {
+                        outgoing[, j] <- centr[[j]]$outdeg
+                        incoming[, j] <- centr[[j]]$indeg
+                }
+                if (pattern == "outgoing") {
+                        mat <- t(outgoing)
+                } else if (pattern == "incoming") {
+                        mat <- t(incoming)
+                } else {
+                        mat <- t(outgoing + incoming)
+                }
+                mat # rows = pathways, columns = clusters
+        }
+
+        obj1 <- object.list[[comparison[1]]]
+        obj2 <- object.list[[comparison[2]]]
+        mat1 <- get_mat(obj1)
+        mat2 <- get_mat(obj2)
+
+        # align to the same pathway (row) and cluster (column) sets, since
+        # R/NR may not share identical cell-type composition or pathway sets
+        if (is.null(signaling)) {
+                signaling <- union(rownames(mat1), rownames(mat2))
+        }
+        clusters.union <- union(colnames(mat1), colnames(mat2))
+
+        reindex <- function(mat) {
+                out <- matrix(0,
+                        nrow = length(signaling), ncol = length(clusters.union),
+                        dimnames = list(signaling, clusters.union)
+                )
+                rows.keep <- rownames(mat)[rownames(mat) %in% signaling]
+                cols.keep <- colnames(mat)[colnames(mat) %in% clusters.union]
+                out[rows.keep, cols.keep] <- mat[rows.keep, cols.keep, drop = FALSE]
+                out
+        }
+        mat1 <- reindex(mat1)
+        mat2 <- reindex(mat2)
+
+        # comparison[2] - comparison[1]: positive (red) = comparison[2] higher,
+        # negative (blue) = comparison[1] higher
+        mat.diff <- mat2 - mat1
+
+        legend.name <- switch(pattern,
+                outgoing = "Outgoing",
+                incoming = "Incoming",
+                all = "Overall"
+        )
+        if (is.null(title)) {
+                title <- paste0(
+                        "Differential ", tolower(legend.name), " signaling\n(",
+                        names(object.list)[comparison[2]], " vs ", names(object.list)[comparison[1]], ")"
+                )
+        }
+
+        if (is.null(color.use)) {
+                color.use <- scPalette(ncol(mat.diff))
+        }
+        names(color.use) <- colnames(mat.diff)
+
+        color.heatmap.use <- build_diverging_ramp(mat.diff, color.diff, power = contrast.power)
+
+        df <- data.frame(group = colnames(mat.diff))
+        rownames(df) <- colnames(mat.diff)
+        col_annotation <- HeatmapAnnotation(
+                df = df, col = list(group = color.use),
+                which = "column", show_legend = FALSE, show_annotation_name = FALSE,
+                simple_anno_size = grid::unit(0.2, "cm")
+        )
+
+        ha2 <- HeatmapAnnotation(Strength = anno_barplot(colSums(mat.diff),
+                border = FALSE, gp = gpar(fill = color.use, col = color.use)
+        ), show_annotation_name = FALSE)
+        ha1 <- rowAnnotation(
+                Strength = anno_barplot(rowSums(mat.diff), border = FALSE),
+                show_annotation_name = FALSE
+        )
+
+        mat.plot <- mat.diff
+        mat.plot[mat.plot == 0] <- NA
+
+        ht <- Heatmap(mat.plot,
+                col = color.heatmap.use, na_col = "white",
+                name = paste0(names(object.list)[comparison[2]], " - ", names(object.list)[comparison[1]]),
+                bottom_annotation = col_annotation, top_annotation = ha2,
+                right_annotation = ha1, cluster_rows = cluster.rows, cluster_columns = cluster.cols,
+                row_names_side = "left", row_names_rot = 0,
+                row_names_gp = gpar(fontsize = font.size), column_names_gp = gpar(fontsize = font.size),
+                width = unit(width, "cm"), height = unit(height, "cm"),
+                column_title = title, column_title_gp = gpar(fontsize = font.size.title),
+                column_names_rot = 90,
+                heatmap_legend_param = list(
+                        title_gp = gpar(fontsize = 8, fontface = "plain"),
+                        title_position = "leftcenter-rot", border = NA, legend_height = unit(20, "mm"),
+                        labels_gp = gpar(fontsize = 8), grid_width = unit(2, "mm")
+                )
+        )
+        return(ht)
+}
+```
+```{r}
+# comparison = c(1, 2) matches object.list <- list(R = ..., NR = ...) above,
+# i.e. names(object.list)[comparison] == c("R", "NR"), so diff = NR - R:
+# blue = towards R, red = towards NR
+ht_diff_out <- netAnalysis_signalingRole_heatmap_diff(object.list,
+        comparison = c(1, 2), pattern = "outgoing",
+        signaling = pathway.union, width = 8, height = 10,
+        font.size = 5, font.size.title = 8
+)
+pdf(file = paste0(name, "_diff_outgoing_sig_paths.pdf"), width = 6, height = 9)
+draw(ht_diff_out)
+dev.off()
+
+ht_diff_in <- netAnalysis_signalingRole_heatmap_diff(object.list,
+        comparison = c(1, 2), pattern = "incoming",
+        signaling = pathway.union, width = 8, height = 10,
+        font.size = 5, font.size.title = 8
+)
+pdf(file = paste0(name, "_diff_incoming_sig_paths.pdf"), width = 6, height = 9)
+draw(ht_diff_in)
 dev.off()
 ```
 # Identify the up-gulated and down-regulated signaling ligand-receptor pairs

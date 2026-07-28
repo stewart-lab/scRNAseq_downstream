@@ -20,8 +20,8 @@ library(viridis)
 # set dir and filenames
 ```{r dir_file}
 GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/src/" # getwd()
-DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/"
-filename <- "SCI6WK_PARSE_PG_SB_030123.rds"
+DATA_DIR <- "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/"
+filename <- "seuratobj_all_reclustered.rds"
 setwd(DATA_DIR)
 ```
 # read in
@@ -242,6 +242,94 @@ vln_plot_function <- function(seurat.obj, gene, Celltype, output) {
     dev.off()
 }
 ```
+# split violin geom (ggplot2 extension, no split-violin package is loaded here)
+```{r}
+GeomSplitViolin <- ggplot2::ggproto("GeomSplitViolin", ggplot2::GeomViolin,
+    draw_group = function(self, data, ..., draw_quantiles = NULL) {
+        data <- transform(data,
+            xminv = x - violinwidth * (x - xmin),
+            xmaxv = x + violinwidth * (xmax - x)
+        )
+        grp <- data[1, "group"]
+        newdata <- transform(data, x = if (grp %% 2 == 1) xminv else xmaxv)
+        newdata <- newdata[order(if (grp %% 2 == 1) newdata$y else -newdata$y), ]
+        newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+        newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+        ggplot2:::ggname("geom_split_violin", ggplot2::GeomPolygon$draw_panel(newdata, ...))
+    }
+)
+
+geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity",
+                              position = "identity", ..., trim = TRUE,
+                              scale = "area", na.rm = FALSE,
+                              show.legend = NA, inherit.aes = TRUE) {
+    ggplot2::layer(
+        data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin,
+        position = position, show.legend = show.legend, inherit.aes = inherit.aes,
+        params = list(trim = trim, scale = scale, na.rm = na.rm, ...)
+    )
+}
+```
+# stacked split-violin plot function: genes x cluster_timepoint, split by condition
+```{r}
+stacked_split_vln_plot_function <- function(seurat.obj, genes, output,
+                                            cluster_col = "seurat_clusters_res0.75",
+                                            timepoints = c("2Wk", "4Wk", "6Wk")) {
+    # keep only cells with a called R/NR condition at one of the requested timepoints
+    keep <- seurat.obj$timepoint %in% timepoints & seurat.obj$condition %in% c("R", "NR")
+    seurat.sub <- subset(seurat.obj, cells = colnames(seurat.obj)[keep])
+
+    # fetch expression + metadata
+    plot_data <- FetchData(seurat.sub, vars = c(genes, cluster_col, "timepoint", "condition"))
+    colnames(plot_data)[colnames(plot_data) == cluster_col] <- "cluster"
+
+    # order clusters numerically if possible, else alphabetically
+    cluster_levels <- unique(as.character(plot_data$cluster))
+    if (all(!is.na(suppressWarnings(as.numeric(cluster_levels))))) {
+        cluster_levels <- as.character(sort(as.numeric(cluster_levels)))
+    } else {
+        cluster_levels <- sort(cluster_levels)
+    }
+
+    # reshape to long format: one row per cell per gene
+    # cluster becomes a facet column (labeled once per cluster) and timepoint
+    # becomes the x-axis within each cluster's section
+    plot_data_long <- plot_data %>%
+        pivot_longer(cols = all_of(genes), names_to = "gene", values_to = "expression") %>%
+        mutate(
+            gene = factor(gene, levels = genes),
+            cluster = factor(cluster, levels = cluster_levels),
+            timepoint = factor(timepoint, levels = timepoints),
+            condition = factor(condition, levels = c("R", "NR"))
+        )
+
+    p1 <- ggplot(plot_data_long, aes(x = timepoint, y = expression, fill = condition)) +
+        geom_split_violin(scale = "width", trim = TRUE) +
+        facet_grid(gene ~ cluster, switch = "both") +
+        scale_fill_manual(values = c(R = "blue", NR = "red")) +
+        scale_y_continuous(position = "right") +
+        theme_minimal() +
+        theme(
+            axis.text.x = element_text(angle = 0, hjust = 0.5),
+            strip.placement = "outside",
+            strip.text.y.left = element_text(angle = 0),
+            strip.text.x.bottom = element_text(face = "bold")
+        ) +
+        labs(x = "Timepoint", y = "Normalized expr", fill = "Condition")
+
+    # make pdf
+    pdf(
+        file = paste0(
+            output, paste(genes, collapse = "-"), "_cluster_timepoint_split_violinplot",
+            ".pdf"
+        ),
+        height = 6.5, # 2.5 * length(genes),
+        width = 1.2 * length(cluster_levels) + 2
+    )
+    print(p1)
+    dev.off()
+}
+```
 # feature plot function
 ```{r}
 feature_plot_function <- function(gene, timepoint, seurat.obj, output) {
@@ -440,5 +528,15 @@ for (gene in valid_genes) {
         feature_plot_function(gene, type1, seurat.sub, output)
     }
 }
+```
+# stacked split-violin plot: all genes x cluster/timepoint, split by R/NR condition
+```{r}
+# gene_names <- c("HOXC8A", "PVRL2L", "CD226", "NECTIN1B", "NR2F5", "MEOX2A", "LHX4", "ETV4")
+gene_names <- c("HOXB5A")
+# Filter for valid genes present in the object
+valid_genes <- intersect(gene_names, rownames(merged_seurat[["RNA"]]$counts))
+stacked_split_vln_plot_function(merged_seurat, valid_genes, output,
+    cluster_col = "seurat_clusters_res0.75"
+)
 ```
 
