@@ -397,7 +397,7 @@
     "ontologies": "BP,MF,CC",
     "diverging_comparison": {
       "file1": "photoreceptors_vs_other_lfc0.25.txt",
-      "file2": "immune_response_lfc0.25.txt",
+      "file2": "immune_response_markers_lfc0.25.txt",
       "label1": "R"
     }
   }

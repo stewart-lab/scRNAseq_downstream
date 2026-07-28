@@ -14,6 +14,13 @@ library(rmarkdown)
 library(purrr)
 library(jsonlite)
 library(dplyr)
+
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_clustifyr.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (clustifyr.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
 ### set variables ###
 print("set variables")
 GIT_DIR <- getwd()
@@ -29,7 +36,7 @@ QUERY.SEURAT <- config$clustifyr$QUERY.SEURAT
 cluster_name <- config$clustifyr$cluster_name
 ### set working directory and output ###
 setwd(GIT_DIR)
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("./shared_volume/output_clustifyr_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)

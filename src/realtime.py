@@ -23,6 +23,15 @@ import h5py
 import numpy as np
 import subprocess
 
+# Record installed package versions for run reproducibility -- appended to
+# the run's shared provenance file when invoked via run_downstream_toolkit.sh
+# (PROVENANCE_FILE env var), else written standalone to the current directory.
+import subprocess as _subprocess, time as _time
+_provenance_file = os.environ.get("PROVENANCE_FILE", "./sessionInfo_realtime.py_" + _time.strftime("%Y%m%d_%H%M%S") + ".txt")
+with open(_provenance_file, "a") as _f:
+    _f.write("\n--- Python package versions (realtime.py) ---\n")
+    _f.write(_subprocess.run(["pip", "freeze"], capture_output=True, text=True).stdout)
+
 sc.settings.set_figure_params(frameon=False, dpi=100)
 cr.settings.verbosity = 2
 
@@ -46,8 +55,7 @@ else:
 # make out dir
 data_dir = os.path.expanduser(DATA_DIR)
 from datetime import datetime
-now = datetime.now()
-now = now.strftime("%Y%m%d_%H%M%S")
+now = os.environ.get("RUN_TIMESTAMP") or datetime.now().strftime("%Y%m%d_%H%M%S")
 out_dir = "./shared_volume/realtime_" + now +"/"
 print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)

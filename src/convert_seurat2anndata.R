@@ -20,6 +20,13 @@ library(SeuratObject)
 
 library(SeuratDisk)
 library(hdf5r)
+
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_convert_seurat2anndata.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (convert_seurat2anndata.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
 # variables
 GIT_DIR <- getwd()
 config <- fromJSON(file.path("./config.json"))
@@ -34,7 +41,7 @@ DIM.RED <- config$seurat2ann$DIM.RED
 # set working dir
 setwd(GIT_DIR)
 # create output
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("./shared_volume/output_seurat2ann_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)

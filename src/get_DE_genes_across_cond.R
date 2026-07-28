@@ -15,6 +15,13 @@ library(tidyverse)
 library(DESeq2)
 library(dplyr)
 
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_get_DE_genes_across_cond.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (get_DE_genes_across_cond.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
+
 #### load config ####
 # script_dir <- dirname(normalizePath(commandArgs(trailingOnly = FALSE)[grep("--file=", commandArgs(trailingOnly = FALSE))][[1]] |> sub("--file=", "", x = _)))
 GIT_DIR <- getwd()
@@ -32,7 +39,7 @@ replicate_col  <- config$de_cond$group_by$sample_replicates
 cluster_col    <- config$de_cond$group_by$cluster_column
 
 #### output directory ####
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0(DATA_DIR, "DEseq2_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)

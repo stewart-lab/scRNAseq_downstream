@@ -13,6 +13,13 @@ library(tibble)
 library(rrvgo)
 library(GO.db)
 
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_gprofiler.r_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (gprofiler.r) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
+
 ### load config ###
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
@@ -70,7 +77,7 @@ if (length(invalid_ontologies) > 0) {
 cat("Reducing GO terms for ontologies:", paste(ontologies, collapse = ", "), "\n")
 
 ### set output directory ###
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output_dir <- file.path(GIT_DIR, "shared_volume", paste0("output_gprofiler_", timestamp))
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 file.copy(file.path(GIT_DIR, "config.json"), file.path(output_dir, "config.json"))
@@ -183,7 +190,7 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
   # since -log10(0.05) = 1.301.
   bar_data <- flattened_results[, c("term_name", "p.adj")]
   bar_data$neg.log.adj.pvalue <- -log10(bar_data$p.adj)
-  bar_data$neg.log.adj.pvalue %>% replace_na(300)
+  bar_data$neg.log.adj.pvalue <- replace_na(bar_data$neg.log.adj.pvalue, 300)
   bar_data <- subset(bar_data, neg.log.adj.pvalue >= 1.3)
 
   # Shortening to the last 3 underscore-separated words only makes sense for
@@ -609,9 +616,13 @@ if (!is.null(diverging_cfg)) {
   # the point of the diverging plot), so their filename includes both dataset
   # names rather than just file1's -- otherwise it looks like file2's half of
   # the comparison never got written, when really it's already in this one
-  # plot.
+  # plot. "_AND_", not "_vs_": file1's own name can itself already be a "vs"
+  # contrast (e.g. photoreceptors_vs_other), and this combined output isn't
+  # a further comparison against file1 -- it's file1 and file2's results
+  # shown together -- so "_vs_" here would read as a confusing nested
+  # three-way nested comparison.
   combined_output_file_name <- paste0(
-    tools::file_path_sans_ext(basename(file1_path)), "_vs_",
+    tools::file_path_sans_ext(basename(file1_path)), "_AND_",
     tools::file_path_sans_ext(basename(file2_path)), output_name
   )
 
@@ -635,7 +646,7 @@ if (!is.null(diverging_cfg)) {
     combined_title <- if (!is.null(plot_title) && plot_title != "GO enrichment") {
       plot_title
     } else {
-      paste(tools::file_path_sans_ext(basename(file1_path)), "vs",
+      paste(tools::file_path_sans_ext(basename(file1_path)), "AND",
             tools::file_path_sans_ext(basename(file2_path)))
     }
 

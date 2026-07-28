@@ -15,6 +15,13 @@ library(ggplot2)
 library(scran)
 library(clustifyr)
 library(SeuratDisk)
+
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_seurat_integrate_v5.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (seurat_integrate_v5.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
 #use_python("~/miniconda3/envs/scRNAseq_new2/bin/python")
 #use_condaenv("/w5home/bmoore/miniconda3/envs/scRNAseq_best")
 
@@ -31,7 +38,7 @@ filename_list <- config$seurat_integration$filename_list
 new_names <- config$seurat_integration$orig_ident_rename
 # set up environment and output
 setwd(GIT_DIR)
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("./shared_volume/output_seuratintegrate_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)

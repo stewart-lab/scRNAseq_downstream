@@ -28,6 +28,15 @@ import cellxgene_census.experimental
 # Local utilities
 from utils import load_config, initialize_output_directory, save_package_versions
 
+# Record installed package versions for run reproducibility -- appended to
+# the run's shared provenance file when invoked via run_downstream_toolkit.sh
+# (PROVENANCE_FILE env var), else written standalone to the current directory.
+import subprocess as _subprocess, time as _time
+_provenance_file = os.environ.get("PROVENANCE_FILE", "./sessionInfo_get_sample_ds_from_cellxgene.py_" + _time.strftime("%Y%m%d_%H%M%S") + ".txt")
+with open(_provenance_file, "a") as _f:
+    _f.write("\n--- Python package versions (get_sample_ds_from_cellxgene.py) ---\n")
+    _f.write(_subprocess.run(["pip", "freeze"], capture_output=True, text=True).stdout)
+
 # Some settings to avoid errors/warnings
 # - suppress "Transforming to str index" warnings when loading CellxGene census 
 #   data into anndata

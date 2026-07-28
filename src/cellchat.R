@@ -9,6 +9,7 @@ library(ggalluvial)
 library(reticulate)
 options(stringsAsFactors = FALSE)
 library(autozyme)
+
 autozyme::activate("cellchat")
 
 # # parse command line arguments
@@ -66,10 +67,32 @@ args_cli <- commandArgs(trailingOnly = TRUE)
 if (length(args_cli) >= 2 && args_cli[1] == "--task_id") {
     task_id <- as.integer(args_cli[2])
 }
+
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory. Deferred until task_id is known
+# (above), not done at the top of the script like every other entry-point
+# script: run_downstream_toolkit.sh's cellchat dispatch can launch many
+# task_ids as separate parallel R processes sharing one PROVENANCE_FILE,
+# and R's cat(..., append = TRUE) isn't guaranteed atomic across
+# processes -- concurrent appends from every task could interleave into a
+# garbled shared file. Giving each parallel task_id its own suffixed file
+# avoids that; the single-process case (task_id NULL) still uses the
+# shared file, same as every other script.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_cellchat.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+if (!is.null(task_id)) {
+    .provenance_file <- paste0(.provenance_file, ".task", task_id)
+}
+cat(paste0(
+    "\n--- R sessionInfo (cellchat.R",
+    if (!is.null(task_id)) paste0(", task_id=", task_id) else "",
+    ") ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"
+), file = .provenance_file, append = TRUE)
 metadata_file <- config$cellchat$metadata_file
 ### set working directory and output ###
 setwd(GIT_DIR)
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("./shared_volume/output_cellchat_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
@@ -709,7 +732,7 @@ if (length(object_names) == 1) {
     print(object_names[1])
     name <- object_names[1]
     #### make output dir  and read in data ####
-    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+    timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
     output <- paste0(DATA_DIR, name, "_cellchat_", timestamp)
     print(output)
     dir.create(output, mode = "0777", showWarnings = FALSE)
@@ -748,7 +771,7 @@ if (length(object_names) == 1) {
         name <- object_names[i]
 
         #### make output dir  and read in data ####
-        timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+        timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
         output <- paste0(DATA_DIR, name, "_cellchat_", timestamp)
         print(output)
         dir.create(output, mode = "0777", showWarnings = FALSE)
