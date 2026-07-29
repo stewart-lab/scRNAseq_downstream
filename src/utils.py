@@ -60,15 +60,19 @@ def get_data_dir(config_dict):
     return data_dir
 
 # %% Initialize the output directory based on the method name and current timestamp.
-def initialize_output_directory(config_dict):
+def initialize_output_directory(config_dict, provenance_file=None):
     """
     Initialize the output directory based on the method name and current timestamp.
-    
+
     Parameters
     ----------
     config_dict : dict
         Configuration dictionary
-    
+    provenance_file : str, optional
+        Path to this run's provenance file (e.g. the caller's _provenance_file
+        global). If given and it exists, it's moved into the new output
+        directory instead of being left behind in shared_volume/.
+
     Returns
     -------
     str
@@ -80,7 +84,10 @@ def initialize_output_directory(config_dict):
     print("out_dir: ", out_dir)
     os.makedirs(out_dir, mode=0o777, exist_ok=True)
     # copy config file
-    shutil.copy('./config.json', out_dir) 
+    shutil.copy('./config.json', out_dir)
+    if provenance_file is not None and os.path.exists(provenance_file):
+        shutil.copy(provenance_file, out_dir)
+        os.remove(provenance_file)
 
     return out_dir
 

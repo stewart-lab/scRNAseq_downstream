@@ -41,6 +41,10 @@ dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 # load seurat object
 seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT_OBJ))
 # load list of marker genes to plot

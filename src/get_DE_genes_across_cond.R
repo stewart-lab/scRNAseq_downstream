@@ -44,8 +44,12 @@ output <- paste0(DATA_DIR, "DEseq2_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 # copy config "./",
-file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0( 
+file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0(
           output,"/config.json")), overwrite = TRUE)
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 # source functions
 source(paste0(GIT_DIR,"/src/sc_pipeline_functions.R"))
 

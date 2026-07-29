@@ -206,7 +206,7 @@ def main():
     high_level_cell_type_column = config_dict[METHOD]["high_level_cell_type_column"]
 
     # Output file
-    out_dir = initialize_output_directory(config_dict)
+    out_dir = initialize_output_directory(config_dict, _provenance_file)
     output_file = config_dict[METHOD]["output_file"]
 
     # Random seed for reproducibility

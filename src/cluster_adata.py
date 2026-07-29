@@ -139,7 +139,7 @@ def main():
     gene_symbol_column = config_dict[METHOD]["gene_symbol_column"]
 
     # Output file
-    out_dir = initialize_output_directory(config_dict)
+    out_dir = initialize_output_directory(config_dict, _provenance_file)
     output_file_prefix = config_dict[METHOD]["output_file_prefix"]
     
     # Random seed for reproducibility

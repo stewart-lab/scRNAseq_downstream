@@ -112,7 +112,7 @@ def main():
     input_file = DATA_DIR + config_dict[METHOD]["input_file"]
 
     # Output file
-    out_dir = initialize_output_directory(config_dict)
+    out_dir = initialize_output_directory(config_dict, _provenance_file)
     output_file = config_dict[METHOD]["output_file"]
 
     # Noise level 

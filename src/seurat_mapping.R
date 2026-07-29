@@ -53,8 +53,12 @@ output <- paste0("./shared_volume/output_seurat_mapping_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
-file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"), 
+file.copy(paste0(GIT_DIR, "/config.json"), file.path(output, "config.json"),
         overwrite = TRUE)
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 
 # read in seurat objects that were preprocessed
 query.seurat <- readRDS(file = paste0(DATA_DIR, QUERY.SEURAT))

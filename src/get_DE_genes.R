@@ -20,6 +20,9 @@ library(tidyverse)
 # standalone to the current directory.
 .provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_get_DE_genes.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
 cat(paste0("\n--- R sessionInfo (get_DE_genes.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
+# Resolve to an absolute path now, before the setwd(DATA_DIR) below changes
+# the cwd a relative PROVENANCE_FILE default would otherwise be looked up in.
+.provenance_file <- normalizePath(.provenance_file)
 
 # set_variables
 GIT_DIR <- getwd()
@@ -38,8 +41,12 @@ output <- paste0("output_DE_", outname, "_",timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
-file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
+file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./",
           output,"config.json")), overwrite = TRUE)
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 config <- jsonlite::fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR,"/src/sc_pipeline_functions.R"))
 packageVersion("Seurat")

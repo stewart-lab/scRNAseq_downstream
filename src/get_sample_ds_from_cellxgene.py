@@ -98,7 +98,7 @@ def main():
     config_dict = load_config()
 
     # Initialie output directory
-    out_dir = initialize_output_directory(config_dict)
+    out_dir = initialize_output_directory(config_dict, _provenance_file)
 
     # Set custom parameters for the method
     # Method name

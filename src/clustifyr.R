@@ -44,6 +44,10 @@ output <- paste0(output, "/")
 GIT_DIR <- paste0(GIT_DIR, "/")
 ## copy config to output
 file.copy(paste0(GIT_DIR,"config.json"), file.path(output, "config.json"))
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 ## source config and functions
 source(paste0(GIT_DIR,"src/sc_pipeline_functions.R"))
 

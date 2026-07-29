@@ -29,8 +29,12 @@ output <- paste0("./shared_volume/output_sctype_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
-file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./", 
+file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./",
           output,"config.json")), overwrite = TRUE)
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 # load gene set preparation function
 source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R")
 # load cell type annotation function

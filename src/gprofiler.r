@@ -87,6 +87,15 @@ output_dir <- file.path(GIT_DIR, "shared_volume", paste0("output_gprofiler_", ti
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 file.copy(file.path(GIT_DIR, "config.json"), file.path(output_dir, "config.json"))
 
+# Move the provenance file (whether it's run_downstream_toolkit.sh's shared
+# one in shared_volume/, or the standalone sessionInfo file written when
+# PROVENANCE_FILE isn't set) into this run's own output directory, so it
+# lives alongside the outputs it documents instead of littering shared_volume/.
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output_dir, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
+
 cat("Output directory:", output_dir, "\n")
 
 ### find input files ###

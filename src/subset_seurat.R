@@ -50,6 +50,10 @@ print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")
 file.copy(paste0("config.json"), file.path(output, "config.json"))
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 source(paste0("src/sc_pipeline_functions.R"))
 
 # load data

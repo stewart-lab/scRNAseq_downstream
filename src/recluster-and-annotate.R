@@ -43,6 +43,10 @@ file.copy(file.path(paste0(GIT_DIR, "/config.json")), file.path(paste0(
     "./",
     output, "config.json"
 )), overwrite = TRUE)
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 config <- jsonlite::fromJSON(file.path(output, "config.json"))
 source(paste0(GIT_DIR, "/src/sc_pipeline_functions.R"))
 packageVersion("Seurat")

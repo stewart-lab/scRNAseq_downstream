@@ -60,7 +60,10 @@ out_dir = "./shared_volume/realtime_" + now +"/"
 print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)
 # copy config file
-shutil.copy('./config.json', out_dir) 
+shutil.copy('./config.json', out_dir)
+if os.path.exists(_provenance_file):
+    shutil.copy(_provenance_file, out_dir)
+    os.remove(_provenance_file)
 
 # load data
 ## note- data was previously converted from seurat object to anndata object

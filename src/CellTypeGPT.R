@@ -46,6 +46,10 @@ library(openai)
 # standalone to the current directory.
 .provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_CellTypeGPT.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
 cat(paste0("\n--- R sessionInfo (CellTypeGPT.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
+if (file.exists(.provenance_file)) {
+  file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
+  file.remove(.provenance_file)
+}
 
 # load seurat object
 seurat.obj <- readRDS(file = paste0(DATA_DIR, SEURAT_OBJ))
