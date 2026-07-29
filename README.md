@@ -42,6 +42,20 @@ To use docker:
     
     3. Go to the method you want for further instruction.
 
+The Docker image (`stewartlab/scrnaseq_downstream3`) already has every package each method needs -- including gprofiler2/rrvgo/GO.db for GO enrichment -- baked in. `run_downstream_toolkit.sh` just pulls the current image version and runs it, so **you never need to install or rebuild anything yourself** to use any method, gprofiler included. Use `--version <tag>` (e.g. `./run_downstream_toolkit.sh --version v2`) to pick a specific image version; it defaults to the current one.
+
+Every run (docker or conda) also writes a `run_provenance_<timestamp>.txt` file to `shared_volume/`, recording exactly what was used for that run: the image tag and its immutable digest, the git commit/branch the scripts came from, the full `config.json`, and each script's own R package (or Python `pip`) versions.
+
+### Updating the Docker image (maintainers only)
+
+Only rebuild the image if you've changed the `Dockerfile` itself (added or updated a package) -- regular users never need to do this. Rebuild and publish a new version with:
+
+```
+./build_push.sh
+```
+
+This builds `stewartlab/scrnaseq_downstream3:<version>` from the current `Dockerfile` and pushes it to Docker Hub. Bump the `VERSION` variable at the top of `build_push.sh` before running it, then update the default in `run_downstream_toolkit.sh`'s `--version` flag to match, so everyone picks up the new image automatically next time they pull.
+
 ## Annotation via a reference
 
 ### Seurat mapping
@@ -876,6 +890,52 @@ Outputs:
 * Other:
     * config.json: config settings used
     * conda-requirements.txt and pip-requirements.txt: package versions used in the analysis
+
+### GO enrichment (gprofiler)
+To run GO term enrichment on a differentially-expressed gene list (or lists) using gProfiler, with optional redundancy reduction via rrvgo:
+
+If using conda (not docker), make sure gprofiler2/rrvgo/GO.db and the relevant OrgDb package are installed in your `scRNAseq_new` environment first -- see the "for gprofiler" section of `environments/scRNAseq_env_setup.sh`. Docker users don't need to do anything extra; these are already in the image.
+
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"gprofiler"
+"docker": "TRUE" or "FALSE"
+
+"gprofiler":{
+    "DATA_DIR": "./data/test_gprofiler/", # dir containing DE gene-list file(s) -- Seurat FindMarkers-style, with avg_log2FC/p_val_adj columns
+    "organism": "gp__HunH_2Tcy_ESg", # gProfiler organism code, or a custom GMT token -- must have a matching row in data/organism_orgdb_map.txt
+    "mthreshold": 500, # max term size (genes) to keep -- drops very large, uninformative terms
+    "padj": 0.05, # adjusted p-value threshold for significant genes
+    "lfc": 0.25, # log2 fold-change threshold for significant genes (set both padj/lfc to null to use every gene in the file)
+    "file_pattern": "_lfc0.25\\.txt$", # regex matching which files in DATA_DIR to process
+    "output_name": "_GO_enrich", # suffix appended to each file's output name
+    "title": "GO enrichment", # plot title -- if left as the default "GO enrichment", falls back to each file's own name
+    "lower": "FALSE", # convert gene names to lowercase before enrichment
+    "ontologies": "BP,MF,CC", # comma-separated GO ontologies to run rrvgo redundancy reduction over (Biological Process/Molecular Function/Cellular Component)
+    "diverging_comparison": { # optional -- omit this whole block to skip
+      "file1": "photoreceptors_vs_other_lfc0.25.txt", # first gene list, filename relative to DATA_DIR
+      "file2": "immune_response_markers_lfc0.25.txt", # second gene list, filename relative to DATA_DIR
+      "label1": "R" # legend label for file1's side of the diverging plot (file2's side is always labeled "NR")
+    }
+}
+```
+Run:
+```
+source run_downstream_toolkit.sh
+```
+Outputs (per file, written to `shared_volume/output_gprofiler_<timestamp>/`):
+* `<file>_GO_enrich.csv`: raw gProfiler enrichment results
+* `<file>_GO_enrich_barplot.pdf`: bar plot of all significant terms
+* `<file>_GO_enrich_reduced.csv`, `_reduced_barplot.pdf`: rrvgo-redundancy-reduced terms and their bar plot (one panel per ontology)
+* `<file>_GO_enrich_reduced_grouping.csv`: which terms got grouped under which parent cluster
+* `<file>_GO_enrich_reduced_hierarchy.json`: the same grouping, as nested JSON
+* `<file>_GO_enrich_reduced_treemap_<ontology>.pdf`: treemap visualization of each ontology's clusters
+* `<file>_GO_enrich_reduced_excluded.csv`: terms dropped from rrvgo reduction, and why (only written if any were)
+* If `diverging_comparison` is set: `<file1>_AND_<file2>_GO_enrich_barplot.pdf` and `_barplot_reduced.pdf`, showing both files' enriched terms on one plot (file1's terms extend right, file2's extend left)
+* Other:
+    * config.json: config settings used
+    * `run_provenance_<timestamp>.txt` (in `shared_volume/`, not the per-run output folder): exact invocation, git commit, Docker image version, and R package versions used for this run
 
 # References: 
 
