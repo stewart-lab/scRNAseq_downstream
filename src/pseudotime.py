@@ -21,6 +21,15 @@ import matplotlib.pyplot as plt
 import warnings
 from numba.core.errors import NumbaDeprecationWarning
 
+# Record installed package versions for run reproducibility -- appended to
+# the run's shared provenance file when invoked via run_downstream_toolkit.sh
+# (PROVENANCE_FILE env var), else written standalone to the current directory.
+import subprocess as _subprocess, time as _time
+_provenance_file = os.environ.get("PROVENANCE_FILE", "./sessionInfo_pseudotime.py_" + _time.strftime("%Y%m%d_%H%M%S") + ".txt")
+with open(_provenance_file, "a") as _f:
+    _f.write("\n--- Python package versions (pseudotime.py) ---\n")
+    _f.write(_subprocess.run(["pip", "freeze"], capture_output=True, text=True).stdout)
+
 warnings.filterwarnings(action="ignore", category=NumbaDeprecationWarning)
 #warnings.filterwarnings(
 #    action="ignore", module="scanpy", message="No data for colormapping"
@@ -50,8 +59,7 @@ print("loading data")
 adata = sc.read_h5ad(data_dir + ADATA_FILE)
 print(adata)
 from datetime import datetime
-now = datetime.now()
-now = now.strftime("%Y%m%d_%H%M%S")
+now = os.environ.get("RUN_TIMESTAMP") or datetime.now().strftime("%Y%m%d_%H%M%S")
 out_dir = "/shared_volume/pseudotime_" + now +"/"
 print("out_dir: ", out_dir)
 os.makedirs(out_dir, mode=0o777, exist_ok=True)

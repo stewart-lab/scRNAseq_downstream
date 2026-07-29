@@ -14,6 +14,13 @@ library(scater)
 library(SingleCellExperiment)
 library(tidyverse)
 
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_get_DE_genes.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (get_DE_genes.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
+
 # set_variables
 GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
@@ -26,7 +33,7 @@ if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
 SEURAT.FILE <- config$de$SEURAT.FILE
 outname <- config$de$outname
 setwd(DATA_DIR)
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("output_DE_", outname, "_",timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)

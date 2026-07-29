@@ -18,6 +18,13 @@ library(purrr)
 library(jsonlite)
 library(rmarkdown)
 library(tidyverse)
+
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_phate.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (phate.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
 #use_condaenv(condaenv = 'phate_env', required = TRUE)
 print("set variables")
 # set variables
@@ -40,7 +47,7 @@ gamma  <- config$phate$gamma
 embed_key  <- config$phate$embed_key
 ANNOT  <- config$phate$ANNOT
 # set up environment and output
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("./shared_volume/output_phate_", timestamp)
 dir.create(output, mode = "0777", showWarnings = FALSE)
 output <- paste0(output, "/")

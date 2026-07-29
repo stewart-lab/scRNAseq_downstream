@@ -20,6 +20,15 @@ from utils import load_config, get_data_dir, initialize_output_directory, save_p
 #   data into anndata
 import warnings
 from anndata import ImplicitModificationWarning
+
+# Record installed package versions for run reproducibility -- appended to
+# the run's shared provenance file when invoked via run_downstream_toolkit.sh
+# (PROVENANCE_FILE env var), else written standalone to the current directory.
+import subprocess as _subprocess, time as _time
+_provenance_file = os.environ.get("PROVENANCE_FILE", "./sessionInfo_cluster_adata.py_" + _time.strftime("%Y%m%d_%H%M%S") + ".txt")
+with open(_provenance_file, "a") as _f:
+    _f.write("\n--- Python package versions (cluster_adata.py) ---\n")
+    _f.write(_subprocess.run(["pip", "freeze"], capture_output=True, text=True).stdout)
 warnings.filterwarnings("ignore", category=ImplicitModificationWarning)
 
 # - enable writing nullable string arrays to h5ad files

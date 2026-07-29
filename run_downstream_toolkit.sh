@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# --version <tag>: which stewartlab/scrnaseq_downstream3 image tag to pull
+# and run (docker mode only; ignored for conda mode). Defaults to v2 --
+# bump this when a new image has been built and pushed via build_push.sh.
+# Captured before the parsing loop below consumes "$@" via shift, so the
+# provenance record further down can log the invocation exactly as typed.
+ORIGINAL_INVOCATION="$0 $*"
+IMAGE_VERSION="v2"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      IMAGE_VERSION="$2"
+      shift 2
+      ;;
+    --version=*)
+      IMAGE_VERSION="${1#*=}"
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
 echo "Step 1: Importing DATA_DIR from config.json"
 CONFIG_FILE="./config.json"
 
@@ -16,64 +40,134 @@ if [ "$METHOD" == "cellchat" ]; then
     N_FILES=$(awk 'END{print NR}' "$FILELIST_PATH")
 fi
 
+echo "Step 1.5: Setting up SHARED_VOLUME and recording run provenance"
+SHARED_VOLUME="./shared_volume"
+mkdir -p "$SHARED_VOLUME"
+chmod 777 "$SHARED_VOLUME"
+
+# Everything needed to answer "what exactly ran here" a year from now:
+# script version (git commit -- src/, data/, and config.json are all
+# bind-mounted from the working tree, not baked into the Docker image, so
+# the image tag alone doesn't pin which analysis code ran), parameters
+# (a copy of config.json), and -- for docker runs -- which exact image
+# (tag *and* immutable digest, since a tag can be overwritten by a later
+# build/push). Deliberately NOT included: per-R-package version pins
+# (sessionInfo() output is a separate, script-level concern -- ask for it
+# if you want it added) or input-data checksums (expensive for sequencing
+# data; DATA_DIR's resolved path below is a cheap-enough proxy).
+# One timestamp, computed once, shared by the provenance filename below and
+# (via the RUN_TIMESTAMP export further down) each method script's own
+# output directory -- so e.g. run_provenance_<ts>.txt and
+# output_gprofiler_<ts>/ carry the exact same timestamp and can be matched
+# up by filename alone, instead of each independently calling
+# Sys.time()/datetime.now() and landing on different digits.
+RUN_TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+PROVENANCE_FILE="$SHARED_VOLUME/run_provenance_$RUN_TIMESTAMP.txt"
+GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown (not a git repo?)")
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+GIT_DIRTY_FILES=$(git status --porcelain 2>/dev/null)
+if [ -n "$GIT_DIRTY_FILES" ]; then
+  GIT_STATUS="DIRTY -- uncommitted changes present below; this run cannot be exactly reproduced from git history alone
+$GIT_DIRTY_FILES"
+else
+  GIT_STATUS="clean"
+fi
+
+{
+  echo "=== run_downstream_toolkit.sh provenance ==="
+  echo "timestamp: $(date -Iseconds)"
+  echo "invocation: $ORIGINAL_INVOCATION"
+  echo "METHOD: $METHOD"
+  echo "DATA_DIR (resolved): $(realpath "$DATA_DIR" 2>/dev/null || echo "$DATA_DIR")"
+  echo ""
+  echo "--- scRNAseq_downstream repo state ---"
+  echo "git commit: $GIT_COMMIT"
+  echo "git branch: $GIT_BRANCH"
+  echo "git status: $GIT_STATUS"
+  echo ""
+  echo "--- config.json (parameters used for this run) ---"
+  cat "$CONFIG_FILE" 2>/dev/null || echo "(could not read $CONFIG_FILE)"
+} > "$PROVENANCE_FILE"
+
+echo "Provenance recorded to $PROVENANCE_FILE"
+
 echo "Step 2: Docker or conda environment?"
 read -p "Do you want to use the docker container or have you installed the conda environment on your computer? Reply y for docker, N for conda [y/N]: " confirm
 
 if [[ "$confirm" =~ ^[Yy]$ ]]; then
-  echo "Step 2.1: creating the SHARED_VOLUME"
-  SHARED_VOLUME="./shared_volume"
+  # This script only ever pulls and runs a pre-built image -- it never
+  # builds one. Building (compiling rrvgo's dependencies, etc.) takes 20+
+  # minutes and only needs to happen once, by a maintainer, when the
+  # Dockerfile changes; see build_push.sh for that step.
+  echo "Step 2.1: Pulling stewartlab/scrnaseq_downstream3:$IMAGE_VERSION"
+  docker pull "stewartlab/scrnaseq_downstream3:$IMAGE_VERSION"
 
-  #rm -rf "$SHARED_VOLUME"
-  mkdir -p "$SHARED_VOLUME"
-  chmod 777 "$SHARED_VOLUME"
-
-  echo "Step 2.2: Skipping Docker build to avoid layer limit issues"
-  #docker build -t stewartlab/scrnaseq_downstream3:v1 ./
+  IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "stewartlab/scrnaseq_downstream3:$IMAGE_VERSION" 2>/dev/null || echo "unavailable (image not pulled from a registry?)")
+  {
+    echo ""
+    echo "--- docker image ---"
+    echo "run mode: docker"
+    echo "image tag: stewartlab/scrnaseq_downstream3:$IMAGE_VERSION"
+    echo "image digest: $IMAGE_DIGEST"
+  } >> "$PROVENANCE_FILE"
 
   echo "Step 3: Running Docker container for downstream processing scripts"
-  docker run --userns=host -it --rm \
+  # PROVENANCE_FILE is a host path (./shared_volume/...); translate it to
+  # where /shared_volume actually lands inside the container so the R/python
+  # scripts below can append their own package-version info to the same
+  # provenance record, not a path that doesn't exist in there.
+  # -i (not -it): this container runs one dispatched, non-interactive
+  # command and exits -- no interactive shell needs a real terminal here.
+  # -t requires a TTY, which fails outright in non-interactive contexts
+  # (cron, CI, this being run from a script); dropping it only affects
+  # whether R's own console/log text gets ANSI color codes, not the
+  # analysis output itself (e.g. ggplot's pdf() device is unaffected either
+  # way -- it writes color the same regardless of TTY state).
+  docker run --userns=host -i --rm \
+    -e "PROVENANCE_FILE=/shared_volume/$(basename "$PROVENANCE_FILE")" \
+    -e "RUN_TIMESTAMP=$RUN_TIMESTAMP" \
     -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json" \
     -v "$(realpath "./src"):/src" \
     -v "$(realpath "./data"):/data" \
-    stewartlab/scrnaseq_downstream3:v1 /bin/bash -c "
+    "stewartlab/scrnaseq_downstream3:$IMAGE_VERSION" /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript /src/seurat_mapping.R'
         elif [ \"$METHOD\" == \"seurat_integration\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript /src/seurat_integrate_v5.R'
         elif [ \"$METHOD\" == \"sccomp\" ]; then
-            conda run -n sccomp2 /bin/bash -c 'Rscript src/sccomp.R' 
+            conda run -n sccomp2 /bin/bash -c 'Rscript src/sccomp.R'
         elif [ \"$METHOD\" == \"pseudotime\" ]; then
             /bin/bash -c 'source pst_env/bin/activate
             python src/pseudotime.py'
         elif [ \"$METHOD\" == \"realtime\" ]; then
-            /bin/bash -c '. realtime/bin/activate 
+            /bin/bash -c '. realtime/bin/activate
             python src/realtime.py'
         elif [ \"$METHOD\" == \"celltypeGPT\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/CellTypeGPT.R'
         elif [ \"$METHOD\" == \"clustifyr\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/clustifyr.R'
         elif [ \"$METHOD\" == \"recluster\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/recluster-and-annotate.R'
         elif [ \"$METHOD\" == \"featureplots\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/featureplots.R'
         elif [ \"$METHOD\" == \"seurat2ann\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/convert_seurat2anndata.R'
         elif [ \"$METHOD\" == \"subset_seurat\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/subset_seurat.R'
         elif [ \"$METHOD\" == \"phate\" ]; then
             conda run -n phate /bin/bash -c 'Rscript src/phate.R'
         elif [ \"$METHOD\" == \"sctype\" ]; then
-            /bin/bash -c '. scRNAseq_new/bin/activate 
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/scType.R'
         elif [ \"$METHOD\" == \"de\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate
@@ -82,7 +176,7 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
             /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/get_DE_genes_across_cond.R'
         elif [ \"$METHOD\" == \"gprofiler\" ]; then
-            /bin/bash -c '. DEseq2_best/bin/activate
+            /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/gprofiler.r'
         elif [ \"$METHOD\" == \"cellchat\" ]; then
             if [ -z \"$TASK_ID\" ]; then
@@ -101,11 +195,17 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
     "
 
 else
-    echo "Step 2.1: Removing and recreating the SHARED_VOLUME"
-    SHARED_VOLUME="./shared_volume"
-    #rm -rf "$SHARED_VOLUME"
-    mkdir -p "$SHARED_VOLUME"
-    chmod 777 "$SHARED_VOLUME"
+    echo "Step 2.1: run mode is conda (local environment, not containerized)"
+    {
+      echo ""
+      echo "--- run environment ---"
+      echo "run mode: conda (local environment, not containerized -- no image tag/digest to record)"
+    } >> "$PROVENANCE_FILE"
+    # No path translation needed here (unlike the docker branch above) --
+    # conda mode runs directly on the host, so the R/python scripts below see
+    # the same filesystem this script does.
+    export PROVENANCE_FILE="$(realpath "$PROVENANCE_FILE")"
+    export RUN_TIMESTAMP
     echo "Step 3: Running the script with conda environments"
     if [ "$METHOD" == "seurat_mapping" ]; then
         conda activate scRNAseq_new
@@ -153,7 +253,7 @@ else
         conda activate scRNAseq_new
         Rscript src/get_DE_genes_across_cond.R
     elif [ "$METHOD" == "gprofiler" ]; then
-        conda activate DEseq2_best
+        conda activate scRNAseq_new
         Rscript src/gprofiler.r
     elif [ "$METHOD" == "cellchat" ]; then
         conda activate cellchat

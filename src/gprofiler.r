@@ -10,6 +10,15 @@ library(devEMF)
 library(ggrepel)
 library(tidyr)
 library(tibble)
+library(rrvgo)
+library(GO.db)
+
+# Record R session info (packages + versions) for run reproducibility --
+# appended to the run's shared provenance file when invoked via
+# run_downstream_toolkit.sh (PROVENANCE_FILE env var), else written
+# standalone to the current directory.
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0("./sessionInfo_gprofiler.r_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (gprofiler.r) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
 
 ### load config ###
 GIT_DIR <- getwd()
@@ -26,8 +35,49 @@ output_name <- cfg$output_name
 plot_title  <- cfg$title
 lower       <- as.logical(cfg$lower)
 
+# Look up the Bioconductor OrgDb package matching `organism` (a gProfiler
+# species code or custom GMT token) from a single shared mapping file,
+# rather than a second config field -- config.json only ever needs
+# `organism`, so organism and orgdb can't drift out of sync with each other.
+# Add a row to this file whenever a new organism/custom GMT is introduced.
+organism_map_file <- file.path(GIT_DIR, "data", "organism_orgdb_map.txt")
+organism_map <- read.table(organism_map_file, header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+orgdb_match <- organism_map$orgdb[organism_map$organism == organism]
+if (length(orgdb_match) == 0) {
+  stop(paste0(
+    "No orgdb mapping found for organism '", organism, "' in ", organism_map_file, ".\n",
+    "Add a row mapping this organism/gmt-id to its Bioconductor OrgDb package name ",
+    "(e.g. 'org.Hs.eg.db') before running rrvgo term reduction."
+  ))
+}
+orgdb <- orgdb_match[1]
+cat("Using orgdb:", orgdb, "for organism:", organism, "\n")
+
+# Which GO ontologies to run rrvgo reduction over. gProfiler's GO results
+# span Biological Process / Molecular Function / Cellular Component, but
+# semantic similarity (and so rrvgo clustering) is only meaningful within a
+# single ontology -- restricting to one (e.g. "BP") is a valid, deliberate
+# choice, not a bug, but it does mean significant terms from the other
+# ontologies won't be reduced (they still appear in the raw, unreduced
+# output). Comma-separated in config.json, e.g. "BP" or "BP,MF,CC".
+ontologies_raw <- cfg$ontologies
+if (is.null(ontologies_raw) || !nzchar(ontologies_raw)) {
+  ontologies <- "BP"
+} else {
+  ontologies <- toupper(trimws(strsplit(ontologies_raw, ",")[[1]]))
+}
+invalid_ontologies <- setdiff(ontologies, c("BP", "MF", "CC"))
+if (length(invalid_ontologies) > 0) {
+  stop(paste0(
+    "Invalid value(s) in config.json's gprofiler.ontologies: ",
+    paste(invalid_ontologies, collapse = ", "),
+    ". Must be one or more of BP, MF, CC (comma-separated)."
+  ))
+}
+cat("Reducing GO terms for ontologies:", paste(ontologies, collapse = ", "), "\n")
+
 ### set output directory ###
-timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output_dir <- file.path(GIT_DIR, "shared_volume", paste0("output_gprofiler_", timestamp))
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 file.copy(file.path(GIT_DIR, "config.json"), file.path(output_dir, "config.json"))
@@ -44,11 +94,20 @@ if (length(gene_files) == 0) {
 cat("Found", length(gene_files), "file(s) to process:\n")
 cat(paste(" ", gene_files, collapse = "\n"), "\n")
 
-for (gene_file in gene_files) {
+# Run gProfiler enrichment + rrvgo term reduction for one gene-list file.
+# Writes all of this file's own outputs (raw + reduced CSVs, grouping CSV,
+# exclusion CSV, hierarchy JSON, raw + reduced barplots, per-ontology
+# treemaps) as a side effect, and also returns list(bar_data, reduced) with
+# un-signed (positive) scores, in case this file is also being used in a
+# diverging_comparison (see below) -- sign for that plot is applied later,
+# when combining two files' worth of results.
+#
+# Returns list(bar_data = NULL, reduced = NULL) if there's nothing to
+# analyze (no DE genes, no gProfiler hits, or no significant terms) rather
+# than stopping the whole run -- other files in gene_files should still get
+# processed.
+run_gprofiler_analysis <- function(gene_file, output_file_name) {
   cat("\n--- Processing:", basename(gene_file), "---\n")
-
-  output_file_name <- tools::file_path_sans_ext(basename(gene_file))
-  output_file_name <- paste0(output_file_name, output_name)
 
   data <- read.table(gene_file, header = TRUE, stringsAsFactors = FALSE)
   data <- tibble::rownames_to_column(data, "gene")
@@ -73,7 +132,7 @@ for (gene_file in gene_files) {
 
   if (dim(data)[1] == 0) {
     cat("No DE genes to analyze for:", basename(gene_file), "\n")
-    next
+    return(list(bar_data = NULL, reduced = NULL))
   }
 
   ############### enrichment analysis via gProfiler ################
@@ -86,7 +145,7 @@ for (gene_file in gene_files) {
 
   if (is.null(gostres) || is.null(gostres$result)) {
     cat("No significant GO terms found for:", basename(gene_file), "\n")
-    next
+    return(list(bar_data = NULL, reduced = NULL))
   }
 
   # Flatten list columns in the results
@@ -108,7 +167,7 @@ for (gene_file in gene_files) {
 
   if (nrow(flattened_results) == 0) {
     cat("No significant terms found for:", basename(gene_file), "\n")
-    next
+    return(list(bar_data = NULL, reduced = NULL))
   }
 
   # if any term_name contains 'https://', swap term_id and term_name
@@ -123,20 +182,37 @@ for (gene_file in gene_files) {
             paste0(output_file_name, ".csv")), row.names = FALSE)
 
   # make bar plot
+  # neg.log.adj.pvalue uses log10 (not natural log) so it's directly
+  # comparable to the rrvgo-reduced plot's score, which is also -log10(p.adj)
+  # (previously these used different log bases, making the two plots' bar
+  # heights look inconsistent for the same term despite representing the
+  # same p-value). The >= 1.3 threshold means p.adj <= ~0.05 either way,
+  # since -log10(0.05) = 1.301.
   bar_data <- flattened_results[, c("term_name", "p.adj")]
-  bar_data$neg.log.adj.pvalue <- -log(bar_data$p.adj)
-  bar_data$neg.log.adj.pvalue %>% replace_na(300)
+  bar_data$neg.log.adj.pvalue <- -log10(bar_data$p.adj)
+  bar_data$neg.log.adj.pvalue <- replace_na(bar_data$neg.log.adj.pvalue, 300)
   bar_data <- subset(bar_data, neg.log.adj.pvalue >= 1.3)
 
-  bar_data$term_name <- gsub("^GOBP_", "", as.character(bar_data$term_name))
-  bar_data$term_name <- sapply(strsplit(as.character(bar_data$term_name), "_"), function(x) {
+  # Shortening to the last 3 underscore-separated words only makes sense for
+  # MSigDB-style GOBP_-prefixed names (e.g. GOBP_POSITIVE_REGULATION_OF_
+  # APOPTOTIC_PROCESS is long enough that the full name doesn't fit as an
+  # axis label). Other sources -- including custom GMTs whose term names
+  # happen to use underscores but were never GOBP_-prefixed -- get mangled
+  # by the same truncation (e.g. positive_regulation_of_apoptotic_process
+  # becomes the unreadable fragment of_apoptotic_process), so only terms
+  # that actually had the prefix get shortened; everything else keeps its
+  # full name.
+  is_msigdb_style <- grepl("^GOBP_", as.character(bar_data$term_name))
+  stripped_term_name <- gsub("^GOBP_", "", as.character(bar_data$term_name))
+  truncated_term_name <- sapply(strsplit(stripped_term_name, "_"), function(x) {
     last_parts <- tail(x, 3)
     paste(last_parts, collapse = "_")
   })
+  bar_data$term_name <- ifelse(is_msigdb_style, truncated_term_name, stripped_term_name)
 
   bar_data <- bar_data %>%
     group_by(term_name) %>%
-    slice(which.max(neg.log.adj.pvalue)) %>%
+    dplyr::slice(which.max(neg.log.adj.pvalue)) %>%
     ungroup()
 
   # use config title if not default, otherwise fall back to filename
@@ -150,7 +226,7 @@ for (gene_file in gene_files) {
     geom_col(aes(fill = neg.log.adj.pvalue), position = "identity") +
     theme_minimal() +
     scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
-    labs(title = final_title, x = "Term", y = "Neg Log adjusted P-value") +
+    labs(title = final_title, x = "Term", y = "-log10(adjusted P-value)") +
     coord_flip()
 
   print("Checking for any duplicate terms or unusual values:")
@@ -161,5 +237,461 @@ for (gene_file in gene_files) {
   print(p1)
   dev.off()
 
+  ############### reduce similar GO terms via rrvgo ################
+  # Same significance filter as the raw bar plot above (p.adj-based
+  # neg.log.adj.pvalue >= 1.3, i.e. p.adj <= ~0.05), but keeps term_id
+  # (needed by calculateSimMatrix) instead of the truncated/reformatted
+  # term_name used for the raw plot.
+  rrvgo_input <- flattened_results[, c("term_id", "term_name", "p.adj")]
+  rrvgo_input$neg.log.adj.pvalue <- -log10(rrvgo_input$p.adj)
+  rrvgo_input <- subset(rrvgo_input, neg.log.adj.pvalue >= 1.3)
+
+  # Predefine empty defaults so there's always a valid (possibly empty)
+  # data.frame to return, regardless of which branch below executes.
+  excluded_terms <- data.frame(
+    term_id = character(0), term_name = character(0),
+    p.adj = numeric(0), ontology = character(0), reason = character(0),
+    stringsAsFactors = FALSE
+  )
+  reduced <- data.frame(
+    go = character(0), term = character(0), parentTerm = character(0),
+    score = numeric(0), ontology = character(0), stringsAsFactors = FALSE
+  )
+
+  if (nrow(rrvgo_input) == 0) {
+    cat("No terms pass the rrvgo significance threshold for:", basename(gene_file), "\n")
+  } else {
+    # Semantic similarity (and so rrvgo clustering) is only meaningful
+    # within a single GO ontology, so classify each term and restrict to
+    # the ontologies requested in config.json (`ontologies`, default "BP").
+    # Terms whose ontology can't be resolved at all (obsolete/merged/too-new
+    # GO IDs not yet in the installed GO.db) can't be reduced regardless of
+    # config -- they remain visible in the raw, unreduced output.
+    rrvgo_input$ontology <- AnnotationDbi::Ontology(rrvgo_input$term_id)
+
+    unclassified <- rrvgo_input[is.na(rrvgo_input$ontology), c("term_id", "term_name", "p.adj", "ontology")]
+    if (nrow(unclassified) > 0) {
+      unclassified$reason <- "no resolvable GO ontology (obsolete/merged/too-new GO ID not in installed GO.db)"
+      excluded_terms <- bind_rows(excluded_terms, unclassified)
+      message(
+        nrow(unclassified), " term(s) have no resolvable GO ontology (obsolete/",
+        "merged ID?) and are excluded from rrvgo reduction for ", basename(gene_file)
+      )
+    }
+
+    not_requested <- rrvgo_input[
+      !is.na(rrvgo_input$ontology) & !(rrvgo_input$ontology %in% ontologies),
+      c("term_id", "term_name", "p.adj", "ontology")
+    ]
+    if (nrow(not_requested) > 0) {
+      not_requested$reason <- paste0(
+        "ontology '", not_requested$ontology, "' not in configured ontologies (",
+        paste(ontologies, collapse = ", "), ")"
+      )
+      excluded_terms <- bind_rows(excluded_terms, not_requested)
+    }
+
+    rrvgo_input <- rrvgo_input[rrvgo_input$ontology %in% ontologies, ]
+
+    if (nrow(rrvgo_input) == 0) {
+      cat(
+        "No terms in the configured ontologies (", paste(ontologies, collapse = ", "),
+        ") for:", basename(gene_file), "\n"
+      )
+    } else {
+      # run calculateSimMatrix/reduceSimMatrix separately per ontology,
+      # then stack the results together with an `ontology` column.
+      reduced_by_ontology <- lapply(intersect(ontologies, unique(rrvgo_input$ontology)), function(ont_i) {
+        sub <- rrvgo_input[rrvgo_input$ontology == ont_i, ]
+        candidate_ids <- unique(sub$term_id)
+
+        sim_matrix <- calculateSimMatrix(
+          sub$term_id,
+          orgdb  = orgdb,
+          ont    = ont_i,
+          method = "Rel" # Relevance similarity -- generally recommended
+        )
+        scores <- setNames(-log10(sub$p.adj), sub$term_id)
+
+        # reduceSimMatrix clusters terms via hclust, which needs >= 2 terms.
+        # With too few significant terms in this ontology (or terms
+        # calculateSimMatrix couldn't map in orgdb), there's nothing to
+        # cluster -- pass what's mappable through unreduced instead.
+        #
+        # calculateSimMatrix's last line is `m[!out, !out]`: when exactly
+        # one term survives its internal orgdb/ancestor filtering, that's a
+        # 1x1 matrix subset, and R's default drop=TRUE indexing silently
+        # collapses it to a bare scalar -- losing the dimnames that would
+        # normally identify which term it was. A scalar NA means truly zero
+        # terms mapped; a non-NA scalar means exactly one term mapped. With
+        # a single candidate term there's no ambiguity about which one; with
+        # several, re-check each individually (cheap: GOSemSim caches the
+        # IC data) to find which one(s) actually mapped.
+        has_matrix <- !is.null(dim(sim_matrix))
+        if (has_matrix) {
+          n_mapped_terms <- nrow(sim_matrix)
+          mapped_ids <- rownames(sim_matrix)
+        } else if (is.na(sim_matrix)) {
+          n_mapped_terms <- 0
+          mapped_ids <- character(0)
+        } else {
+          if (length(candidate_ids) == 1) {
+            mapped_ids <- candidate_ids
+          } else {
+            mapped_ids <- Filter(function(id) {
+              !is.na(suppressWarnings(calculateSimMatrix(
+                id,
+                orgdb = orgdb, ont = ont_i, method = "Rel"
+              )))
+            }, candidate_ids)
+          }
+          n_mapped_terms <- length(mapped_ids)
+        }
+
+        if (n_mapped_terms < 2) {
+          message(
+            "Only ", n_mapped_terms, " ", ont_i, " term(s) available for rrvgo ",
+            "reduction -- skipping clustering for ", basename(gene_file)
+          )
+          mapped_ids <- as.character(mapped_ids)
+
+          # reduceSimMatrix() names clusters from GO.db's space-separated
+          # term description (e.g. "positive regulation of apoptotic
+          # process"); look terms up the same way here so this skip-
+          # clustering fallback doesn't leak the source's underscored
+          # formatting (e.g. "heterotrimeric_G-protein_complex") into an
+          # otherwise consistently-formatted plot/table.
+          mapped_names <- AnnotationDbi::Term(mapped_ids)
+          missing_term <- is.na(mapped_names)
+          if (any(missing_term)) {
+            raw_names <- sub$term_name[match(mapped_ids, sub$term_id)]
+            mapped_names[missing_term] <- gsub("_", " ", raw_names[missing_term])
+          }
+          reduced_i <- data.frame(
+            go = mapped_ids,
+            term = mapped_names,
+            parentTerm = mapped_names,
+            score = scores[mapped_ids],
+            stringsAsFactors = FALSE
+          )
+        } else {
+          reduced_i <- reduceSimMatrix(
+            sim_matrix,
+            scores,
+            threshold = 0.7, # similarity cutoff; 0.7 = moderately aggressive collapsing
+            orgdb     = orgdb
+          )
+        }
+        # rep(), not a bare scalar: reduced_i can have 0 rows (e.g. the
+        # ontology's only term(s) weren't found in orgdb at all), and
+        # data.frame's `$<-` refuses to recycle a length-1 value onto a
+        # 0-row data.frame.
+        reduced_i$ontology <- rep(ont_i, nrow(reduced_i))
+
+        # candidate_ids minus mapped_ids: terms with a valid, configured
+        # ontology that calculateSimMatrix still couldn't map in orgdb
+        # (rrvgo's own "Removed N terms not found in orgdb" warning, made
+        # per-term and persisted instead of just a console warning).
+        not_found_ids <- setdiff(candidate_ids, mapped_ids)
+        excluded_i <- if (length(not_found_ids) > 0) {
+          data.frame(
+            term_id = not_found_ids,
+            term_name = sub$term_name[match(not_found_ids, sub$term_id)],
+            p.adj = sub$p.adj[match(not_found_ids, sub$term_id)],
+            ontology = ont_i,
+            reason = paste0("not found in orgdb (", orgdb, ") for ontology ", ont_i),
+            stringsAsFactors = FALSE
+          )
+        } else {
+          data.frame(
+            term_id = character(0), term_name = character(0),
+            p.adj = numeric(0), ontology = character(0), reason = character(0),
+            stringsAsFactors = FALSE
+          )
+        }
+
+        list(reduced = reduced_i, excluded = excluded_i)
+      })
+      # bind_rows, not rbind: the <2-mapped-terms passthrough branch above
+      # produces fewer columns (go/term/parentTerm/score/ontology) than a
+      # real reduceSimMatrix() result (which also has cluster/parent/size/
+      # termUniqueness/etc), so different ontologies in this list can have
+      # different column sets. bind_rows aligns by name and fills the rest
+      # with NA; base rbind would error on the column mismatch.
+      reduced <- bind_rows(lapply(reduced_by_ontology, `[[`, "reduced"))
+      reduced <- as.data.frame(reduced)
+      rownames(reduced) <- NULL
+      excluded_terms <- bind_rows(excluded_terms, lapply(reduced_by_ontology, `[[`, "excluded"))
+
+      print(head(reduced[, c("ontology", "go", "term", "parentTerm", "score")]))
+
+      # full per-term detail (every significant term, its ontology, its
+      # cluster's parent, and its own individual, untouched score) -- this
+      # is also the file to consult if you want to see exactly which terms
+      # were grouped under a given parent, row by row.
+      write.csv(reduced, file.path(output_dir,
+                paste0(output_file_name, "_reduced.csv")), row.names = FALSE)
+
+      # one row per (ontology, parent cluster), listing its member (child)
+      # terms -- a more direct answer to "what got grouped under this
+      # parent" than scanning the full _reduced.csv for matching rows.
+      grouping_summary <- reduced %>%
+        group_by(ontology, parentTerm) %>%
+        summarise(
+          score = max(score),
+          n_terms = n(),
+          member_terms = paste(term, collapse = "; "),
+          .groups = "drop"
+        ) %>%
+        arrange(ontology, desc(score))
+      write.csv(grouping_summary, file.path(output_dir,
+                paste0(output_file_name, "_reduced_grouping.csv")), row.names = FALSE)
+
+      # hierarchical JSON view of the same data as _reduced.csv: ontology ->
+      # parent cluster -> member terms, nested so a JSON viewer/editor's
+      # fold/outline view shows parent-child structure directly, without
+      # needing to filter or sort a spreadsheet to see what's grouped
+      # under what (the treemap shows this visually but gets cramped with
+      # many clusters; this is the same information as plain, browsable text).
+      hierarchy <- lapply(split(reduced, reduced$ontology), function(ont_df) {
+        clusters <- lapply(split(ont_df, ont_df$parentTerm), function(cluster_df) {
+          cluster_df <- cluster_df[order(-cluster_df$score), ]
+          is_parent_row <- cluster_df$term == cluster_df$parentTerm
+          parent_go <- if (any(is_parent_row)) cluster_df$go[which(is_parent_row)[1]] else NA
+          list(
+            parentTerm = cluster_df$parentTerm[1],
+            parent_go = parent_go,
+            score = max(cluster_df$score),
+            n_terms = nrow(cluster_df),
+            terms = lapply(seq_len(nrow(cluster_df)), function(i) {
+              list(
+                go = cluster_df$go[i],
+                term = cluster_df$term[i],
+                score = cluster_df$score[i],
+                is_parent = isTRUE(cluster_df$term[i] == cluster_df$parentTerm[i])
+              )
+            })
+          )
+        })
+        # most significant cluster first, within each ontology
+        clusters[order(-vapply(clusters, function(c) c$score, numeric(1)))]
+      })
+      write(
+        jsonlite::toJSON(hierarchy, pretty = TRUE, auto_unbox = TRUE, na = "null"),
+        file.path(output_dir, paste0(output_file_name, "_reduced_hierarchy.json"))
+      )
+
+      # treemap: rrvgo's own visualization for how terms were grouped --
+      # each parent cluster is a labeled region, subdivided into its
+      # member (child) terms, sized by score. A visual complement to
+      # _reduced_grouping.csv above. One per ontology, since treemapPlot
+      # doesn't facet. Must run on the full, uncollapsed `reduced` (every
+      # significant term, not just one row per cluster) -- treemapPlot
+      # needs each cluster's member rows present to subdivide it, or every
+      # block renders as a single flat region regardless of cluster size.
+      for (ont_i in unique(reduced$ontology)) {
+        nd3 <- file.path(output_dir, paste0(output_file_name, "_reduced_treemap_", ont_i, ".pdf"))
+        pdf(file = nd3, height = 8.5, width = 11)
+        treemapPlot(reduced[reduced$ontology == ont_i, ], title = paste0(final_title, " (", ont_i, ")"))
+        dev.off()
+      }
+
+      # one bar per (ontology, parent cluster) -- a term that got grouped
+      # under a more significant parent no longer gets its own bar, since
+      # which.max(score) within each parentTerm always selects the
+      # parent's own row (parentTerm clusters are defined by their
+      # highest-scoring member in the first place). Faceted by ontology
+      # since scores are comparable across ontologies but clusters aren't.
+      # A separate variable, not a `reduced` reassignment: the treemap
+      # above needs every member term, not just one row per cluster.
+      reduced_for_plot <- reduced %>%
+        group_by(ontology, parentTerm) %>%
+        dplyr::slice(which.max(score)) %>%
+        ungroup() %>%
+        as.data.frame()
+
+      p2 <- ggplot(reduced_for_plot, aes(x = reorder(parentTerm, score), y = score)) +
+        geom_col(aes(fill = score), position = "identity") +
+        theme_minimal() +
+        scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+        labs(title = final_title, x = "Term (parent)", y = "-log10(adjusted P-value)") +
+        coord_flip() +
+        facet_wrap(~ontology, scales = "free_y", ncol = 1)
+
+      nd2 <- file.path(output_dir, paste0(output_file_name, "_reduced_barplot.pdf"))
+      pdf(file = nd2, height = 11, width = 8.5)
+      print(p2)
+      dev.off()
+
+      # bar_data/reduced returned below feed the diverging-comparison plot,
+      # which -- like p2 above -- wants one row per cluster, not every term.
+      reduced <- reduced_for_plot
+
+      cat("Reduced-term output written to:", output_file_name, "_reduced\n")
+    }
+
+    # answers "why is term X in the raw CSV but missing from the reduced
+    # ones" without needing to have captured this run's console output.
+    if (nrow(excluded_terms) > 0) {
+      write.csv(excluded_terms, file.path(output_dir,
+                paste0(output_file_name, "_reduced_excluded.csv")), row.names = FALSE)
+      cat(nrow(excluded_terms), "term(s) excluded from rrvgo reduction; see",
+          paste0(output_file_name, "_reduced_excluded.csv\n"))
+    }
+  }
+
   cat("Output written to:", output_file_name, "\n")
+
+  list(bar_data = bar_data, reduced = reduced)
+}
+
+# apply a sign to a file's scores, keeping only the columns needed for
+# plotting. `score` gets the sign (for bar position/direction: file1 right,
+# file2 left); `significance` stays unsigned (for bar fill color) so the
+# same blue->red gradient represents "how significant" on both sides of
+# the diverging plot, while position alone -- not color -- shows which
+# file a term came from.
+signed_bar_data <- function(bar_data, sign) {
+  data.frame(
+    term_name = bar_data$term_name,
+    score = sign * bar_data$neg.log.adj.pvalue,
+    significance = bar_data$neg.log.adj.pvalue
+  )
+}
+signed_reduced <- function(reduced, sign) {
+  data.frame(
+    term = reduced$term,
+    parentTerm = reduced$parentTerm,
+    ontology = reduced$ontology,
+    score = sign * reduced$score,
+    significance = reduced$score
+  )
+}
+
+# order term_col's factor levels by file1's score first, then by file2's score
+# for any terms not already placed by file1
+order_terms_by_file <- function(df, term_col) {
+  is_file1 <- df$file == "file1"
+  order1 <- df[[term_col]][is_file1][order(df$score[is_file1])]
+
+  is_file2 <- df$file == "file2"
+  order2 <- df[[term_col]][is_file2][order(df$score[is_file2])]
+  order2 <- order2[!(order2 %in% order1)]
+
+  # coord_flip() puts the first factor level at the bottom of the plot and the
+  # last level at the top, so file2 goes first here to land file1 on top.
+  df[[term_col]] <- factor(df[[term_col]], levels = c(order2, order1))
+  df
+}
+
+### process each file in DATA_DIR independently ###
+for (gene_file in gene_files) {
+  output_file_name <- tools::file_path_sans_ext(basename(gene_file))
+  output_file_name <- paste0(output_file_name, output_name)
+  run_gprofiler_analysis(gene_file, output_file_name)
+}
+
+### optional diverging two-file comparison ###
+# config.json's gprofiler.diverging_comparison is optional; when present,
+# runs one additional combined-comparison pass between two specific files
+# (file1/file2, filenames relative to DATA_DIR) on top of -- not instead of
+# -- the independent per-file loop above. Mirrors seqtools/deseq2's
+# gprofiler.r --file2 feature: bar *position* (left/right of zero) shows
+# which file a term came from; fill color is a continuous -log10(p.adj)
+# gradient showing significance on both sides, since position alone
+# already carries the direction and color is then free to show magnitude.
+diverging_cfg <- cfg$diverging_comparison
+if (!is.null(diverging_cfg)) {
+  cat("\n--- Running diverging comparison:", diverging_cfg$file1, "vs", diverging_cfg$file2, "---\n")
+
+  label1 <- if (!is.null(diverging_cfg$label1) && nzchar(diverging_cfg$label1)) diverging_cfg$label1 else "R"
+
+  file1_path <- file.path(DATA_DIR, diverging_cfg$file1)
+  file2_path <- file.path(DATA_DIR, diverging_cfg$file2)
+
+  output_file_name1 <- paste0(tools::file_path_sans_ext(basename(file1_path)), output_name)
+  output_file_name2 <- paste0(tools::file_path_sans_ext(basename(file2_path)), output_name)
+
+  # The combined/diverging outputs below represent both files at once (that's
+  # the point of the diverging plot), so their filename includes both dataset
+  # names rather than just file1's -- otherwise it looks like file2's half of
+  # the comparison never got written, when really it's already in this one
+  # plot. "_AND_", not "_vs_": file1's own name can itself already be a "vs"
+  # contrast (e.g. photoreceptors_vs_other), and this combined output isn't
+  # a further comparison against file1 -- it's file1 and file2's results
+  # shown together -- so "_vs_" here would read as a confusing nested
+  # three-way nested comparison.
+  combined_output_file_name <- paste0(
+    tools::file_path_sans_ext(basename(file1_path)), "_AND_",
+    tools::file_path_sans_ext(basename(file2_path)), output_name
+  )
+
+  # Re-runs the analysis for these two files even if they were already
+  # covered by the loop above (e.g. because they also match file_pattern):
+  # simpler than threading cached results out of the loop, and cheap
+  # (a few seconds of gost()/rrvgo per file).
+  results1 <- run_gprofiler_analysis(file1_path, output_file_name1)
+  results2 <- run_gprofiler_analysis(file2_path, output_file_name2)
+
+  if (is.null(results1$bar_data) || is.null(results2$bar_data)) {
+    cat("Skipping diverging comparison: one or both files had no significant terms.\n")
+  } else {
+    combined_bar <- signed_bar_data(results1$bar_data, 1)
+    combined_bar$file <- rep("file1", nrow(combined_bar))
+    bar2 <- signed_bar_data(results2$bar_data, -1)
+    bar2$file <- rep("file2", nrow(bar2))
+    combined_bar <- bind_rows(combined_bar, bar2)
+    combined_bar <- order_terms_by_file(combined_bar, "term_name")
+
+    combined_title <- if (!is.null(plot_title) && plot_title != "GO enrichment") {
+      plot_title
+    } else {
+      paste(tools::file_path_sans_ext(basename(file1_path)), "AND",
+            tools::file_path_sans_ext(basename(file2_path)))
+    }
+
+    p1 <- ggplot(combined_bar, aes(x = term_name, y = score, fill = significance)) +
+      geom_col(position = "identity") +
+      theme_minimal() +
+      scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+      labs(
+        title = combined_title, x = "Term",
+        y = paste0("log10(p.adj) NR / -log10(p.adj) ", label1), fill = "-log10(p.adj)"
+      ) +
+      coord_flip()
+
+    nd <- file.path(output_dir, paste0(combined_output_file_name, "_barplot.pdf"))
+    pdf(file = nd, height = 11, width = 8.5)
+    print(p1)
+    dev.off()
+
+    if (nrow(results1$reduced) == 0 || nrow(results2$reduced) == 0) {
+      cat("Skipping diverging reduced barplot: one or both files had no rrvgo-reduced terms.\n")
+    } else {
+      combined_reduced <- signed_reduced(results1$reduced, 1)
+      combined_reduced$file <- rep("file1", nrow(combined_reduced))
+      reduced2 <- signed_reduced(results2$reduced, -1)
+      reduced2$file <- rep("file2", nrow(reduced2))
+      combined_reduced <- bind_rows(combined_reduced, reduced2)
+      combined_reduced <- order_terms_by_file(combined_reduced, "parentTerm")
+
+      p2 <- ggplot(combined_reduced, aes(x = parentTerm, y = score, fill = significance)) +
+        geom_col(position = "identity") +
+        theme_minimal() +
+        scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+        labs(
+          title = combined_title, x = "Term (parent)",
+          y = paste0("log10(p.adj) NR / -log10(p.adj) ", label1), fill = "-log10(p.adj)"
+        ) +
+        coord_flip() +
+        facet_wrap(~ontology, scales = "free_y", ncol = 1)
+
+      nd2 <- file.path(output_dir, paste0(combined_output_file_name, "_barplot_reduced.pdf"))
+      pdf(file = nd2, height = 11, width = 8.5)
+      print(p2)
+      dev.off()
+    }
+
+    cat("Diverging comparison output written to:", combined_output_file_name, "_barplot*\n")
+  }
 }
