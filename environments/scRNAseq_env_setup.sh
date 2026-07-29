@@ -10,3 +10,7 @@ conda env create -n scRNAseq_new --file scRNAseq_new.yml
 # install.packages("openxlsx", dependencies = TRUE)
 # install.packages("openai")
 # remotes::install_github("Winnie09/GPTCelltype")
+
+## for gprofiler (GO enrichment) specifically -- not needed for any other method:
+# install.packages(c('gprofiler2', 'devEMF'))
+# BiocManager::install(c('rrvgo', 'org.Hs.eg.db', 'org.Dr.eg.db', 'org.Ss.eg.db'))
