@@ -1,6 +1,6 @@
 {
-  "title": "GAMM_S1_day40_recluster",
-  "METHOD": "recluster",
+  "title": "gprofiler_test",
+  "METHOD": "gprofiler",
   "docker": "true",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -254,7 +254,9 @@
     "SUBSET_MODE": "metadata",
     "GENE_LIST": [],
     "METADATA_COLUMN": "Type",
-    "IDENTS": ["1Wk"],
+    "IDENTS": [
+      "1Wk"
+    ],
     "DIM.RED": "umap",
     "ANNOT": "Type"
   },
@@ -385,12 +387,12 @@
     }
   },
   "gprofiler": {
-    "DATA_DIR": "./data/test_gprofiler/",
+    "DATA_DIR": "./data/input_data/test_gprofiler/",
     "organism": "gp__HunH_2Tcy_ESg",
     "mthreshold": 500,
     "padj": 0.05,
     "lfc": 0.25,
-    "file_pattern": "_lfc0.25\\.txt$",
+    "file_pattern": "_lfc0.25.txt",
     "output_name": "_GO_enrich",
     "title": "GO enrichment",
     "lower": "FALSE",
@@ -398,7 +400,8 @@
     "diverging_comparison": {
       "file1": "photoreceptors_vs_other_lfc0.25.txt",
       "file2": "immune_response_markers_lfc0.25.txt",
-      "label1": "R"
+      "label1": "PR",
+      "label2": "immune"
     }
   }
 }

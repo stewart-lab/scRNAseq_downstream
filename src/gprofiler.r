@@ -25,15 +25,20 @@ GIT_DIR <- getwd()
 config <- jsonlite::fromJSON(file.path(GIT_DIR, "config.json"))
 cfg <- config$gprofiler
 
-DATA_DIR    <- cfg$DATA_DIR
-organism    <- cfg$organism
-mthreshold  <- cfg$mthreshold
-padj        <- cfg$padj
-lfc         <- cfg$lfc
+docker <- config$docker
+if (docker == "TRUE" || docker == "true" || docker == "T" || docker == "t") {
+  DATA_DIR <- "./data/input_data/"
+} else {
+  DATA_DIR <- cfg$DATA_DIR
+}
+organism <- cfg$organism
+mthreshold <- cfg$mthreshold
+padj <- cfg$padj
+lfc <- cfg$lfc
 file_pattern <- cfg$file_pattern
 output_name <- cfg$output_name
-plot_title  <- cfg$title
-lower       <- as.logical(cfg$lower)
+plot_title <- cfg$title
+lower <- as.logical(cfg$lower)
 
 # Look up the Bioconductor OrgDb package matching `organism` (a gProfiler
 # species code or custom GMT token) from a single shared mapping file,
@@ -153,14 +158,18 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
   list_columns <- sapply(flattened_results, is.list)
   flattened_results[list_columns] <- lapply(flattened_results[list_columns], function(column) {
     sapply(column, function(entry) {
-      if (is.null(entry)) return(NA)
+      if (is.null(entry)) {
+        return(NA)
+      }
       paste(entry, collapse = ", ")
     })
   })
 
   flattened_results <- flattened_results[order(flattened_results$p_value, decreasing = FALSE), ]
-  flattened_results$p.adj <- p.adjust(flattened_results$p_value, method = "fdr",
-                                      n = length(flattened_results$p_value))
+  flattened_results$p.adj <- p.adjust(flattened_results$p_value,
+    method = "fdr",
+    n = length(flattened_results$p_value)
+  )
   flattened_results <- flattened_results[flattened_results$term_size < mthreshold, ]
 
   print(flattened_results)
@@ -178,8 +187,10 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
     flattened_results$term_id <- temp
   }
 
-  write.csv(flattened_results, file.path(output_dir,
-            paste0(output_file_name, ".csv")), row.names = FALSE)
+  write.csv(flattened_results, file.path(
+    output_dir,
+    paste0(output_file_name, ".csv")
+  ), row.names = FALSE)
 
   # make bar plot
   # neg.log.adj.pvalue uses log10 (not natural log) so it's directly
@@ -429,8 +440,10 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
       # cluster's parent, and its own individual, untouched score) -- this
       # is also the file to consult if you want to see exactly which terms
       # were grouped under a given parent, row by row.
-      write.csv(reduced, file.path(output_dir,
-                paste0(output_file_name, "_reduced.csv")), row.names = FALSE)
+      write.csv(reduced, file.path(
+        output_dir,
+        paste0(output_file_name, "_reduced.csv")
+      ), row.names = FALSE)
 
       # one row per (ontology, parent cluster), listing its member (child)
       # terms -- a more direct answer to "what got grouped under this
@@ -444,8 +457,10 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
           .groups = "drop"
         ) %>%
         arrange(ontology, desc(score))
-      write.csv(grouping_summary, file.path(output_dir,
-                paste0(output_file_name, "_reduced_grouping.csv")), row.names = FALSE)
+      write.csv(grouping_summary, file.path(
+        output_dir,
+        paste0(output_file_name, "_reduced_grouping.csv")
+      ), row.names = FALSE)
 
       # hierarchical JSON view of the same data as _reduced.csv: ontology ->
       # parent cluster -> member terms, nested so a JSON viewer/editor's
@@ -533,10 +548,14 @@ run_gprofiler_analysis <- function(gene_file, output_file_name) {
     # answers "why is term X in the raw CSV but missing from the reduced
     # ones" without needing to have captured this run's console output.
     if (nrow(excluded_terms) > 0) {
-      write.csv(excluded_terms, file.path(output_dir,
-                paste0(output_file_name, "_reduced_excluded.csv")), row.names = FALSE)
-      cat(nrow(excluded_terms), "term(s) excluded from rrvgo reduction; see",
-          paste0(output_file_name, "_reduced_excluded.csv\n"))
+      write.csv(excluded_terms, file.path(
+        output_dir,
+        paste0(output_file_name, "_reduced_excluded.csv")
+      ), row.names = FALSE)
+      cat(
+        nrow(excluded_terms), "term(s) excluded from rrvgo reduction; see",
+        paste0(output_file_name, "_reduced_excluded.csv\n")
+      )
     }
   }
 
@@ -604,7 +623,8 @@ diverging_cfg <- cfg$diverging_comparison
 if (!is.null(diverging_cfg)) {
   cat("\n--- Running diverging comparison:", diverging_cfg$file1, "vs", diverging_cfg$file2, "---\n")
 
-  label1 <- if (!is.null(diverging_cfg$label1) && nzchar(diverging_cfg$label1)) diverging_cfg$label1 else "R"
+  label1 <- if (!is.null(diverging_cfg$label1) && nzchar(diverging_cfg$label1)) diverging_cfg$label1 else "file1"
+  label2 <- if (!is.null(diverging_cfg$label2) && nzchar(diverging_cfg$label2)) diverging_cfg$label2 else "file2"
 
   file1_path <- file.path(DATA_DIR, diverging_cfg$file1)
   file2_path <- file.path(DATA_DIR, diverging_cfg$file2)
@@ -646,17 +666,22 @@ if (!is.null(diverging_cfg)) {
     combined_title <- if (!is.null(plot_title) && plot_title != "GO enrichment") {
       plot_title
     } else {
-      paste(tools::file_path_sans_ext(basename(file1_path)), "AND",
-            tools::file_path_sans_ext(basename(file2_path)))
+      paste(
+        tools::file_path_sans_ext(basename(file1_path)), "AND",
+        tools::file_path_sans_ext(basename(file2_path))
+      )
     }
 
-    p1 <- ggplot(combined_bar, aes(x = term_name, y = score, fill = significance)) +
+    p1 <- ggplot(combined_bar, aes(x = term_name, y = score, fill = file)) +
       geom_col(position = "identity") +
       theme_minimal() +
-      scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+      scale_fill_manual(
+        values = c("file1" = "blue", "file2" = "red"),
+        labels = c("file1" = label1, "file2" = label2)
+      ) +
       labs(
         title = combined_title, x = "Term",
-        y = paste0("log10(p.adj) NR / -log10(p.adj) ", label1), fill = "-log10(p.adj)"
+        y = paste0("log10(p.adj) / -log10(p.adj) ", label1), fill = "-log10(p.adj)"
       ) +
       coord_flip()
 
@@ -675,10 +700,13 @@ if (!is.null(diverging_cfg)) {
       combined_reduced <- bind_rows(combined_reduced, reduced2)
       combined_reduced <- order_terms_by_file(combined_reduced, "parentTerm")
 
-      p2 <- ggplot(combined_reduced, aes(x = parentTerm, y = score, fill = significance)) +
+      p2 <- ggplot(combined_reduced, aes(x = parentTerm, y = score, fill = file)) +
         geom_col(position = "identity") +
         theme_minimal() +
-        scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+        scale_fill_manual(
+          values = c("file1" = "blue", "file2" = "red"),
+          labels = c("file1" = label1, "file2" = label2)
+        ) +
         labs(
           title = combined_title, x = "Term (parent)",
           y = paste0("log10(p.adj) NR / -log10(p.adj) ", label1), fill = "-log10(p.adj)"

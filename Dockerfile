@@ -1,5 +1,5 @@
 
-FROM stewartlab/scrnaseq_downstream3:v1
+FROM stewartlab/scrnaseq_downstream3:v2
 
 # Docker's default RUN shell (sh/dash) confuses conda's activate script's
 # shell-detection ("Unrecognized shell."); switch to bash for the
