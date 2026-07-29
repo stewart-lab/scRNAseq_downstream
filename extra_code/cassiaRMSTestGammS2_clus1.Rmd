@@ -17,15 +17,19 @@ output: html_document
 
 ```bash
 # Prefer --env-file over -e with a raw key (keeps the key out of shell history)
-docker run -it --rm \
-  --env-file /path/to/openai.env \
-  -v "/w5home/rstewart/scRNAseq_downstream/shared_volume:/shared_volume" \
-  -v "/w5home/rstewart/scRNAseq_downstream/src:/src" \
+docker run --userns=host -it --rm \
+  --env-file ~/.open_ai \
+  -v "/w5home/bmoore/scRNAseq_downstream/shared_volume:/shared_volume" \
+  -v "/w5home/bmoore/scRNAseq_downstream/src:/src" \
   -v "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020:/biomart:ro" \
   stewartlab/scrnaseq_downstream3:v1.2.3 /bin/bash
 
 conda activate cassia_env
-Rscript -e "rmarkdown::render('/src/cassiaRMSTestGammS2_clus1.Rmd', output_dir='/shared_volume/output_cassia_gammS2_clus1')"
+# Use your own output subdirectory name here (not output_cassia_gammS2_clus1 --
+# that one already exists owned by rstewart from an earlier run, mode 755, so
+# other users' containers can't write into it). Match whatever OUTPUT_DIR is
+# set to in the paths chunk below.
+Rscript -e "rmarkdown::render('/src/cassiaRMSTestGammS2_clus1.Rmd', output_dir='/shared_volume/output_cassia_gammS2_clus1_bmoore')"
 ```
 
 **Important:** the cluster-1 subset starts as a single identity. This notebook
@@ -34,7 +38,7 @@ see multiple subclusters. Set `RECLUSTER_RESOLUTION` below as needed.
 
 ```{r paths}
 # --- edit these if needed ---
-OUTPUT_DIR <- "/shared_volume/output_cassia_gammS2_clus1"
+OUTPUT_DIR <- "/shared_volume/output_cassia_gammS2_clus1_bmoore"
 SEURAT_RDS <- "/shared_volume/output_subset_20260714_183521/seurat.obj_subset.rds"
 BIOMART_FILE <- "/biomart/Human_Pig_Biomart_Filtered_mod.txt"
 # Cluster column used for markers + CASSIA (set automatically after recluster)
@@ -48,7 +52,7 @@ DO_RECLUSTER <- TRUE
 # DO_RECLUSTER <- FALSE
 RECLUSTER_RESOLUTION <- 0.5
 RECLUSTER_DIMS <- 1:15
-RECLUSTER_ALGORITHM <- 4  # 4 = Leiden in Seurat
+RECLUSTER_ALGORITHM <- 4 # 4 = Leiden in Seurat
 # Set FALSE to reuse markers_merge_unique.csv already in OUTPUT_DIR
 DO_FIND_MARKERS <- TRUE
 # DO_FIND_MARKERS <- FALSE
@@ -59,7 +63,7 @@ DO_FIND_MARKERS <- TRUE
 DO_RUN_CASSIA <- TRUE
 # DO_RUN_CASSIA <- FALSE
 
-dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(OUTPUT_DIR, recursive = TRUE, mode = "0777", showWarnings = FALSE)
 # Avoid setwd() here — it confuses knitr; use OUTPUT_DIR / file.path() instead
 ```
 

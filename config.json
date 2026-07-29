@@ -1,6 +1,6 @@
 {
-  "title": "gprofiler_test",
-  "METHOD": "gprofiler",
+  "title": "cassia_test",
+  "METHOD": "cassia",
   "docker": "true",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
@@ -403,5 +403,25 @@
       "label1": "PR",
       "label2": "immune"
     }
+  },
+  "cassia": {
+    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/input_data/gamm_data/",
+    "SEURAT_OBJ": "",
+    "MARKER_FILE": "markers_celltypes_all.csv",
+    "BIOMART_FILE": "./data/Human_Pig_Biomart_Filtered_mod.txt",
+    "tissue": "retina",
+    "species": "pig",
+    "CLUSTER_COL": "seurat_clusters",
+    "CASSIA_OUT_NAME": "gammS1_allclusters_retina",
+    "DIM.RED": "umap",
+    "recluster": {
+      "DO_RECLUSTER": false,
+      "RESOLUTION": 0.5,
+      "DIMS": 15,
+      "ALGORITHM": 4
+    },
+    "DO_FIND_MARKERS": false,
+    "DO_RUN_CASSIA": true,
+    "openAI_key": ""
   }
 }

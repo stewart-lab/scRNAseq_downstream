@@ -7,14 +7,17 @@
 # provenance record further down can log the invocation exactly as typed.
 ORIGINAL_INVOCATION="$0 $*"
 IMAGE_VERSION="v2"
+IMAGE_VERSION_EXPLICIT=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version)
       IMAGE_VERSION="$2"
+      IMAGE_VERSION_EXPLICIT=true
       shift 2
       ;;
     --version=*)
       IMAGE_VERSION="${1#*=}"
+      IMAGE_VERSION_EXPLICIT=true
       shift
       ;;
     *)
@@ -29,6 +32,13 @@ CONFIG_FILE="./config.json"
 
 METHOD=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['METHOD'])")
 echo "METHOD imported as $METHOD"
+
+# cassia needs matplotlib/seaborn baked into cassia_env, which only landed in
+# image v1.2.3+ -- default to that tag for this method specifically, unless
+# the caller explicitly passed --version (e.g. to test a newer tag).
+if [ "$METHOD" == "cassia" ] && [ "$IMAGE_VERSION_EXPLICIT" == "false" ]; then
+    IMAGE_VERSION="v1.2.3"
+fi
 
 DATA_DIR=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['$METHOD']['DATA_DIR'])")
 echo "DATA_DIR imported as $DATA_DIR"
@@ -123,9 +133,16 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
   # whether R's own console/log text gets ANSI color codes, not the
   # analysis output itself (e.g. ggplot's pdf() device is unaffected either
   # way -- it writes color the same regardless of TTY state).
+  # Forwarded from the calling shell's own environment, not read from a
+  # --env-file here -- so it only reaches the container if you've already
+  # exported OPENAI_API_KEY yourself (e.g. in .bashrc, or `export
+  # OPENAI_API_KEY=...` before running this script). Only cassia currently
+  # falls back to this (when config.json's cassia.openAI_key is blank);
+  # harmless no-op for every other method.
   docker run --userns=host -i --rm \
     -e "PROVENANCE_FILE=/shared_volume/$(basename "$PROVENANCE_FILE")" \
     -e "RUN_TIMESTAMP=$RUN_TIMESTAMP" \
+    -e "OPENAI_API_KEY=${OPENAI_API_KEY:-}" \
     -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
     -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
     -v "$(realpath "$CONFIG_FILE"):/config.json" \
@@ -178,6 +195,8 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
         elif [ \"$METHOD\" == \"gprofiler\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate
             Rscript src/gprofiler.r'
+        elif [ \"$METHOD\" == \"cassia\" ]; then
+            conda run -n cassia_env Rscript /src/cassia.R
         elif [ \"$METHOD\" == \"cellchat\" ]; then
             if [ -z \"$TASK_ID\" ]; then
                 for i in \$(seq 1 $N_FILES); do
@@ -255,6 +274,9 @@ else
     elif [ "$METHOD" == "gprofiler" ]; then
         conda activate scRNAseq_new
         Rscript src/gprofiler.r
+    elif [ "$METHOD" == "cassia" ]; then
+        conda activate cassia_env
+        Rscript src/cassia.R
     elif [ "$METHOD" == "cellchat" ]; then
         conda activate cellchat
         mkdir -p logs

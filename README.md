@@ -267,6 +267,61 @@ Outputs:
     * sessionInfo.txt: package information
     * config.json: config settings used
 
+### CASSIA
+CASSIA uses an LLM (via the OpenAI API) to annotate clusters from their marker genes, optionally reclustering the input object first, and optionally remapping marker gene symbols to a different species via a biomart orthology table (e.g. pig -> human) before annotation. See: https://github.com/ElliotXie/CASSIA
+
+Note: this method requires the `cassia_env` conda environment, which needs Python packages (matplotlib/seaborn) only baked into the Docker image starting at tag `v1.2.3` -- `run_downstream_toolkit.sh` automatically pulls `v1.2.3` for this method (instead of the default image version) unless you pass `--version` explicitly. For conda (non-docker) users, install `cassia_env` yourself (see CASSIA's own install instructions) before running.
+
+By default this expects a (subsetted) Seurat object and computes its markers with `FindAllMarkers`. If you already have a marker file (e.g. from a previous `FindAllMarkers`/`de` run -- a CSV with at least `gene`/`cluster`/`avg_log2FC`/`p_val_adj` columns), set `MARKER_FILE` instead: this skips loading the Seurat object entirely, along with reclustering and `FindAllMarkers` -- there's then no Seurat object to attach CASSIA's annotations back onto, so outputs are limited to the marker tables and CASSIA's own `FINAL_RESULTS.csv` (no reclustered object, no annotation UMAP).
+
+If your marker genes need cross-species remapping (e.g. your object is annotated with pig gene symbols but you want to annotate against human marker knowledge), place a tab-separated biomart orthology table with `pig.gene.name`/`human.gene.name` columns under `./data/` (e.g. `./data/biomart/`) and point `BIOMART_FILE` at it. Leave `BIOMART_FILE` blank to skip remapping and annotate with the marker gene symbols as-is (e.g. when they're already in the target species).
+
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"cassia"
+"docker": "TRUE" or "FALSE" # True if you want to use docker. Must have docker already installed. False to use conda environments.
+
+"cassia":{
+    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/shared_volume/output_subset_20260714_183521/", # dir containing the (subsetted) seurat object, or the marker file if MARKER_FILE is set
+    "SEURAT_OBJ": "seurat.obj_subset.rds", # seurat object to annotate (ignored if MARKER_FILE is set)
+    "MARKER_FILE": "", # optional: path (relative to DATA_DIR) to a precomputed FindAllMarkers-style CSV. If set, skips loading a Seurat object, reclustering, and FindAllMarkers -- output is limited to marker tables + CASSIA's FINAL_RESULTS.csv
+    "BIOMART_FILE": "./data/biomart/Human_Pig_Biomart_Filtered_mod.txt", # optional: tab-separated orthology table (pig.gene.name/human.gene.name columns) for cross-species remap; for docker, place under ./data/. Leave blank ("") to skip remapping
+    "tissue": "retina", # tissue type, passed to CASSIA
+    "species": "pig", # species, passed to CASSIA
+    "CLUSTER_COL": "seurat_clusters", # cluster column to annotate (overwritten if recluster.DO_RECLUSTER is true; matches the "cluster" column in MARKER_FILE if set)
+    "CASSIA_OUT_NAME": "gammS2_clus1_retina", # base name for CASSIA's output files
+    "DIM.RED": "umap", # dim red to use for the annotation UMAP plot (ignored if MARKER_FILE is set)
+    "recluster": {
+      "DO_RECLUSTER": true, # re-run PCA/FindNeighbors/FindClusters before annotating? Needed if the input object is a single-identity subset. Ignored if MARKER_FILE is set
+      "RESOLUTION": 0.5, # clustering resolution
+      "DIMS": 15, # number of PCA dims to use (as 1:DIMS)
+      "ALGORITHM": 4 # Seurat FindClusters algorithm (4 = Leiden)
+    },
+    "DO_FIND_MARKERS": true, # set false to reuse markers_merge_unique.csv already in this run's output dir instead of re-running FindAllMarkers (or reloading MARKER_FILE)
+    "DO_RUN_CASSIA": true, # set false to reuse the most recent CASSIA_Pipeline_*/03_csv_files/*_FINAL_RESULTS.csv already in this run's output dir (avoids repeat OpenAI API calls/cost)
+    "openAI_key": "" # your OpenAI API key. If left blank, falls back to an OPENAI_API_KEY already set in the environment (e.g. via docker --env-file/-e)
+  }
+```
+Now run:
+```
+source run_downstream_toolkit.sh
+```
+Outputs (written to `shared_volume/output_cassia_<timestamp>/`):
+* Objects (only if `MARKER_FILE` is not set):
+    * seurat.obj_reclustered.rds: reclustered seurat object (only if `recluster.DO_RECLUSTER` is true)
+    * `<CASSIA_OUT_NAME>_cassia.rds`: seurat object with CASSIA annotations added
+* Tables:
+    * markers_celltypes_all.csv: all FindAllMarkers output, or a copy of `MARKER_FILE` if set
+    * markers_merge_unique.csv: markers deduplicated, and remapped to the target species if `BIOMART_FILE` is set
+    * CASSIA_Pipeline_*/03_csv_files/*_FINAL_RESULTS.csv: CASSIA's own annotation results
+* Visualizations (only if `MARKER_FILE` is not set):
+    * umap_recluster_<cluster_col>.pdf: umap of the recluster result (only if `recluster.DO_RECLUSTER` is true)
+    * Cassia_annot_`<CASSIA_OUT_NAME>`_umap.pdf: umap of CASSIA cell-type annotations
+* Other:
+    * sessionInfo.txt: package information
+    * config.json: config settings used
+
 ### scType
 ScType a computational method for automated selection of marker genes based on scRNA-seq expression data. A cell type specificity score is assigned to each marker gene, and this is weighted by the gene expression matrix to ultimately get a scType score and cell type annotation for each cluster. See: https://github.com/IanevskiAleksandr/sc-type?tab=readme-ov-file
 
