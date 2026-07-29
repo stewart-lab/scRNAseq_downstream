@@ -38,6 +38,8 @@ echo "METHOD imported as $METHOD"
 # the caller explicitly passed --version (e.g. to test a newer tag).
 if [ "$METHOD" == "cassia" ] && [ "$IMAGE_VERSION_EXPLICIT" == "false" ]; then
     IMAGE_VERSION="v1.2.3"
+elif [ "$METHOD" != "cassia" ] && [ "$IMAGE_VERSION_EXPLICIT" == "false" ]; then
+    IMAGE_VERSION="v2"
 fi
 
 DATA_DIR=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['$METHOD']['DATA_DIR'])")
