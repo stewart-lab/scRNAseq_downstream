@@ -1,5 +1,4 @@
 # load packages
-suppressPackageStartupMessages(library("optparse"))
 library(CellChat)
 library(patchwork)
 library(Seurat)
@@ -54,8 +53,13 @@ config <- jsonlite::fromJSON(file.path(getwd(), "config.json"))
 docker <- config$docker
 if (docker == "TRUE" || docker == "true" || docker == "T" || docker == "t") {
     DATA_DIR <- "./data/input_data/"
+    # metadata_file lives outside DATA_DIR (a separate directory Beth reuses
+    # across projects), same reasoning as nichenet's NETWORKS_DIR -- gets its
+    # own dedicated mount rather than widening DATA_DIR's.
+    METADATA_DIR <- "./data/cellchat_metadata/"
 } else {
     DATA_DIR <- config$cellchat$DATA_DIR
+    METADATA_DIR <- config$cellchat$METADATA_DIR
 }
 filelist <- config$cellchat$FILELIST
 group_by <- config$cellchat$group_by
@@ -90,13 +94,36 @@ cat(paste0(
     ") ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"
 ), file = .provenance_file, append = TRUE)
 metadata_file <- config$cellchat$metadata_file
+# metadata_file is optional (add_metadata() below skips it if null/NA/empty)
+# -- only join with METADATA_DIR when it's actually set to a real filename.
+# Resolved to an absolute path now, before setwd(path_dir)/setwd(output)
+# below change the working directory -- add_metadata() (which actually reads
+# this) isn't called until after those, so a relative path would no longer
+# resolve correctly by the time it's used.
+if (!is.null(metadata_file) && metadata_file != "NA" && metadata_file != "") {
+    metadata_file <- normalizePath(file.path(METADATA_DIR, metadata_file))
+}
 ### set working directory and output ###
 setwd(GIT_DIR)
 timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
 output <- paste0("./shared_volume/output_cellchat_", timestamp)
 print(output)
 dir.create(output, mode = "0777", showWarnings = FALSE)
-output <- paste0(output, "/")
+# Resolve to an absolute path now: run_cellchat()/analyze_paths() below call
+# setwd() (into their own per-object output subdirectories) and never setwd
+# back, so by the time this variable is read again at the very end of the
+# script (sessionInfo/chmod), a relative path would no longer resolve
+# against the working directory it was written for.
+output <- paste0(normalizePath(output), "/")
+# Preserved separately from `output` below: each object's own per-object
+# output dir used to be built from DATA_DIR (writing CellChat results back
+# into the input-data directory itself) -- this broke in Docker mode, where
+# DATA_DIR is mounted read-only as a safety net against accidentally
+# modifying input data (dir.create() on it fails silently, since it's called
+# with showWarnings = FALSE, so the later saveRDS() has nowhere to write).
+# Per-object output now nests under this run's own shared_volume dir
+# instead, matching the convention every other method in this repo uses.
+RUN_OUTPUT_DIR <- output
 GIT_DIR <- paste0(GIT_DIR, "/")
 ## copy config to output
 file.copy(paste0(GIT_DIR, "config.json"), file.path(output, "config.json"))
@@ -721,8 +748,10 @@ run_cellchat <- function(seurat_obj, output, name, source1, source2, not_source1
     # Manifold and classification learning analysis of signaling networks
     # quantify the similarity between all significant signaling pathways and
     # then group them based on their cellular communication network similarity.
-    # activate correct python env
-    reticulate::use_python("/w5home/bmoore/.virtualenvs/cellchat/bin/python")
+    # activate correct python env -- this environment's own Python
+    # (installed alongside CellChat in the Dockerfile's `cellchat` conda
+    # env), not a personal virtualenv path that only exists on one machine
+    reticulate::use_python(Sys.which("python"), required = TRUE)
     # run analysis
     cellchat <- funstr_analysis(cellchat, output, name)
 
@@ -737,7 +766,7 @@ if (length(object_names) == 1) {
     name <- object_names[1]
     #### make output dir  and read in data ####
     timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
-    output <- paste0(DATA_DIR, name, "_cellchat_", timestamp)
+    output <- paste0(RUN_OUTPUT_DIR, name, "_cellchat_", timestamp)
     print(output)
     dir.create(output, mode = "0777", showWarnings = FALSE)
     output <- paste0(output, "/")
@@ -776,7 +805,7 @@ if (length(object_names) == 1) {
 
         #### make output dir  and read in data ####
         timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
-        output <- paste0(DATA_DIR, name, "_cellchat_", timestamp)
+        output <- paste0(RUN_OUTPUT_DIR, name, "_cellchat_", timestamp)
         print(output)
         dir.create(output, mode = "0777", showWarnings = FALSE)
         output <- paste0(output, "/")

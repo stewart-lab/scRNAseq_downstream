@@ -705,7 +705,7 @@ analyze_known_markers <- function(seurat_obj, de_results, output_path = output) 
   }
 }
 
-score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, name, resolution) {
+score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, name = NULL, resolution = NULL) {
   if (type == "integration") {
     known_markers_path <- config$seurat_integration$score_and_plot_markers$known_markers_path
     known_markers <- config$seurat_integration$score_and_plot_markers$known_markers
@@ -740,8 +740,12 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, 
     auc_thresh <- config$score_and_plot_markers$auc_thresh
   }
 
-  # add resolution to cluster_name
-  cluster_type <- paste0(cluster_type, "_res", as.character(resolution))
+  # add resolution to cluster_name -- only "recluster" configs use resolution-suffixed
+  # cluster columns (one per clustering resolution tested, e.g. "seurat_clusters_res0.75");
+  # "de"/"integration" (and the default branch) use a single plain column name as-is.
+  if (type == "recluster") {
+    cluster_type <- paste0(cluster_type, "_res", as.character(resolution))
+  }
   sce_obj <- sce
 
   # Score markers

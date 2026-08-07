@@ -59,6 +59,8 @@ pst_env/
 data/gamm_data/
 data/example_data/
 data/input_data
+data/nichenet_networks/
+data/test_gprofiler/
 archive/example_data/
 archive/gamm_data/
 *.h5ad
