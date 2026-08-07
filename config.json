@@ -8,8 +8,8 @@
     "QUERY.SEURAT": "GAMM_120/seurat_obj_labeled.rds",
     "get_metadata": {
       "get_meta": "TRUE",
-      "metadata_file1": "../data/reh_metadata/Reh_cca_org_205_metadata.txt",
-      "metadata_file2": "../data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
+      "metadata_file1": "./data/reh_metadata/Reh_cca_org_205_metadata.txt",
+      "metadata_file2": "./data/gamm_metadata/gammS2_manual_annot_metadata_c0.5.txt",
       "metadata_subset1": "NA",
       "metadata_subset2": "NA"
     },
@@ -272,14 +272,14 @@
     "ANNOT": "CellType_combined"
   },
   "sctype": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/gamm_data/",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq_downstream/data/input_data/gamm_data/",
     "SEURAT_OBJ": "seurat_obj_labeled_S2.rds",
     "db": "./data/markers/retinal_markers_Kim-LFJ_forScType.xlsx",
     "tissue": "retina"
   },
   "de": {
-    "DATA_DIR": "/mnt/cephfs/mir/rstewart/stewart-lab/isi5home/bmoore/Pierre_sc_zebrafish/",
-    "SEURAT.FILE": "seurat_mouse_annot_6wkR.rds",
+    "DATA_DIR": "/mnt/cephfs/mir/rstewart/stewart-lab/isi5home/bmoore/Pierre_sc_zebrafish/mouse_objects/",
+    "SEURAT.FILE": "seurat_mouse_annot_6WkR.rds",
     "outname": "6wkR",
     "score_and_plot_markers": {
       "top_n_markers": 100,
@@ -303,7 +303,44 @@
     "source1": "13",
     "source2": "9",
     "task_id": null,
-    "metadata_file": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/manual_annot_metadata_all_res0.75.txt"
+    "METADATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
+    "metadata_file": "manual_annot_metadata_all_res0.75.txt"
+  },
+  "cellchat_interactions": {
+    "name": "2wk_R_NR",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/",
+    "object1_path": "seurat_mouse_annot_2WkR_cellchat_20260625_103117/seurat_mouse_annot_2WkR_cellchat_obj.rds",
+    "object1_label": "R",
+    "object2_path": "seurat_mouse_annot_2WkNR_cellchat_20260625_103117/seurat_mouse_annot_2WkNR_cellchat_obj.rds",
+    "object2_label": "NR",
+    "positive_dataset": "NR",
+    "group1": "13",
+    "group1_label": "fibroblast",
+    "group2": "9",
+    "group2_label": "Tcell"
+  },
+  "nichenet": {
+    "name": "6wk_R-NR",
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/",
+    "SEURAT.file1": "seurat_mouse_annot_6WkR.rds",
+    "SEURAT.file2": "seurat_mouse_annot_6WkNR.rds",
+    "condition_oi": "6Wk-R",
+    "condition_reference": "6Wk-NR",
+    "condition_colname": "Type",
+    "celltype_colname": "CellType",
+    "receivers": [
+      "T_Cells_and_Neutrophils",
+      "Fibroblasts"
+    ],
+    "NETWORKS_DIR": "./data/nichenet_networks/",
+    "ligand_target_matrix_path": "ligand_target_matrix_nsga2r_final_mouse.rds",
+    "lr_network_path": "lr_network_mouse_21122021.rds",
+    "weighted_networks_path": "weighted_networks_nsga2r_final_mouse.rds",
+    "ligand_tf_matrix_path": "ligand_tf_matrix_nsga2r_final_mouse.rds",
+    "expression_pct": 0.05,
+    "padj_thresh": 0.05,
+    "lfc_thresh": 0.25,
+    "run_random_forest_diagnostics": false
   },
   "get_sample_ds_from_cellxgene": {
     "DATA_DIR": "",
@@ -387,12 +424,12 @@
     }
   },
   "gprofiler": {
-    "DATA_DIR": "./data/input_data/test_gprofiler/",
+    "DATA_DIR": "./data/test_gprofiler/",
     "organism": "gp__HunH_2Tcy_ESg",
     "mthreshold": 500,
     "padj": 0.05,
     "lfc": 0.25,
-    "file_pattern": "_lfc0.25.txt",
+    "file_pattern": "_lfc0.25\\.txt$",
     "output_name": "_GO_enrich",
     "title": "GO enrichment",
     "lower": "FALSE",

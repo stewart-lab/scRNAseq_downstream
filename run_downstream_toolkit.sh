@@ -50,6 +50,25 @@ if [ "$METHOD" == "cellchat" ]; then
     TASK_ID=$(python -c "import json; v=json.load(open('$CONFIG_FILE'))['cellchat'].get('task_id'); print('' if v is None else int(v))")
     FILELIST_PATH=$(python -c "import json; c=json.load(open('$CONFIG_FILE'))['cellchat']; print(c['DATA_DIR'] + c['FILELIST'])")
     N_FILES=$(awk 'END{print NR}' "$FILELIST_PATH")
+    # metadata_file is optional -- only import/mount METADATA_DIR when it's
+    # actually set to a real filename, same optionality as cellchat.R's own
+    # add_metadata() (skips if null/NA/empty).
+    CELLCHAT_METADATA_FILE=$(python -c "import json; v=json.load(open('$CONFIG_FILE'))['cellchat'].get('metadata_file'); print('' if v is None else v)")
+    if [ -n "$CELLCHAT_METADATA_FILE" ] && [ "$CELLCHAT_METADATA_FILE" != "NA" ]; then
+        METADATA_DIR=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['cellchat']['METADATA_DIR'])")
+        echo "METADATA_DIR imported as $METADATA_DIR"
+    fi
+fi
+
+# seurat2ann's METADATA_DIR is optional -- convert_seurat2anndata.R itself
+# uses the string "NA" as its opt-out sentinel (not null/empty, unlike
+# cellchat's metadata_file), so match that convention here.
+if [ "$METHOD" == "seurat2ann" ]; then
+    SEURAT2ANN_METADATA_DIR=$(python -c "import json; print(json.load(open('$CONFIG_FILE'))['seurat2ann'].get('METADATA_DIR', 'NA'))")
+    if [ "$SEURAT2ANN_METADATA_DIR" != "NA" ]; then
+        METADATA_DIR="$SEURAT2ANN_METADATA_DIR"
+        echo "METADATA_DIR imported as $METADATA_DIR"
+    fi
 fi
 
 echo "Step 1.5: Setting up SHARED_VOLUME and recording run provenance"
@@ -141,15 +160,29 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
   # OPENAI_API_KEY=...` before running this script). Only cassia currently
   # falls back to this (when config.json's cassia.openAI_key is blank);
   # harmless no-op for every other method.
+  #
+  # Built as an array (not one long backslash-continued command) so
+  # method-specific extra mounts can be appended conditionally below,
+  # without every other method's invocation needing to know about it.
+  DOCKER_MOUNTS=(
+    -v "$(realpath "$DATA_DIR"):/data/input_data:ro"
+    -v "$(realpath "$SHARED_VOLUME"):/shared_volume"
+    -v "$(realpath "$CONFIG_FILE"):/config.json"
+    -v "$(realpath "./src"):/src"
+    -v "$(realpath "./data"):/data"
+  )
+  if [ "$METHOD" == "cellchat" ] && [ -n "$METADATA_DIR" ]; then
+    DOCKER_MOUNTS+=(-v "$(realpath "$METADATA_DIR"):/data/cellchat_metadata:ro")
+  fi
+  if [ "$METHOD" == "seurat2ann" ] && [ -n "$METADATA_DIR" ]; then
+    DOCKER_MOUNTS+=(-v "$(realpath "$METADATA_DIR"):/data/seurat2ann_metadata:ro")
+  fi
+
   docker run --userns=host -i --rm \
     -e "PROVENANCE_FILE=/shared_volume/$(basename "$PROVENANCE_FILE")" \
     -e "RUN_TIMESTAMP=$RUN_TIMESTAMP" \
     -e "OPENAI_API_KEY=${OPENAI_API_KEY:-}" \
-    -v "$(realpath "$DATA_DIR"):/data/input_data:ro" \
-    -v "$(realpath "$SHARED_VOLUME"):/shared_volume" \
-    -v "$(realpath "$CONFIG_FILE"):/config.json" \
-    -v "$(realpath "./src"):/src" \
-    -v "$(realpath "./data"):/data" \
+    "${DOCKER_MOUNTS[@]}" \
     "stewartlab/scrnaseq_downstream3:$IMAGE_VERSION" /bin/bash -c "
         if [ \"$METHOD\" == \"seurat_mapping\" ]; then
             /bin/bash -c '. scRNAseq_new/bin/activate
@@ -209,6 +242,11 @@ if [[ "$confirm" =~ ^[Yy]$ ]]; then
             else
                 conda run -n cellchat Rscript /src/cellchat.R --task_id $TASK_ID
             fi
+        elif [ \"$METHOD\" == \"cellchat_interactions\" ]; then
+            conda run -n cellchat Rscript /src/cellchat_interactions.R
+        elif [ \"$METHOD\" == \"nichenet\" ]; then
+            /bin/bash -c '. scRNAseq_new/bin/activate
+            Rscript /src/nichenet.R'
         else
             echo \"Unknown METHOD: $METHOD\"
             exit 1
@@ -292,6 +330,12 @@ else
             echo "task_id=$TASK_ID: running single cellchat job"
             nohup Rscript src/cellchat.R --task_id $TASK_ID > logs/nohup_cellchat_task${TASK_ID}.out 2>&1 &
         fi
+    elif [ "$METHOD" == "cellchat_interactions" ]; then
+        conda activate cellchat
+        Rscript src/cellchat_interactions.R
+    elif [ "$METHOD" == "nichenet" ]; then
+        conda activate scRNAseq_new
+        Rscript src/nichenet.R
     elif [ "$METHOD" == "get_sample_ds_from_cellxgene" ]; then
         source activate cellxgene_scvi
         python src/get_sample_ds_from_cellxgene.py

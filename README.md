@@ -992,6 +992,133 @@ Outputs (per file, written to `shared_volume/output_gprofiler_<timestamp>/`):
     * config.json: config settings used
     * `run_provenance_<timestamp>.txt` (in `shared_volume/`, not the per-run output folder): exact invocation, git commit, Docker image version, and R package versions used for this run
 
+### CellChat
+To infer cell-cell communication from a Seurat object using CellChat, with detailed per-pathway analysis and two highlighted cell-type groups:
+
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"cellchat"
+"docker": "TRUE" or "FALSE"
+
+"cellchat":{
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/", # dir containing the Seurat object(s) and FILELIST (for docker, put in ./data/input_data/)
+    "FILELIST": "filelist_test2.txt", # text file, one Seurat object filename per line, relative to DATA_DIR
+    "group_by": "seurat_clusters_res0.75", # metadata column holding cluster/cell-type identities
+    "source1": "13", # first cell-type/cluster id to highlight
+    "source2": "9", # second cell-type/cluster id to highlight
+    "task_id": null, # optional -- see note below on parallel processing
+    "METADATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/", # optional -- dir containing an external metadata file to merge in
+    "metadata_file": "manual_annot_metadata_all_res0.75.txt" # optional -- filename relative to METADATA_DIR; set to "" or omit to skip
+}
+```
+**Parallel processing:** if `FILELIST` lists more than one Seurat object and `task_id` is left `null`, `run_downstream_toolkit.sh` automatically launches one `cellchat.R` process per file in the background and waits for all of them -- each writes its own log to `shared_volume/nohup_cellchat_task<N>.out`. Set `task_id` to a specific 1-based index to process just that one file instead (useful for re-running a single failed file, or for manually spreading files across separate invocations).
+
+**METADATA_DIR** works the same way as `nichenet`'s `NETWORKS_DIR`: it's a separate mount from `DATA_DIR` (only added if `metadata_file` is actually set), since the metadata file commonly lives outside the Seurat-object directory.
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+Outputs (per Seurat object, written to `shared_volume/output_cellchat_<timestamp>/<object_name>_cellchat_<timestamp>/`):
+* `<object_name>_cellchat_obj.rds`: the CellChat object itself -- this is the input `cellchat_interactions` expects for `object1_path`/`object2_path`
+* Global interaction plots: `_cc_interactions_celltype_circleplot.pdf`, `_cc_interactions_celltype_circleplot2.pdf`, `_cc_interactions_celltype_weight_matrix.txt`
+* Functional/structural similarity diagnostics: `_pathway_functionality_2Dplot*.pdf`, `_pathway_structural_2Dplot*.pdf`, `estimationNumCluster__*_dataset_single.pdf`
+* Global communication patterns: `_global_cc_patterns_outgoing*.pdf`, `_global_cc_patterns_incoming*.pdf`, `_pattern_selection_outgoing.pdf`, `_pattern_selection_incoming.pdf`
+* Net analysis: `_NetAnalysis_allcelltype_allpaths_heatmap.pdf`, `_NetAnalysis_celltype_allpaths_2Dmap.pdf`
+* Ligand-receptor pairs for source1/source2: bubble and chord plots (`_sig_cc_L-Rpairs_celltypes_bubble_*.pdf`, `_sig_cc_L-Rpairs_celltypes_chord_*.pdf`, `_sig_cc_pathways_chord_*.pdf`)
+* `pathway_analysis/` subfolder: per-pathway detail, for every significant signaling pathway detected -- L-R contribution plots, circle plots, heatmaps, source1/source2 bubble plots, gene-expression violin plots, and signaling-path diagrams (several hundred files for a typical dataset with dozens of pathways -- this is the bulk of the output)
+* Tables: `_cellchat_df_net_ligand-recept.txt`, `_cellchat_df_net_signal_paths.txt`, `cellchat_df_net_signal_paths_all.txt`
+* Other:
+    * sessionInfo.txt: package information
+    * `run_provenance_<timestamp>.txt` (in `shared_volume/`, not the per-run output folder): exact invocation, git commit, Docker image version, and R package versions used for this run
+
+### NicheNet ligand-receptor prioritization
+To run NicheNet's ligand-receptor/target prioritization between two conditions, for one or more receiver cell types:
+
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"nichenet"
+"docker": "TRUE" or "FALSE"
+
+"nichenet":{
+    "name": "6wk_R-NR", # run name, used in the output dir and filenames
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/mouse_objects/", # dir containing the two seurat objects (for docker, put in ./data/input_data/)
+    "SEURAT.file1": "seurat_mouse_annot_6WkR.rds", # seurat object 1, relative to DATA_DIR
+    "SEURAT.file2": "seurat_mouse_annot_6WkNR.rds", # seurat object 2, relative to DATA_DIR
+    "condition_oi": "6Wk-R", # condition of interest (the "case")
+    "condition_reference": "6Wk-NR", # reference/control condition
+    "condition_colname": "Type", # metadata column holding the condition label
+    "celltype_colname": "CellType", # metadata column holding cell type annotations
+    "receivers": ["T_Cells_and_Neutrophils", "Fibroblasts"], # one or more receiver cell types to run the analysis for
+    "NETWORKS_DIR": "./data/nichenet_networks/", # dir containing NicheNet's prior network files -- see note below on getting these
+    "ligand_target_matrix_path": "ligand_target_matrix_nsga2r_final_mouse.rds", # organism-specific -- relative to NETWORKS_DIR
+    "lr_network_path": "lr_network_mouse_21122021.rds",
+    "weighted_networks_path": "weighted_networks_nsga2r_final_mouse.rds",
+    "ligand_tf_matrix_path": "ligand_tf_matrix_nsga2r_final_mouse.rds",
+    "expression_pct": 0.05, # min fraction of cells expressing a gene to consider it "expressed"
+    "padj_thresh": 0.05, # adjusted p-value threshold for calling a gene DE
+    "lfc_thresh": 0.25, # log2 fold-change threshold for calling a gene DE
+    "run_random_forest_diagnostics": false # optional -- set true to also run NicheNet's random-forest ligand-activity diagnostic for each receiver
+}
+```
+**Getting the NicheNet network files:** these 4 files (mouse: ~289MB combined) are too large for this repo's git history (one exceeds GitHub's 100MB per-file limit), so they're gitignored rather than committed. Download NicheNet's prior model files from [Zenodo](https://zenodo.org/records/3260758) and place the mouse versions of the ligand-target matrix, ligand-receptor network, weighted networks, and ligand-TF matrix under `./data/nichenet_networks/` (or point `NETWORKS_DIR` at wherever you put them). See the [nichenetr GitHub repo](https://github.com/saeyslab/nichenetr) for the R package itself. This directory lives under `./data/`, which `run_downstream_toolkit.sh` already mounts wholesale in Docker mode -- no separate setup needed there.
+
+Run:
+```
+source run_downstream_toolkit.sh
+```
+Outputs (per receiver, written to `shared_volume/output_nichenet_<name>_<timestamp>/`):
+* `seurat_umap.pdf`: UMAP colored by condition and cell type
+* Per-receiver visualizations: `<receiver>_ligand_activity_heatmap*.pdf`, `_ligand-target_reg_potential_heatmap*.pdf`, `_ligand-receptor_interactions_heatmap*.pdf`, `_ligand_logfc_heatmap*.pdf`, `_ligand_expr_dotplot*.pdf`, `_ligand_activities_lineplot*.pdf`
+* Per-receiver signaling network and prioritization plots: `<receiver>_ligand-receptor_interactions_chord*.pdf`, `_ligand-target_interactions_chord*.pdf`, `_ligand-prioritize_mushroom_plot*.pdf` (a DiagrammeR-based signaling-graph PDF is also attempted per ligand, but silently skipped if `DiagrammeRsvg`/`rsvg` aren't installed in `scRNAseq_new` -- not installed by default, see the Dockerfile for why)
+* `_ligand-prioritize_combined_mushroom_plot.pdf`: ligand prioritization combined across all receivers
+* Tables (tab-separated `.txt`): top predicted target genes, ligand activities, ligand-target links, ligand-receptor links, per-receiver prioritized ligand tables
+* Other:
+    * config.json: config settings used
+    * `run_provenance_<timestamp>.txt` (in `shared_volume/`, not the per-run output folder): exact invocation, git commit, Docker image version, and R package versions used for this run
+
+### CellChat interaction comparison
+To compare cell-cell communication between two conditions using two previously-computed CellChat objects (see the "CellChat" section above), highlighting two cell-type groups of interest:
+
+Modify config variables:
+```
+"title": "Your title"
+"METHOD":"cellchat_interactions"
+"docker": "TRUE" or "FALSE"
+
+"cellchat_interactions":{
+    "name": "2wk_R_NR", # run name, used in output filenames
+    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/", # dir containing the two cellchat objects (for docker, put in ./data/input_data/)
+    "object1_path": "seurat_mouse_annot_2WkR_cellchat_20260625_103117/seurat_mouse_annot_2WkR_cellchat_obj.rds", # cellchat object 1 (output of cellchat.R), relative to DATA_DIR
+    "object1_label": "R", # label for object1's condition
+    "object2_path": "seurat_mouse_annot_2WkNR_cellchat_20260625_103117/seurat_mouse_annot_2WkNR_cellchat_obj.rds", # cellchat object 2, relative to DATA_DIR
+    "object2_label": "NR", # label for object2's condition
+    "positive_dataset": "NR", # which of the two labels is the "positive"/case side of comparisons (the other becomes "negative")
+    "group1": "13", # first cell-type/cluster id to highlight
+    "group1_label": "fibroblast", # display label for group1
+    "group2": "9", # second cell-type/cluster id to highlight
+    "group2_label": "Tcell" # display label for group2
+}
+```
+Run:
+```
+source run_downstream_toolkit.sh
+```
+Outputs (written to `shared_volume/output_cellchat_interactions_<name>_<timestamp>/`):
+* Global comparison: `_global_interactions_pos<dataset>.pdf`, `_cell_diffinteractions_circ_pos<dataset>.pdf`, `_cell_diffinteractions_heatmap_pos<dataset>.pdf`
+* Signaling role changes: `_sig_changes_each_dataset.pdf`, `_sig_changes_<group1_label>-<group2_label>.pdf`, and one `_sig_changes_<celltype>.pdf` per cell type
+* Functional similarity of signaling pathways: `_sig_networks_functional_2D_plot*.pdf`, `_pathway_distance.pdf`, `estimationNumCluster__functional_dataset_1-2.pdf`
+* Information flow: `_overall_info_flow.pdf`, `_outgoing_sig_paths.pdf`, `_incoming_sig_paths.pdf`, `_all_sig_paths.pdf`, `_diff_outgoing_sig_paths.pdf`, `_diff_incoming_sig_paths.pdf`
+* Ligand-receptor pairs for group1/group2: bubble and chord plots (`_sig_cc_L-Rpairs_celltypes_bubble_*.pdf`, `_up-down_reg_cc_L-Rpairs_celltypes_*.pdf`, `_signal_cc_L-Rpairs_celltypes_chord_*.pdf`), plus tab-separated tables of increased/decreased L-R pairs per group
+* Per-pathway circle plots and gene-expression violin plots, for pathways detected in either condition
+* Objects: `cellchat_object.list_<name>.RData`, `cellchat_merge_<name>.RData`/`cellchat_merged_<name>.RData` -- the merged CellChat object(s), reusable for further analysis in R
+* Tables: aggregated interaction-weight tables per condition, per-condition and merged signaling-path tables
+* Other:
+    * config.json: config settings used
+    * `run_provenance_<timestamp>.txt` (in `shared_volume/`, not the per-run output folder): exact invocation, git commit, Docker image version, and R package versions used for this run
+
 # References: 
 
 scPred paper: https://doi.org/10.1186/s13059-019-1862-5
@@ -1012,3 +1139,5 @@ scType paper: https://doi.org/10.1038/s41467-022-28803-w
 GPT CellType: https://doi.org/10.1038/s41592-024-02235-4
 
 Clustifyr: https://doi.org/10.12688/f1000research.22969.2
+
+NicheNet paper: https://doi.org/10.1038/s41592-019-0667-5

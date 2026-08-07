@@ -33,10 +33,15 @@ config <- fromJSON(file.path("./config.json"))
 docker <- config$docker
 if (docker == "TRUE" || docker == "true" || docker == "T" || docker == "t") {
   DATA_DIR <- "./data/input_data/"
+  # METADATA_DIR commonly lives outside DATA_DIR (per-cluster metadata from a
+  # separate upstream analysis directory) -- same reasoning as cellchat's
+  # own METADATA_DIR/nichenet's NETWORKS_DIR: gets its own dedicated mount
+  # rather than widening DATA_DIR's.
+  METADATA_DIR <- "./data/seurat2ann_metadata/"
 } else {
   DATA_DIR <- config$seurat2ann$DATA_DIR
+  METADATA_DIR <- config$seurat2ann$METADATA_DIR
 }
-METADATA_DIR <- config$seurat2ann$METADATA_DIR
 DIM.RED <- config$seurat2ann$DIM.RED
 # set working dir
 setwd(GIT_DIR)

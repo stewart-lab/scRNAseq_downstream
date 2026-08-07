@@ -35,14 +35,21 @@ if(docker=="TRUE"||docker=="true"||docker=="T"||docker=="t"){
 }
 SEURAT.FILE <- config$de$SEURAT.FILE
 outname <- config$de$outname
-setwd(DATA_DIR)
 timestamp <- Sys.getenv("RUN_TIMESTAMP", unset = format(Sys.time(), "%Y%m%d_%H%M%S"))
-output <- paste0("output_DE_", outname, "_",timestamp)
+# Build the output dir as an absolute shared_volume path *before*
+# setwd(DATA_DIR) below: DATA_DIR is mounted read-only in Docker mode (a
+# safety net against modifying input data), so creating/writing output
+# relative to it -- the previous behavior -- silently failed there
+# (dir.create() returned FALSE, then every downstream file.copy()/fromJSON()
+# on that never-created path failed too). Writing to shared_volume/ instead
+# matches every other script's convention; setwd(DATA_DIR) is kept below
+# since the bare readRDS(SEURAT.FILE) call further down relies on it.
+output <- paste0("./shared_volume/output_DE_", outname, "_", timestamp)
+dir.create(output, recursive = TRUE, mode = "0777", showWarnings = FALSE)
+output <- paste0(normalizePath(output), "/")
+setwd(DATA_DIR)
 print(output)
-dir.create(output, mode = "0777", showWarnings = FALSE)
-output <- paste0(output, "/")
-file.copy(file.path(paste0(GIT_DIR,"/config.json")), file.path(paste0("./",
-          output,"config.json")), overwrite = TRUE)
+file.copy(file.path(GIT_DIR, "config.json"), file.path(output, "config.json"), overwrite = TRUE)
 if (file.exists(.provenance_file)) {
   file.copy(.provenance_file, file.path(output, basename(.provenance_file)), overwrite = TRUE)
   file.remove(.provenance_file)
