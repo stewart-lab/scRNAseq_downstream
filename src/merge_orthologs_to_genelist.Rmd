@@ -1,0 +1,115 @@
+```{r merge_orthologs_humanlist}
+library(Seurat)
+# get orthologs and cell cycle genes
+orthologs <- read.table("/w5home/bmoore/scRNAseq_downstream/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt", header = TRUE, sep = "\t")
+gene.list <- read.table("regev_lab_cell_cycle_genes.txt", header = TRUE, sep = "\t") # "regev_lab_cell_cycle_genes.txt"
+# replace colname so its the same as the ortholog name
+colnames(gene.list)[1] <- "human.gene.name"
+# merge
+gene.list.orthos <- merge(gene.list, orthologs, by = "human.gene.name")
+# write out
+write.table(gene.list.orthos, file = "gene.list_orthologs.txt", col.names = TRUE, sep = "\t", quote = F)
+```
+```{r merge_s_g2m_orthologs}
+# get s/g2m phases from seurat
+library(Seurat)
+# A list of cell cycle markers, from Tirosh et al, 2015, is loaded with Seurat.  We can
+# segregate this list into markers of G2/M phase and markers of S phase
+s.genes <- cc.genes$s.genes
+s.genes <- as.data.frame(s.genes)
+colnames(s.genes)[1] <- "human.gene.name"
+cell.cycle.orthos.s.genes <- merge(s.genes, gene.list.orthos, by = "human.gene.name")
+
+g2m.genes <- cc.genes$g2m.genes
+g2m.genes <- as.data.frame(g2m.genes)
+colnames(g2m.genes)[1] <- "human.gene.name"
+cell.cycle.orthos.g2m.genes <- merge(g2m.genes, gene.list.orthos, by = "human.gene.name")
+
+# write out s and g2m genes
+write.table(cell.cycle.orthos.s.genes,
+        file = "cell_cycle_orthologs_s.genes.txt", col.names = TRUE,
+        sep = "\t", quote = F
+)
+write.table(cell.cycle.orthos.g2m.genes,
+        file = "cell_cycle_orthologs_g2m.genes.txt", col.names = TRUE,
+        sep = "\t", quote = F
+)
+```
+
+# merge de list with orthologs
+```{r merge_expression_orthologs}
+library(Seurat)
+
+orthologs <- read.table("/w5home/bmoore/scRNAseq_downstream/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt",
+        header = TRUE, sep = "\t"
+)
+# Convert ortholog gene names to uppercase
+# orthologs$Gene.name <- toupper(orthologs$pig.gene.name)
+# orthologs$Mouse.gene.name <- toupper(orthologs$Mouse.gene.name)
+# orthologs$Gene.stable.ID <- toupper(orthologs$pig.gene.stable.ID)
+
+# Create two separate ortholog dataframes and remove duplicates from each
+# For Gene.name matches
+orthologs_gene <- orthologs[!duplicated(orthologs$pig.gene.name), ]
+print(paste0("Number of unique Gene.name entries: ", nrow(orthologs_gene)))
+
+# For Gene.stable.ID matches
+orthologs_stable <- orthologs[!duplicated(orthologs$pig.gene.stable.ID), ]
+print(paste0("Number of unique Gene.stable.ID entries: ", nrow(orthologs_stable)))
+
+# data dir
+data.dir <- "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/Top100_DE_Genes/"
+
+# loop through files and get orthologs
+for (f in list.files(data.dir)) {
+        if (grepl("Top100", f)) {
+                de.input <- read.csv(paste0(data.dir, f), sep = "\t", header = TRUE)
+                # Convert expression matrix to dataframe with gene names as a column
+                de_df <- as.data.frame(de.input)
+                de_df$gene_name <- toupper(rownames(de_df))
+
+
+                # Create two separate merges - one for each potential match column
+                merge1 <- merge(de_df, orthologs_gene, by.x = "gene_name", by.y = "pig.gene.name", all.x = TRUE)
+                merge2 <- merge(de_df, orthologs_stable, by.x = "gene_name", by.y = "pig.gene.stable.ID", all.x = TRUE)
+
+                # Print number of matches from each merge
+                print(paste0("Number of matches from Gene.name: ", sum(!is.na(merge1$pig.gene.name))))
+                print(paste0("Number of matches from Gene.stable.ID: ", sum(!is.na(merge2$pig.gene.stable.ID))))
+
+                # Combine the results, prioritizing matches from merge1 if they exist
+                missing_in_merge1 <- is.na(merge1$pig.gene.name)
+                matches_in_merge2 <- !is.na(merge2$pig.gene.stable.ID)
+
+                # Replace missing matches with those found in merge2
+                final_merged <- merge1
+                final_merged[missing_in_merge1 & matches_in_merge2, ] <- merge2[missing_in_merge1 & matches_in_merge2, ]
+
+                # Check how many genes were matched in total
+                n_matched <- sum(!is.na(final_merged$human.gene.name))
+                n_total <- nrow(final_merged)
+                print(paste0(
+                        "Total matched orthologs after combining both approaches: ",
+                        n_matched, " out of ", n_total, " genes"
+                ))
+
+                # Print a few examples of the matches
+                print("Sample of first few matches:")
+                print(head(final_merged[
+                        !is.na(final_merged$human.gene.name),
+                        c("gene_name", "pig.gene.stable.ID", "human.gene.name")
+                ]))
+                out_orthos <- final_merged[, c(
+                        "gene_name", "pig.gene.stable.ID", "human.gene.name",
+                        "mean.logFC.cohen", "min.logFC.cohen",
+                        "median.logFC.cohen", "max.logFC.cohen",
+                        "mean.AUC", "max.AUC", "min.AUC"
+                )]
+                write.table(out_orthos,
+                        file = paste0(data.dir, "merged_orthologs_", f),
+                        row.names = TRUE, quote = FALSE, sep = "\t"
+                )
+                print(dim(final_merged))
+        }
+}
+```

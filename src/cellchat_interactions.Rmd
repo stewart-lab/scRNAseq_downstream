@@ -16,15 +16,15 @@ reticulate::use_python("/w5home/bmoore/.virtualenvs/cellchat/bin/python", requir
 ```{r}
 setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/")
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-data.dir <- paste0("./comparison_2wk_clusters_0.75_", timestamp)
+data.dir <- paste0("./comparison_4wk_clusters_0.75_", timestamp)
 dir.create(data.dir, mode = "0777", showWarnings = FALSE)
 setwd(data.dir)
 ```
 # load cell chat objects from previous cell chat run
 ```{r}
-name <- "2wk_R_NR"
-cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_2WkNR_cellchat_20260625_103117/seurat_mouse_annot_2WkNR_cellchat_obj.rds")
-cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_2WkR_cellchat_20260625_103117/seurat_mouse_annot_2WkR_cellchat_obj.rds")
+name <- "4wk_R_NR"
+cellchat.NR <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_4WkNR_cellchat_20260625_103118/seurat_mouse_annot_4WkNR_cellchat_obj.rds")
+cellchat.R <- readRDS("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/seurat_mouse_annot_4WkR_cellchat_20260625_103117/seurat_mouse_annot_4WkR_cellchat_obj.rds")
 object.list <- list(R = cellchat.R, NR = cellchat.NR)
 table(cellchat.NR@idents)
 table(cellchat.R@idents)
@@ -230,17 +230,26 @@ dev.off()
 ```{r}
 # overall information flow of each signaling pathway or ligand-receptor pair
 # Significant signaling pathways were ranked based on differences in the overall information flow
-# overall info flow is defined by the sum of communication probability among all pairs of cell groups in the inferred network (i.e., the total weights)
+# overall info flow is defined by the sum of communication probability among all pairs of cell groups in
+# the inferred network (i.e., the total weights)
 gg1 <- rankNet(cellchat_merge,
         mode = "comparison", measure = "weight",
-        sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE, comparison = c(2, 1)
+        sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE, comparison = c(2, 1),
+        return.data = TRUE
 )
 gg2 <- rankNet(cellchat_merge,
         mode = "comparison", measure = "weight",
-        sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE, comparison = c(2, 1)
+        sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE, comparison = c(2, 1),
+        return.data = TRUE
 )
+df1 <- as.data.frame(gg1$signaling.contribution)
+write.csv(df1, paste0(name, "_overall_info_flow_df.csv"), row.names = FALSE)
+```
+```{r}
+gg1_obj <- gg1$gg.obj
+gg2_obj <- gg2$gg.obj
 pdf(file = paste0(name, "_overall_info_flow.pdf"))
-print(gg1 + gg2)
+print(gg1_obj + gg2_obj)
 dev.off()
 ```
 ```{r}
@@ -439,6 +448,7 @@ netAnalysis_signalingRole_heatmap_diff <- function(object.list, comparison = c(1
 
         df <- data.frame(group = colnames(mat.diff))
         rownames(df) <- colnames(mat.diff)
+
         col_annotation <- HeatmapAnnotation(
                 df = df, col = list(group = color.use),
                 which = "column", show_legend = FALSE, show_annotation_name = FALSE,
@@ -456,6 +466,10 @@ netAnalysis_signalingRole_heatmap_diff <- function(object.list, comparison = c(1
         mat.plot <- mat.diff
         mat.plot[mat.plot == 0] <- NA
 
+        df.heatmap <- as.data.frame(mat.plot)
+        df1 <- as.data.frame(mat1)
+        df2 <- as.data.frame(mat2)
+
         ht <- Heatmap(mat.plot,
                 col = color.heatmap.use, na_col = "white",
                 name = paste0(names(object.list)[comparison[2]], " - ", names(object.list)[comparison[1]]),
@@ -472,30 +486,38 @@ netAnalysis_signalingRole_heatmap_diff <- function(object.list, comparison = c(1
                         labels_gp = gpar(fontsize = 8), grid_width = unit(2, "mm")
                 )
         )
-        return(ht)
+        return(list(ht = ht, df = df.heatmap, dfR = df1, dfNR = df2))
 }
 ```
 ```{r}
 # comparison = c(1, 2) matches object.list <- list(R = ..., NR = ...) above,
 # i.e. names(object.list)[comparison] == c("R", "NR"), so diff = NR - R:
 # blue = towards R, red = towards NR
-ht_diff_out <- netAnalysis_signalingRole_heatmap_diff(object.list,
+res_diff_out <- netAnalysis_signalingRole_heatmap_diff(object.list,
         comparison = c(1, 2), pattern = "outgoing",
         signaling = pathway.union, width = 8, height = 10,
         font.size = 5, font.size.title = 8
 )
+ht_diff_out <- res_diff_out$ht
 pdf(file = paste0(name, "_diff_outgoing_sig_paths.pdf"), width = 6, height = 9)
 draw(ht_diff_out)
 dev.off()
+write.csv(res_diff_out$df, file = paste0(name, "_diff_outgoing_sig_paths.csv"), row.names = TRUE)
+write.csv(res_diff_out$dfR, file = paste0("2wk_R_outgoing_sig_paths.csv"), row.names = TRUE)
+write.csv(res_diff_out$dfNR, file = paste0("2wk_NR_outgoing_sig_paths.csv"), row.names = TRUE)
 
-ht_diff_in <- netAnalysis_signalingRole_heatmap_diff(object.list,
+res_diff_in <- netAnalysis_signalingRole_heatmap_diff(object.list,
         comparison = c(1, 2), pattern = "incoming",
         signaling = pathway.union, width = 8, height = 10,
         font.size = 5, font.size.title = 8
 )
+ht_diff_in <- res_diff_in$ht
 pdf(file = paste0(name, "_diff_incoming_sig_paths.pdf"), width = 6, height = 9)
 draw(ht_diff_in)
 dev.off()
+write.csv(res_diff_in$df, file = paste0(name, "_diff_incoming_sig_paths.csv"), row.names = TRUE)
+write.csv(res_diff_in$dfR, file = paste0("2wk_R_incoming_sig_paths.csv"), row.names = TRUE)
+write.csv(res_diff_in$dfNR, file = paste0("2wk_NR_incoming_sig_paths.csv"), row.names = TRUE)
 ```
 # Identify the up-gulated and down-regulated signaling ligand-receptor pairs
 ```{r}
@@ -1011,7 +1033,7 @@ writeLines(capture.output(sessionInfo()), paste0(name, "_sessionInfo.txt"))
 ```
 
 ```{r load_data}
-name <- "6wk_R_NR"
+name <- "2wk_R_NR"
 # define a positive dataset, i.e., the dataset with positive fold change against the other dataset
 pos.dataset <- "NR"
 neg.dataset <- "R"
@@ -1020,6 +1042,7 @@ not_fibroblast <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12
 Tcell <- "9" # c(6)
 not_Tcell <- c("1", "2", "3", "4", "5", "6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28") # c(1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17)
 
-load(paste0("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_6wk_clusters_0.7520260629_145515/cellchat_object.list_", name, ".RData"))
-load(paste0("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_6wk_clusters_0.7520260629_145515/cellchat_merge_", name, ".RData"))
+load(paste0("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_2wk_clusters_0.75_20260818_133055/cellchat_object.list_", name, ".RData"))
+load(paste0("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_2wk_clusters_0.75_20260818_133055/cellchat_merge_", name, ".RData"))
+setwd("/w5home/bmoore/Pierre_sc_zebrafish/cellchat_0.75_clusters/comparison_2wk_clusters_0.75_20260818_133055/")
 ```

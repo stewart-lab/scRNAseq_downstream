@@ -22,13 +22,14 @@ setup_cassia_env()
 ```
 ```{r api}
 # For OpenAI
-setLLMApiKey("api_key", provider = "openai", persist = TRUE)
+api_key <- Sys.getenv("OPENAI_API_KEY")
+setLLMApiKey(api_key, provider = "openai", persist = TRUE)
 ```
 # read in
 ```{r readin}
 getwd()
-setwd("/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/")
-seurat.obj <- readRDS("GAMM_S2_clabeled-clusters_0.5.rds")
+setwd("/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH5/")
+seurat.obj <- readRDS("final_processed_obj.rds")
 print(seurat.obj)
 colnames(seurat.obj@meta.data)
 # table(seurat.obj$cell_type)
@@ -54,7 +55,7 @@ write.csv(all.markers, file = "markers_celltypes_all.csv", row.names = FALSE)
 # gene_symbols_df <- read.csv(file = "/w5home/bmoore/genomes/human_genome_38/ensemble_humanGR38_geneIDs.txt",
 #                     header =TRUE, sep = "\t")
 gene_symbols_df <- read.csv(
-  file = "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/Human_Pig_Biomart_Filtered_mod.txt",
+  file = "/w5home/bmoore/scRNAseq_downstream/data/human_orthologs/Human_Pig_Biomart_Filtered_mod.txt",
   header = TRUE, sep = "\t"
 )
 print(head(gene_symbols_df))
@@ -86,8 +87,8 @@ nrow(markers_merge)
 # run default cassia
 ```{r cassia}
 runCASSIA_pipeline(
-  output_file_name = "pigIPS_day120_res05",
-  tissue = "retina",
+  output_file_name = "pigTLS_D4_Mgel_F20CH5",
+  tissue = "somite",
   species = "pig",
   marker = markers_merge_unique,
   max_workers = 4,
@@ -99,27 +100,85 @@ runCASSIA_pipeline(
   annotationboost_provider = "openai"
 )
 ```
+# merge step
+```{r merge} # nolint: error.
+runCASSIA_merge_annotations(
+  csv_path = ".../pigTLS_D4_Mgel_F20CH7_FINAL_RESULTS.csv",
+  provider = "openai",
+  model = "gpt-5.1"
+)
+```
+
 # add cassia back into seurat object
 ```{r}
 ## doesnt work- email cassia
 seurat_obj <- add_cassia_to_seurat(
   seurat_obj = seurat.obj,
-  cassia_results_path = "/w5home/bmoore/scRNAseq/GAMM/GAMM_S2/output_20230830_155530/CASSIA_Pipeline_retina_pig_20260318_134520/03_csv_files/pigIPS_day120_res05_FINAL_RESULTS.csv",
+  cassia_results_path = "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/CASSIA_Pipeline_somite_pig_20260921_135814/03_csv_files/pigTLS_D4_Mgel_F20CH7_FINAL_RESULTS.csv",
   cluster_col = "seurat_clusters",
   cassia_cluster_col = "Cluster ID",
   prefix = "Cassia_0.5_res_"
 )
+print(colnames(seurat_obj@meta.data))
 ```
+```{r}
+# read in anotation
+results_table <- "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/CASSIA_Pipeline_somite_pig_20260921_135814/03_csv_files/pigTLS_D4_Mgel_F20CH7_sorted_summary.csv"
+# NOTE: _summary.csv (unsorted) is malformed - its "Predicted General Cell Type"
+# free-text field contains unquoted internal commas, so read.csv either errors
+# ("more columns than column names") or silently mis-parses/shifts columns.
+# _sorted_summary.csv has the same data properly quoted - use that instead.
+results_df <- read.csv(results_table, header = TRUE)
+head(results_df)
+colnames(results_df) # confirm the exact name of the cluster ID column below (read.csv turns "Cluster ID" into "Cluster.ID")
+
+# make sure that idents are the clusters you want annotated
+# NOTE: do NOT coerce seurat_clusters with as.numeric() - for a factor that
+# returns the internal level code (its position in levels()), not the cluster
+# label, and levels() is not guaranteed to be in numeric order (e.g.
+# "0","1","10","11","2",... if it was ever coerced through character).
+# RenameIdents does not need clusters to be numeric - it matches by name.
+seurat_obj <- SetIdent(seurat_obj, value = "seurat_clusters")
+
+# Rename the clusters based on the new IDs.
+# RenameIdents matches by NAME, not by position, so build cluster.ids by
+# pairing each predicted cell type with its actual cluster ID from results_df
+# rather than relying on levels(seurat_obj) to be in row order.
+cluster.ids <- as.character(results_df$Predicted.General.Cell.Type)
+names(cluster.ids) <- as.character(results_df$Cluster.ID)
+
+# diagnostic: confirm the two label sets actually match before renaming
+print(levels(seurat_obj))
+print(names(cluster.ids))
+
+# sanity check: every current cluster level should have a match; should be character(0)
+setdiff(levels(seurat_obj), names(cluster.ids))
+
+seurat_obj <- RenameIdents(seurat_obj, cluster.ids)
+# put in resolution-specific annotation metadata column
+seurat_obj[["Cassia_gen_group_1"]] <- Idents(seurat_obj)
+
+# Generate and plot the UMAP plot
+pdf(paste0("labeled-clusters_Cassia_gen_group_1.pdf"), bg = "white")
+print(DimPlot(seurat_obj,
+  reduction = "umap", label = FALSE,
+  pt.size = 0.5, group.by = "Cassia_gen_group_1"
+) +
+  guides(color = guide_legend(ncol = 1, override.aes = list(size = 3))) +
+  theme(legend.text = element_text(size = 7), legend.key.size = unit(0.3, "cm")))
+dev.off()
+```
+
 
 ```{r}
 library(qs2)
 print("saving object via qs2")
 # sham
-qs_save(seurat.obj, "GAMM_S1_clabeled-clusters_0.5_cassia.qs2")
+qs_save(seurat_obj, "pigTLS_D4_Mgel_F20CH5_cassia.qs2")
 # convert to rds
 qs_to_rds(
-  input_file = "GAMM_S1_clabeled-clusters_0.5_cassia.qs2",
-  output_file = "GAMM_S1_clabeled-clusters_0.5_cassia.rds"
+  input_file = "pigTLS_D4_Mgel_F20CH5_cassia.qs2",
+  output_file = "pigTLS_D4_Mgel_F20CH5_cassia.rds"
 )
 
 # saveRDS(seurat.obj, file="GAMM_S1_clabeled-clusters_0.5_cassia.rds")
@@ -129,15 +188,15 @@ qs_to_rds(
 library(patchwork)
 library(ggplot2)
 # plot newly annotated clusters
-plot1 <- DimPlot(seurat.obj,
+plot1 <- DimPlot(seurat_obj,
   reduction = "umap", label = TRUE,
   pt.size = 0.5, group.by = "Cassia_0.5_res_merged_grouping_1"
 )
-plot2 <- DimPlot(seurat.obj,
+plot2 <- DimPlot(seurat_obj,
   reduction = "umap", label = TRUE,
   pt.size = 0.5, group.by = "Cassia_0.5_res_merged_grouping_2"
 )
-plot3 <- DimPlot(seurat.obj,
+plot3 <- DimPlot(seurat_obj,
   reduction = "umap", label = TRUE,
   pt.size = 0.5, group.by = "Cassia_0.5_res_merged_grouping_3"
 )

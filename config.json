@@ -1,7 +1,7 @@
 {
-  "title": "cassia_test",
-  "METHOD": "cassia",
-  "docker": "true",
+  "title": "featureplots",
+  "METHOD": "featureplots",
+  "docker": "false",
   "seurat_mapping": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/human_data/reh_cellrep_2020/output_20240422_180439/",
     "REF.SEURAT": "Reh_205/seurat_obj_labeled_Reh205.rds",
@@ -236,11 +236,11 @@
     }
   },
   "featureplots": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/public_data/E_MTAB_11334/output_20251204_225619/No_Matrigel_CHIR99021_8-10/",
-    "SEURAT_OBJ": "seurat_obj_clustifyr.rds",
-    "GENE_LIST": "./data/markers/JackChu_markers.txt",
-    "ANNOT": "clustifyr_call_type",
-    "INPUT_NAME": "No_Matrigel_CHIR99021_8-10",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/",
+    "SEURAT_OBJ": "final_processed_obj.rds",
+    "GENE_LIST": "./data/markers/Pranav-Chu_markerList.txt",
+    "ANNOT": "CellType",
+    "INPUT_NAME": "somite_markers",
     "reduction": "umap"
   },
   "seurat2ann": {

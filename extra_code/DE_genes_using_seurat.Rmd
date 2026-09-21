@@ -1,0 +1,133 @@
+# load packages
+```{r load_packages}
+library(Seurat)
+library(SeuratData)
+library(patchwork)
+library(scran)
+library(BiocParallel)
+library(cowplot)
+library(reticulate)
+library(purrr)
+library(jsonlite)
+library(rmarkdown)
+library(ggplot2)
+library(scater)
+library(SingleCellExperiment)
+library(tidyverse)
+library(DESeq2)
+library(dplyr)
+```
+# set dir and filenames
+```{r dir_file}
+GIT_DIR <- "/w5home/bmoore/scRNAseq_downstream/src/" # getwd()
+DATA_DIR <- "/w5home/bmoore/sequencing/MSpurgeon/HSCA/"
+setwd(DATA_DIR)
+#### make output dir  and read in data ####
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0(DATA_DIR, "DEgenes_", timestamp)
+print(output)
+dir.create(output, mode = "0777", showWarnings = FALSE)
+```
+# read in data
+```{r read_in}
+# load data
+filename <- "HSCA_core.rds"
+print("loading data")
+
+# Import the file
+seurat_obj <- readRDS(filename)
+print(seurat_obj)
+print(colnames(seurat_obj@meta.data))
+```
+# check cell types
+```{r celltypes}
+table(seurat_obj$orig_celltype_lvl_3)
+table(seurat_obj$celltype_lvl_1)
+table(seurat_obj$celltype_lvl_2)
+table(seurat_obj$celltype_lvl_3)
+table(seurat_obj$celltype_lvl_4)
+table(seurat_obj$celltype_lvl_5)
+```
+
+# normalize the data
+```{r norm}
+# is data normalized? compare counts and data
+head(seurat_obj[["RNA"]]$counts) # integers
+head(seurat_obj[["RNA"]]$data) # log transformed
+# Normalize the data
+# seurat_obj <- NormalizeData(seurat_obj)
+# set idents
+Idents(seurat_obj) <- "celltype_lvl_3"
+table(Idents(seurat_obj))
+```
+# find markers between cell types
+```{r markers}
+merkel_ProlifKC.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Prolif. KC")
+# view results
+head(merkel_ProlifKC.de.markers)
+merkel_SpinousKC.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Spinous KC")
+merkel_BasalKC.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Basal KC")
+merkel_GranularKC.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Granular KC")
+merkel_CornifiedKC.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Cornified KC")
+merkel_FibroA.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Fibro A")
+merkel_FibroB.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Fibro B")
+merkel_FibroC.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Fibro C")
+merkel_FibroD.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Fibro D")
+merkel_FibroE.de.markers <- FindMarkers(seurat_obj, ident.1 = "Merkel cell", ident.2 = "Fibro E")
+```
+# filter
+```{r filter}
+# make list
+de.marker.list <- list(
+    merkel_ProlifKC.de.markers, merkel_SpinousKC.de.markers,
+    merkel_BasalKC.de.markers, merkel_GranularKC.de.markers,
+    merkel_CornifiedKC.de.markers, merkel_FibroA.de.markers,
+    merkel_FibroB.de.markers, merkel_FibroC.de.markers,
+    merkel_FibroD.de.markers, merkel_FibroE.de.markers
+)
+
+names(de.marker.list) <- c(
+    "merkel_ProlifKC", "merkel_SpinousKC",
+    "merkel_BasalKC", "merkel_GranularKC",
+    "merkel_CornifiedKC", "merkel_FibroA",
+    "merkel_FibroB", "merkel_FibroC",
+    "merkel_FibroD", "merkel_FibroE"
+)
+
+for (i in seq_along(de.marker.list)) {
+    # filter to genes with adjusted p-value less than 0.05
+    de.marker.list[[i]] <- filter(de.marker.list[[i]], p_val_adj < 0.05)
+    # sort by log2 fold change
+    de.marker.list[[i]] <- arrange(de.marker.list[[i]], desc(avg_log2FC))
+    # write results
+    write.table(de.marker.list[[i]], file = paste0(output, "/", names(de.marker.list)[i], "_de_markers.txt"), sep = "\t")
+}
+```
+# plot umap
+```{r umap}
+# make cluster plots
+plot1 <- DimPlot(seurat_obj,
+    reduction = "umap", label = FALSE,
+    pt.size = 0.5, group.by = "orig_celltype_lvl_3"
+) +
+    guides(color = guide_legend(ncol = 1, override.aes = list(size = 3))) +
+    theme(legend.text = element_text(size = 7), legend.key.size = unit(0.3, "cm"))
+plot2 <- DimPlot(seurat_obj,
+    reduction = "umap", label = TRUE,
+    pt.size = 0.5, group.by = "seurat_clusters"
+)
+
+# number of cell type categories, used to size the legend/plot area
+n_celltypes <- length(unique(seurat_obj@meta.data$orig_celltype_lvl_3))
+
+# make pdf - plots stacked so the long cell-type legend doesn't squeeze the UMAP panels;
+# height scales with the number of categories so the legend has room without shrinking the plot
+pdf(file = paste0(output, "/umap.pdf"), width = 10, height = 8 + n_celltypes * 0.12)
+print(plot1)
+print(plot2)
+dev.off()
+```
+```{r captureout}
+.provenance_file <- Sys.getenv("PROVENANCE_FILE", unset = paste0(output, "/sessionInfo_DE_genes_using_seurat.R_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt"))
+cat(paste0("\n--- R sessionInfo (DE_genes_using_seurat.R) ---\n", paste(capture.output(sessionInfo()), collapse = "\n"), "\n"), file = .provenance_file, append = TRUE)
+```

@@ -1,0 +1,38 @@
+gene	Celltype
+BRN3	Retinal ganglion
+TUBB3	Retinal ganglion
+SNCG	Retinal ganglion
+ISL1	Retinal ganglion
+POU4F1	Retinal ganglion
+POU4F2	Retinal ganglion
+POU4F3	Retinal ganglion
+GRIN1	Retinal ganglion
+GRIN2A	Retinal ganglion
+HES6	Retinal ganglion
+ISLET1	Retinal ganglion
+ISLET2	Retinal ganglion
+CNTNAP2	Retinal ganglion
+GAP43	Retinal ganglion
+RBFOX3	Retinal ganglion
+RBPMS	Retinal ganglion
+RIT2	Retinal ganglion
+THY1	Retinal ganglion
+TUJ1	Retinal ganglion
+BARHL2	Amacrine cell
+NEUROD6	Amacrine cell
+NR4A2	Amacrine cell
+SATB2	Amacrine cell
+CHAT	Amacrine cell
+GAD1	Amacrine cell
+GAD2	Amacrine cell
+HSBP1	Amacrine cell
+NRXN2	Amacrine cell
+NRXN3	Amacrine cell
+PRDM13	Amacrine cell
+TACR1	Amacrine cell
+TH	Amacrine cell
+SLC6A9	Amacrine cell
+DLX2	Amacrine cell
+DLX1	Amacrine cell
+ELAVL3	both
+ELAVL4	both

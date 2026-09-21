@@ -73,14 +73,24 @@ plot_function <- function(features, input_name, plot1, plot2) {
     count <- 1
     # loop to subset and plot
     for (i in seq(1, length(marker.genes), by = 12)) {
-      j <- i + 11
+      j <- min(i + 11, length(marker.genes))
       markers1 <- marker.genes[i:j]
       plot3 <- FeaturePlot(seurat.obj,
         features = markers1, ncol = 3,
         pt.size = 0.1, reduction = reduction
-      ) &
-        scale_color_viridis(option = "B") # &
+      ) # &
+      # scale_color_viridis() # &
       # xlim(c(-0.03,0.04)) & ylim(c(-0.03,0.04))
+      # pad out to a full 4-row x 3-col grid (12 panels) with blank
+      # placeholders so a short final batch doesn't get stretched to
+      # fill the space reserved for a full page of feature plots
+      n_missing <- 12 - length(markers1)
+      if (n_missing > 0) {
+        for (p in seq_len(n_missing)) {
+          plot3 <- plot3 + patchwork::plot_spacer()
+        }
+        plot3 <- plot3 + plot_layout(ncol = 3)
+      }
       combined_plot <- ((plot1 | plot2) / plot3) + plot_layout(
         width = c(2, 3),
         heights = c(1, 4)
