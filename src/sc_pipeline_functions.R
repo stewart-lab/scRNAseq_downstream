@@ -748,7 +748,8 @@ score_and_plot_markers <- function(seurat_obj, sce, output_path = output, type, 
   marker_info <- score_markers(sce_obj, cluster_type)
   # Read in known markers
   known.markers.df <- if (known_markers) {
-    read.csv2(known_markers_path, sep = "\t", header = TRUE, row.names = 1)
+    # keep gene as a column (not row names) so a gene can mark multiple cell types
+    read.csv2(known_markers_path, sep = "\t", header = TRUE)
   } else {
     NULL
   }
@@ -877,7 +878,7 @@ process_pairwise_comparisons <- function(clusters, i, marker.info, output_path, 
     )
 
     # Merge with known markers and check if empty
-    df_clust2 <- merge(df_clust1, known_markers_df, by.x = "gene", by.y = "row.names")
+    df_clust2 <- merge(df_clust1, known_markers_df, by = "gene")
     if (nrow(df_clust2) == 0) {
       print(paste0("This data frame is empty: ", clusters[i], ".vs_", j))
     } else {
@@ -912,7 +913,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
     n_rank <- config$process_known_markers$n_rank
   }
   if (known_markers_flag) {
-    marker_df <- merge(top100, known_markers_df, by = "row.names")
+    marker_df <- merge(top100, known_markers_df, by.x = "row.names", by.y = "gene")
 
     if (nrow(marker_df) == 0) {
       print(paste0("This data frame is empty: ", clusters[i]))
@@ -966,7 +967,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
           # print(cell_type)
           genes_df <- subset(known_markers_df, Celltype == cell_type)
           # print(colnames(genes_df))
-          genes <- unique(rownames(genes_df))
+          genes <- unique(genes_df$gene)
           # print(genes)
           count <- 0
           for (k in 1:length(new_vec2)) {
@@ -984,7 +985,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             # check Pan PRs
             count2 <- 0
             genes_df <- subset(known_markers_df, Celltype == "Pan PR")
-            genes <- unique(rownames(genes_df))
+            genes <- unique(genes_df$gene)
             for (k in 1:length(new_vec2)) {
               gene <- new_vec2[k]
               if (gene %in% genes) {
@@ -1002,7 +1003,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             # check Amacrine-Ganglion
             count3 <- 0
             genes_df <- subset(known_markers_df, Celltype == "Amacrine-Ganglion")
-            genes <- unique(rownames(genes_df))
+            genes <- unique(genes_df$gene)
             for (k in 1:length(new_vec2)) {
               gene <- new_vec2[k]
               if (gene %in% genes) {
@@ -1022,7 +1023,7 @@ process_known_markers <- function(top100, known_markers_flag, known_markers_df, 
             # check Amacrine-Ganglion
             count4 <- 0
             genes_df <- subset(known_markers_df, Celltype == "Amacrine-Ganglion")
-            genes <- unique(rownames(genes_df))
+            genes <- unique(genes_df$gene)
             for (k in 1:length(new_vec2)) {
               gene <- new_vec2[k]
               if (gene %in% genes) {

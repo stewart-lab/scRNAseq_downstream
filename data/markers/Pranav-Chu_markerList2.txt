@@ -1,0 +1,11 @@
+gene	Celltype
+SOX2	Caudal neural progenitor
+FGF8	Caudal neural progenitor
+CDX2	Caudal neural progenitor
+PAX6	Neural tube
+HES5	Neural tube
+IRX3	Neural tube
+MEOX1	Somite
+TCF15	Somite
+PAX3	Somite
+ALDH1A2	Somite

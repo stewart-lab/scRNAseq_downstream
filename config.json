@@ -1,5 +1,5 @@
 {
-  "title": "featureplots",
+  "title": "featureplots somite pTLS_F20CH5",
   "METHOD": "featureplots",
   "docker": "false",
   "seurat_mapping": {
@@ -205,16 +205,14 @@
     }
   },
   "recluster": {
-    "DATA_DIR": "/w5home/rstewart/scRNAseq_downstream/shared_volume/output_subset_20260701_170628/",
-    "SEURAT.FILE": "seurat.obj_subset.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH5/",
+    "SEURAT.FILE": "final_processed_obj.rds",
     "perform_clustering": {
       "reduction": "pca",
       "resolution": [
-        0.5,
-        0.7,
         0.75,
         0.8,
-        1.0
+        0.9
       ],
       "algorithm": "leiden",
       "dims_snn": 15,
@@ -222,8 +220,8 @@
     },
     "score_and_plot_markers": {
       "top_n_markers": 100,
-      "known_markers": "False",
-      "known_markers_path": "",
+      "known_markers": "True",
+      "known_markers_path": "./data/markers/Pranav-Chu_markerList.txt",
       "cluster_type": "seurat_clusters",
       "pairwise": "FALSE",
       "logFC_thresh": 0.25,
@@ -236,11 +234,11 @@
     }
   },
   "featureplots": {
-    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/",
-    "SEURAT_OBJ": "final_processed_obj.rds",
-    "GENE_LIST": "./data/markers/Pranav-Chu_markerList.txt",
-    "ANNOT": "CellType",
-    "INPUT_NAME": "somite_markers",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH5/output_subset-recluster_20260928_144119/",
+    "SEURAT_OBJ": "pigTLS_D4_Mgel_F20CH5_manualannot.rds",
+    "GENE_LIST": "./data/markers/Pranav-Chu_markerList3.txt",
+    "ANNOT": "manual_celltype",
+    "INPUT_NAME": "somite",
     "reduction": "umap"
   },
   "seurat2ann": {
@@ -249,16 +247,16 @@
     "DIM.RED": "umap"
   },
   "subset_seurat": {
-    "DATA_DIR": "/w5home/bmoore/Pierre_sc_zebrafish/output_subset-recluster_20260204_094842/",
-    "SEURAT_OBJ": "seuratobj_all_reclustered.rds",
+    "DATA_DIR": "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH5/",
+    "SEURAT_OBJ": "final_processed_obj.rds",
     "SUBSET_MODE": "metadata",
     "GENE_LIST": [],
-    "METADATA_COLUMN": "Type",
+    "METADATA_COLUMN": "seurat_clusters",
     "IDENTS": [
-      "1Wk"
+      "6"
     ],
     "DIM.RED": "umap",
-    "ANNOT": "Type"
+    "ANNOT": "seurat_clusters"
   },
   "phate": {
     "DATA_DIR": "/w5home/bmoore/scRNAseq/GAMM/output_seuratintegrate_20241004_125959/",

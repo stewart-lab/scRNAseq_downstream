@@ -123,7 +123,8 @@ print(colnames(seurat_obj@meta.data))
 ```
 ```{r}
 # read in anotation
-results_table <- "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/CASSIA_Pipeline_somite_pig_20260921_135814/03_csv_files/pigTLS_D4_Mgel_F20CH7_sorted_summary.csv"
+#results_table <- "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH7/CASSIA_Pipeline_somite_pig_20260921_135814/03_csv_files/pigTLS_D4_Mgel_F20CH7_sorted_summary.csv"
+results_table <- "/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH5/manual_annotation_res0.75.csv"
 # NOTE: _summary.csv (unsorted) is malformed - its "Predicted General Cell Type"
 # free-text field contains unquoted internal commas, so read.csv either errors
 # ("more columns than column names") or silently mis-parses/shifts columns.
@@ -138,14 +139,14 @@ colnames(results_df) # confirm the exact name of the cluster ID column below (re
 # label, and levels() is not guaranteed to be in numeric order (e.g.
 # "0","1","10","11","2",... if it was ever coerced through character).
 # RenameIdents does not need clusters to be numeric - it matches by name.
-seurat_obj <- SetIdent(seurat_obj, value = "seurat_clusters")
+seurat_obj <- SetIdent(seurat_obj, value = "merged_clusters")
 
 # Rename the clusters based on the new IDs.
 # RenameIdents matches by NAME, not by position, so build cluster.ids by
 # pairing each predicted cell type with its actual cluster ID from results_df
 # rather than relying on levels(seurat_obj) to be in row order.
-cluster.ids <- as.character(results_df$Predicted.General.Cell.Type)
-names(cluster.ids) <- as.character(results_df$Cluster.ID)
+cluster.ids <- as.character(results_df$Celltype) #Predicted.General.Cell.Type
+names(cluster.ids) <- as.character(results_df$ClusterID)
 
 # diagnostic: confirm the two label sets actually match before renaming
 print(levels(seurat_obj))
@@ -157,12 +158,21 @@ setdiff(levels(seurat_obj), names(cluster.ids))
 seurat_obj <- RenameIdents(seurat_obj, cluster.ids)
 # put in resolution-specific annotation metadata column
 seurat_obj[["Cassia_gen_group_1"]] <- Idents(seurat_obj)
-
+seurat_obj[["manual_celltype"]] <- Idents(seurat_obj)
 # Generate and plot the UMAP plot
 pdf(paste0("labeled-clusters_Cassia_gen_group_1.pdf"), bg = "white")
 print(DimPlot(seurat_obj,
   reduction = "umap", label = FALSE,
   pt.size = 0.5, group.by = "Cassia_gen_group_1"
+) +
+  guides(color = guide_legend(ncol = 1, override.aes = list(size = 3))) +
+  theme(legend.text = element_text(size = 7), legend.key.size = unit(0.3, "cm")))
+dev.off()
+
+pdf(paste0("labeled-clusters_manual_celltype.pdf"), bg = "white")
+print(DimPlot(seurat_obj,
+  reduction = "umap", label = FALSE,
+  pt.size = 0.5, group.by = "manual_celltype"
 ) +
   guides(color = guide_legend(ncol = 1, override.aes = list(size = 3))) +
   theme(legend.text = element_text(size = 7), legend.key.size = unit(0.3, "cm")))

@@ -1,0 +1,12 @@
+gene	Celltype
+DMRT2	Dermomyotome
+EYA1	Dermomyotome
+EYA2	Dermomyotome
+MEOX2	Dermomyotome
+SIX1	Dermomyotome
+PAX7	Dermomyotome
+NKX3-2	Sclerotome
+PAX1	Sclerotome
+PAX9	Sclerotome
+SOX9	Sclerotome
+

@@ -30,12 +30,12 @@ SEURAT_OBJ <- config$subset_seurat$SEURAT_OBJ
 DIM.RED <- config$subset_seurat$DIM.RED
 ANNOT <- config$subset_seurat$ANNOT
 # set up environment and output
-# timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-# output <- paste0("./shared_volume/output_subset-recluster_", timestamp)
-# print(output)
-# dir.create(output, mode = "0777", showWarnings = FALSE)
-# output <- paste0(output, "/")
-output <- "/w5home/bmoore/scRNAseq_downstream/shared_volume/output_subset-recluster_20260204_094842/"
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+output <- paste0("./shared_volume/output_subset-recluster_", timestamp)
+print(output)
+dir.create(output, mode = "0777", showWarnings = FALSE)
+output <- paste0(output, "/")
+# output <- "/w5home/bmoore/scRNAseq_downstream/shared_volume/output_subset-recluster_20260204_094842/"
 file.copy(paste0("config.json"), file.path(output, "config.json"))
 source(paste0("src/sc_pipeline_functions.R"))
 ```
@@ -52,19 +52,23 @@ table(Idents(seurat.obj))
 ```
 # subset
 ```{r}
-seurat.obj_subset1 <- subset(x = seurat.obj, idents = "1Wk")
-seurat.obj_subset2 <- subset(x = seurat.obj, idents = c("2Wk-R", "2Wk-NR"))
-seurat.obj_subset4 <- subset(x = seurat.obj, idents = c("4Wk-R", "4Wk-NR"))
-seurat.obj_subset6 <- subset(x = seurat.obj, idents = c("6Wk-R", "6Wk-NR"))
-obj_list <- list(seurat.obj_subset1, seurat.obj_subset2, seurat.obj_subset4, seurat.obj_subset6)
-name_list <- c("1WK", "2Wk", "4Wk", "6Wk")
+IDENTS <- config$subset_seurat$IDENTS
+print(IDENTS)
+obj_list <- list()
+for (i in 1:length(IDENTS)) {
+    ident <- IDENTS[[i]]
+    print(ident)
+    seurat.obj_subset <- subset(x = seurat.obj, idents = ident)
+    table(Idents(seurat.obj_subset))
+    obj_list[[ident]] <- seurat.obj_subset
+}
 ```
 # recluster
 ```{r}
 cluster_name <- config$recluster$perform_clustering$cluster_name
 resolution_list <- config$recluster$perform_clustering$resolution
-name_list <- c("all")
-obj_list <- list(seurat.obj)
+name_list <- names(obj_list)
+# obj_list <- list(seurat.obj)
 for (i in 1:length(name_list)) {
     name <- name_list[i]
     obj <- obj_list[[i]]
@@ -133,8 +137,8 @@ for (i in 1:length(name_list)) {
             file = paste0(output, "manual_annot_metadata_", name, "_res", resolution, ".txt"), sep = "\t",
             quote = F, row.names = T
         )
-        # print("save")
-        # saveRDS(obj_recluster, file = paste0(output, "seuratobj", name, "_recluster_res", resolution, ".rds"))
+        print("save")
+        saveRDS(obj_recluster, file = paste0(output, "seuratobj", name, "_recluster_res", resolution, ".rds"))
     }
 }
 ```

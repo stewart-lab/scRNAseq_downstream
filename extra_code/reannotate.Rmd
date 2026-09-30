@@ -1,0 +1,165 @@
+
+# load libraries
+```{r lib}
+library(qs2)
+library(Seurat)
+library(SeuratObject)
+library("dplyr")
+library(ggplot2)
+```
+# read in
+```{r readin}
+getwd()
+setwd("/w5home/bmoore/scRNAseq/LiFangChu/10x_somite_data/output_20260916_181955/pTLS_D4_Mgel_F20CH5/output_subset-recluster_20260928_144119/")
+seurat.obj <- readRDS("final_processed_obj_merged_6_res0.9.rds")
+print(seurat.obj)
+colnames(seurat.obj@meta.data)
+# table(seurat.obj$cell_type)
+```
+# set idents
+```{r subset}
+# set idents
+Idents(object = seurat.obj) <- "merged_clusters"
+print(table(Idents(object = seurat.obj)))
+```
+```{r}
+# read in anotation
+results_table <- "manual_annotation_0.75_withsubcluster6.csv"
+results_df <- read.csv(results_table, header = TRUE)
+head(results_df)
+colnames(results_df)
+
+# Rename the clusters based on the new IDs.
+cluster.ids <- as.character(results_df$Celltype)
+names(cluster.ids) <- as.character(results_df$ClusterID)
+
+# diagnostic: confirm the two label sets actually match before renaming
+print(levels(seurat.obj))
+print(names(cluster.ids))
+
+# sanity check: every current cluster level should have a match; should be character(0)
+setdiff(levels(seurat.obj), names(cluster.ids))
+
+seurat.obj <- RenameIdents(seurat.obj, cluster.ids)
+```
+```{r plot_annotated_clusters}
+# put in resolution-specific annotation metadata column
+seurat.obj[["manual_celltype"]] <- Idents(seurat.obj)
+# Generate and plot the UMAP plot
+pdf(paste0("labeled-clusters_manual_celltype.pdf"), bg = "white")
+print(DimPlot(seurat.obj,
+  reduction = "umap", label = FALSE,
+  pt.size = 0.5, group.by = "manual_celltype"
+) +
+  guides(color = guide_legend(ncol = 1, override.aes = list(size = 3))) +
+  theme(legend.text = element_text(size = 7), legend.key.size = unit(0.3, "cm")))
+dev.off()
+```
+```{r dotplot}
+gene_list <- c(
+  "SOX2", "CDX2", "FGF8", "PAX6", "HES5", "IRX3", "TBXT", "TBX6",
+  "HES7", "DLL1", "LFNG", "MESP2", "MEOX1", "PAX3", "TCF15", "ALDH1A2"
+)
+# order
+cluster_order <- c("5", "2", "6_1", "7", "4", "6_2", "1", "3")
+seurat.obj$merged_clusters <- factor(seurat.obj$merged_clusters, levels = cluster_order)
+# draw dotplot
+dp <- DotPlot(seurat.obj,
+  features = gene_list, group.by = "merged_clusters",
+  cols = c("lightgrey", "darkred")
+) +
+  coord_flip() + # swap axes: genes on y, cell types on x
+  scale_x_discrete(limits = rev) + # first gene in `genes` at the top
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = NULL, y = NULL)
+# save dotplot
+pdf(paste0("dotplot_markers_merged_clusters.pdf"), bg = "white")
+print(dp)
+dev.off()
+```
+```{r dotplot2}
+# cell type order
+celltype_order <- c("Caudal neural progenitor", "Neural tube", "Somite")
+# Check the names match the metadata exactly (watch for extra spaces)
+setdiff(unique(seurat.obj$manual_celltype), celltype_order) # labels missing from celltype_order
+setdiff(celltype_order, unique(seurat.obj$manual_celltype)) # labels in celltype_order not found in metadata
+# order
+seurat.obj$manual_celltype <- factor(seurat.obj$manual_celltype, levels = celltype_order)
+# draw dotplot
+dp2 <- DotPlot(seurat.obj,
+  features = gene_list, group.by = "manual_celltype",
+  cols = c("lightgrey", "darkred")
+) +
+  coord_flip() + # swap axes: genes on y, cell types on x
+  scale_x_discrete(limits = rev) + # first gene in `genes` at the top
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = NULL, y = NULL)
+# save dotplot
+pdf(paste0("dotplot_markers_manual_celltype.pdf"), bg = "white")
+print(dp2)
+dev.off()
+```
+```{r heatmap}
+hox_gene_list <- c(
+  "HOXA1", "HOXA2", "HOXA3", "HOXA4", "HOXA5", "HOXA6", "HOXA7", "HOXA9", "HOXA10",
+  "HOXB2", "HOXB3", "HOXB4", "HOXB5", "HOXB6", "HOXB7", "HOXB8", "HOXB9", "HOXC4",
+  "HOXC5", "HOXC6", "HOXC8", "HOXC9", "HOXC10", "HOXD1", "HOXD3", "HOXD4", "HOXD8", "HOXD10"
+)
+# Single cell heatmap of feature expression, cell types as rows and genes as columns
+# (DoHeatmap can't be flipped with coord_flip, so build it directly in ggplot)
+scaled <- GetAssayData(seurat.obj, layer = "scale.data")
+hox_present <- intersect(hox_gene_list, rownames(scaled)) # genes missing from scale.data are dropped
+setdiff(hox_gene_list, hox_present) # genes not in scale.data (not plotted)
+# keep genes detected (count > 0) in at least 1% of cells; scaling barely-detected genes
+# pushes their few expressing cells to scale.max and exaggerates them
+min_pct_detected <- 1
+counts <- GetAssayData(seurat.obj, layer = "counts")
+pct_detected <- Matrix::rowMeans(counts[hox_present, , drop = FALSE] > 0) * 100
+print(sort(round(pct_detected, 2)))
+hox_present <- hox_present[pct_detected >= min_pct_detected]
+m <-as.matrix(scaled[hox_present, , drop = FALSE])
+# long format: one row per gene x cell
+hm_df <- data.frame(
+  gene = factor(rep(rownames(m), times = ncol(m)), levels = hox_present),
+  cell = rep(colnames(m), each = nrow(m)),
+  expr = as.vector(m)
+)
+hm_df$celltype <- seurat.obj$manual_celltype[hm_df$cell]
+hm_df$expr <- pmin(pmax(hm_df$expr, -2.5), 2.5) # clip like DoHeatmap (disp.min/disp.max)
+
+hm <- ggplot(hm_df, aes(x = gene, y = cell, fill = expr)) +
+  geom_raster() +
+  # one horizontal band per cell type, band height proportional to number of cells
+  facet_grid(rows = vars(celltype), scales = "free_y", space = "free_y", switch = "y") +
+  scale_fill_gradientn(colors = c("#FF00FF", "black", "#FFFF00"), name = "Expression") +
+  scale_x_discrete(position = "top") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(), # hide cell barcodes
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(angle = 90, hjust = 0, vjust = 0.5, size = 7),
+    strip.text.y.left = element_text(angle = 0, hjust = 1),
+    strip.placement = "outside",
+    panel.spacing = unit(1, "mm"),
+    panel.grid = element_blank()
+  ) +
+  labs(x = NULL, y = NULL)
+
+# save plot
+pdf(paste0("heatmap_hox_genes_manual_celltype.pdf"), bg = "white", width = 8, height = 6)
+print(hm)
+dev.off()
+```
+
+```{r}
+print("saving object via qs2")
+# sham
+qs_save(seurat.obj, "pigTLS_D4_Mgel_F20CH5_manualannot.qs2")
+# convert to rds
+qs_to_rds(
+  input_file = "pigTLS_D4_Mgel_F20CH5_manualannot.qs2",
+  output_file = "pigTLS_D4_Mgel_F20CH5_manualannot.rds"
+)
+
+# saveRDS(seurat.obj, file="GAMM_S1_clabeled-clusters_0.5_cassia.rds")
+```
